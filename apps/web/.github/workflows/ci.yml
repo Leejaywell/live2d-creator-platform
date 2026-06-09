@@ -1,0 +1,312 @@
+name: Live2D Creator Platform CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_browser_qa:
+        description: "Run post-deploy browser QA"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      run_post_deploy_verify:
+        description: "Run post-deploy health/metrics/CSP verification"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      run_release_audit:
+        description: "Run final production release audit and upload evidence"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      deploy_base_url:
+        description: "Public deployed app URL for post-deploy verification"
+        required: false
+        default: ""
+        type: string
+      qa_base_url:
+        description: "Public deployed app URL"
+        required: false
+        default: ""
+        type: string
+      qa_project_slug:
+        description: "Published project slug"
+        required: false
+        default: ""
+        type: string
+      qa_expect_live2d:
+        description: "Require nonblank Live2D canvas"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+concurrency:
+  group: live2d-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Test, Lint, Build
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://live2d:live2d@localhost:5432/live2d_creator_platform?schema=public
+      AUTH_SECRET: ci-auth-secret-32-bytes-minimum-value
+      AUTH_URL: http://localhost:3000
+      EMAIL_SERVER_HOST: localhost
+      EMAIL_SERVER_PORT: "1025"
+      EMAIL_SERVER_USER: ci
+      EMAIL_SERVER_PASSWORD: ci
+      EMAIL_FROM: Live2D CI <no-reply@example.test>
+      FAN_CODE_HASH_SECRET: ci-fan-secret-32-bytes-minimum-value
+      OPENAI_COMPATIBLE_BASE_URL: http://localhost:4010/v1
+      OPENAI_COMPATIBLE_API_KEY: ci-key
+      OPENAI_COMPATIBLE_MODEL: ci-model
+      OBJECT_STORAGE_ENDPOINT: http://localhost:9000
+      OBJECT_STORAGE_REGION: us-east-1
+      OBJECT_STORAGE_ACCESS_KEY_ID: live2dminio
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: live2dminiosecret
+      OBJECT_STORAGE_BUCKET: live2d-creator-platform
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
+      ASSET_SIGNED_URL_TTL_SECONDS: "900"
+      ASSET_PROXY_MODE: stream
+      RATE_LIMIT_BACKEND: memory
+      METRICS_BEARER_TOKEN: ci-metrics-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run release:verify
+
+  integration:
+    name: Integration Readiness and E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run integration:ci
+
+  docker-build:
+    name: Production Docker Image Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run docker:build
+        env:
+          DOCKER_IMAGE_TAG: live2d-creator-platform-web:ci
+          DOCKER_IMAGE_REVISION: ${{ github.sha }}
+          DOCKER_IMAGE_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+      - name: Capture Docker image evidence
+        run: |
+          mkdir -p artifacts
+          docker image inspect live2d-creator-platform-web:ci > artifacts/docker-image-ci.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live2d-docker-image-ci
+          path: artifacts/docker-image-ci.json
+          if-no-files-found: error
+
+  post-deploy-verify:
+    name: Post-deploy Health and Metrics Verification
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_post_deploy_verify == 'true' }}
+    env:
+      DEPLOY_BASE_URL: ${{ inputs.deploy_base_url }}
+      METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Validate post-deploy verification inputs
+        run: |
+          test -n "$DEPLOY_BASE_URL"
+          test -n "$METRICS_BEARER_TOKEN"
+      - run: npx tsx scripts/post-deploy-verify.ts --app-env-file /dev/null
+
+  browser-qa:
+    name: Post-deploy Browser QA
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_browser_qa == 'true' }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}
+      MAX_LIVE2D_ZIP_BYTES: ${{ vars.MAX_LIVE2D_ZIP_BYTES }}
+      OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
+      OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${{ secrets.OBJECT_STORAGE_ACCESS_KEY_ID }}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.OBJECT_STORAGE_SECRET_ACCESS_KEY }}
+      OBJECT_STORAGE_BUCKET: ${{ vars.OBJECT_STORAGE_BUCKET }}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: ${{ vars.OBJECT_STORAGE_FORCE_PATH_STYLE }}
+      QA_BASE_URL: ${{ inputs.qa_base_url }}
+      QA_PROJECT_SLUG: ${{ inputs.qa_project_slug }}
+      QA_FAN_CODE: ${{ secrets.QA_FAN_CODE }}
+      QA_CHAT_MESSAGE: ${{ vars.QA_CHAT_MESSAGE }}
+      QA_CREATOR_EMAIL: ${{ vars.QA_CREATOR_EMAIL }}
+      QA_PROJECT_NAME: ${{ vars.QA_PROJECT_NAME }}
+      QA_MODEL_ZIP_PATH: ${{ vars.QA_MODEL_ZIP_PATH }}
+      QA_MODEL_ZIP_URL: ${{ secrets.QA_MODEL_ZIP_URL }}
+      QA_MODEL_ZIP_SHA256: ${{ vars.QA_MODEL_ZIP_SHA256 }}
+      QA_EXPECT_LIVE2D: ${{ inputs.qa_expect_live2d }}
+      QA_HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run browser:install
+      - name: Validate browser QA inputs
+        run: |
+          test -n "$QA_BASE_URL"
+          test -n "$QA_PROJECT_SLUG"
+          if [ -z "$QA_FAN_CODE" ]; then
+            test -n "$DATABASE_URL"
+            test -n "$FAN_CODE_HASH_SECRET"
+          fi
+      - name: Prepare browser QA env
+        run: |
+          if [ -n "$QA_FAN_CODE" ]; then
+            npm run qa:env:write -- --output .env.qa.workflow
+          else
+            npm run qa:provision -- --app-env-file /dev/null --write-env .env.qa.workflow
+          fi
+          npx tsx scripts/validate-browser-qa-env.ts --app-env-file .env.qa.workflow
+      - run: npx tsx scripts/browser-qa.ts --app-env-file .env.qa.workflow
+
+  production-release-audit:
+    name: Production Release Audit Evidence
+    runs-on: ubuntu-latest
+    needs: [quality, integration, docker-build]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_release_audit == 'true' }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DEPLOY_BASE_URL: ${{ inputs.deploy_base_url }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      AUTH_URL: ${{ inputs.deploy_base_url }}
+      EMAIL_SERVER_HOST: ${{ vars.EMAIL_SERVER_HOST }}
+      EMAIL_SERVER_PORT: ${{ vars.EMAIL_SERVER_PORT }}
+      EMAIL_SERVER_SECURE: ${{ vars.EMAIL_SERVER_SECURE }}
+      EMAIL_SERVER_STARTTLS: ${{ vars.EMAIL_SERVER_STARTTLS }}
+      EMAIL_SERVER_USER: ${{ secrets.EMAIL_SERVER_USER }}
+      EMAIL_SERVER_PASSWORD: ${{ secrets.EMAIL_SERVER_PASSWORD }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}
+      OPENAI_COMPATIBLE_BASE_URL: ${{ vars.OPENAI_COMPATIBLE_BASE_URL }}
+      OPENAI_COMPATIBLE_API_KEY: ${{ secrets.OPENAI_COMPATIBLE_API_KEY }}
+      OPENAI_COMPATIBLE_MODEL: ${{ vars.OPENAI_COMPATIBLE_MODEL }}
+      MAX_LIVE2D_ZIP_BYTES: ${{ vars.MAX_LIVE2D_ZIP_BYTES }}
+      OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
+      OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${{ secrets.OBJECT_STORAGE_ACCESS_KEY_ID }}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.OBJECT_STORAGE_SECRET_ACCESS_KEY }}
+      OBJECT_STORAGE_BUCKET: ${{ vars.OBJECT_STORAGE_BUCKET }}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: ${{ vars.OBJECT_STORAGE_FORCE_PATH_STYLE }}
+      ASSET_SIGNED_URL_TTL_SECONDS: ${{ vars.ASSET_SIGNED_URL_TTL_SECONDS }}
+      ASSET_PROXY_MODE: ${{ vars.ASSET_PROXY_MODE }}
+      RATE_LIMIT_BACKEND: ${{ vars.RATE_LIMIT_BACKEND }}
+      REDIS_REST_URL: ${{ vars.REDIS_REST_URL }}
+      REDIS_REST_TOKEN: ${{ secrets.REDIS_REST_TOKEN }}
+      METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
+      MONITORING_EVIDENCE_JSON: ${{ secrets.MONITORING_EVIDENCE_JSON }}
+      PROMETHEUS_BASE_URL: ${{ vars.PROMETHEUS_BASE_URL }}
+      PROMETHEUS_BEARER_TOKEN: ${{ secrets.PROMETHEUS_BEARER_TOKEN }}
+      ALERTMANAGER_BASE_URL: ${{ vars.ALERTMANAGER_BASE_URL }}
+      ALERTMANAGER_BEARER_TOKEN: ${{ secrets.ALERTMANAGER_BEARER_TOKEN }}
+      MONITORING_ALERTS_JSON: ${{ secrets.MONITORING_ALERTS_JSON }}
+      CSP_REPORT_ONLY: ${{ vars.CSP_REPORT_ONLY }}
+      CSP_REPORT_URI: ${{ vars.CSP_REPORT_URI }}
+      CSP_CONNECT_SRC: ${{ vars.CSP_CONNECT_SRC }}
+      CSP_SCRIPT_SRC: ${{ vars.CSP_SCRIPT_SRC }}
+      ENABLE_HSTS: ${{ vars.ENABLE_HSTS }}
+      QA_BASE_URL: ${{ inputs.qa_base_url }}
+      QA_PROJECT_SLUG: ${{ inputs.qa_project_slug }}
+      QA_FAN_CODE: ${{ secrets.QA_FAN_CODE }}
+      QA_CHAT_MESSAGE: ${{ vars.QA_CHAT_MESSAGE }}
+      QA_CREATOR_EMAIL: ${{ vars.QA_CREATOR_EMAIL }}
+      QA_PROJECT_NAME: ${{ vars.QA_PROJECT_NAME }}
+      QA_MODEL_ZIP_PATH: ${{ vars.QA_MODEL_ZIP_PATH }}
+      QA_EXPECT_LIVE2D: ${{ inputs.qa_expect_live2d }}
+      QA_MODEL_ZIP_URL: ${{ secrets.QA_MODEL_ZIP_URL }}
+      QA_MODEL_ZIP_SHA256: ${{ vars.QA_MODEL_ZIP_SHA256 }}
+      QA_HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: live2d-docker-image-ci
+          path: artifacts
+      - name: Install PostgreSQL backup client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - run: npm run browser:install
+      - name: Validate production release audit inputs
+        run: |
+          test -n "$DEPLOY_BASE_URL"
+          test -n "$DATABASE_URL"
+          test -n "$METRICS_BEARER_TOKEN"
+          if [ -z "$MONITORING_EVIDENCE_JSON" ]; then
+            test -n "$PROMETHEUS_BASE_URL"
+            if [ -z "$MONITORING_ALERTS_JSON" ]; then
+              test -n "$ALERTMANAGER_BASE_URL"
+            fi
+          fi
+          test -n "$QA_BASE_URL"
+          test -n "$QA_PROJECT_SLUG"
+          test "$QA_EXPECT_LIVE2D" = "true"
+      - run: npm run env:validate:production -- --app-env-file /dev/null
+      - run: npm run db:migrate:production
+      - name: Prepare production browser QA env
+        run: |
+          if [ -n "$QA_FAN_CODE" ]; then
+            npm run qa:env:write -- --output .env.qa.release
+          else
+            npm run qa:provision -- --app-env-file /dev/null --write-env .env.qa.release
+          fi
+          npx tsx scripts/validate-browser-qa-env.ts --app-env-file .env.qa.release --require-live2d
+      - name: Write production monitoring evidence
+        run: |
+          mkdir -p artifacts
+          if [ -n "$MONITORING_EVIDENCE_JSON" ]; then
+            printf '%s\n' "$MONITORING_EVIDENCE_JSON" > artifacts/monitoring-production.json
+          else
+            npm run monitoring:evidence:collect -- --prometheus-url "$PROMETHEUS_BASE_URL" --deploy-base-url "$DEPLOY_BASE_URL"
+          fi
+      - run: npm run monitoring:evidence:verify
+      - run: npm run release:audit:production -- --production-env-file /dev/null --browser-env-file .env.qa.release
+      - run: npm run release:manifest:write
+      - run: npm run release:evidence:verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live2d-production-release-evidence
+          path: |
+            artifacts/release-manifest.json
+            artifacts/release-audit-production.json
+            artifacts/docker-image-ci.json
+            artifacts/db-backups/latest.json
+            artifacts/db-migrations/latest.json
+            artifacts/monitoring-production.json
+          if-no-files-found: error

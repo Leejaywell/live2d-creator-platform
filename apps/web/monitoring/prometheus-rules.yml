@@ -1,0 +1,56 @@
+groups:
+  - name: live2d-creator-platform
+    rules:
+      - alert: Live2DWebMetricsScrapeDown
+        expr: up{job="live2d-web"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Live2D web metrics scrape is down
+          description: Prometheus cannot scrape /api/metrics for the Live2D web app.
+
+      - alert: Live2DFullReadinessDown
+        expr: probe_success{job="live2d-health-full"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Live2D full readiness probe is failing
+          description: /api/health?mode=full is not returning a successful readiness report.
+
+      - alert: Live2DHttp5xx
+        expr: sum(rate(live2d_http_requests_total{status=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Live2D web app is returning 5xx responses
+          description: One or more Live2D API routes have returned 5xx responses for five minutes.
+
+      - alert: Live2DChatHighLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(live2d_http_request_duration_seconds_bucket{route="/api/chat"}[5m]))) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Live2D chat latency is high
+          description: p95 /api/chat request latency is above five seconds.
+
+      - alert: Live2DRateLimitSpike
+        expr: sum(rate(live2d_rate_limit_rejections_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Live2D public endpoint rate-limit rejections spiked
+          description: Fan-code, chat, auth, or CSP report rate-limit rejections are above expected traffic.
+
+      - alert: Live2DCspViolations
+        expr: sum(increase(live2d_csp_violations_total[10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: Live2D CSP violations were reported
+          description: Browser CSP reports were received. Review blocked URI/directive labels before tightening policy.

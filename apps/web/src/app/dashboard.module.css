@@ -1,0 +1,189 @@
+.shell {
+  min-height: 100vh;
+  padding: 32px;
+  background: #eef2f3;
+  color: #17211f;
+}
+
+.header {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.header p,
+.muted {
+  color: #52615f;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav a,
+.buttonLink {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #b5c4c1;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #0a4f49;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.grid,
+.twoColumn {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.twoColumn {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+}
+
+.panel {
+  border: 1px solid #d7e0de;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+  box-shadow: 0 18px 42px rgba(15, 32, 31, 0.1);
+}
+
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+
+.metric {
+  display: grid;
+  gap: 8px;
+}
+
+.metric span {
+  color: #52615f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric strong {
+  font-size: 24px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  padding: 12px;
+  border: 1px solid #d7e0de;
+  border-radius: 8px;
+  background: #f7faf9;
+}
+
+.row strong,
+.row span {
+  display: block;
+}
+
+.row span {
+  margin-top: 4px;
+  color: #52615f;
+  font-size: 13px;
+}
+
+.forms {
+  display: grid;
+  gap: 18px;
+}
+
+.panel form {
+  display: grid;
+  gap: 12px;
+}
+
+.panel label {
+  display: grid;
+  gap: 6px;
+  color: #52615f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.panel input,
+.panel textarea,
+.panel select {
+  min-height: 38px;
+  border: 1px solid #d7e0de;
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.panel textarea {
+  min-height: 96px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.panel button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #0f766e;
+  color: white;
+  font-weight: 900;
+}
+
+.live2dStage {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7e0de;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #fffefa, #e6f5f2);
+  color: #52615f;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    padding: 18px;
+  }
+
+  .header,
+  .twoColumn {
+    display: grid;
+  }
+
+  .grid,
+  .twoColumn {
+    grid-template-columns: 1fr;
+  }
+}

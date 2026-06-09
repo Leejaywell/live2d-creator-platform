@@ -1,0 +1,380 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  super_admin
+  ops_admin
+  support_admin
+  creator
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum PlanStatus {
+  active
+  expired
+  paused
+}
+
+enum OrderType {
+  plan
+  fan_code_pack
+  quota_adjustment
+}
+
+enum PaymentMethod {
+  wechat
+  alipay
+  bank_transfer
+  other
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  refunded
+  void
+}
+
+enum LedgerEntryType {
+  grant
+  consume
+  adjustment
+  expiration_reset
+}
+
+enum QuotaResource {
+  ai_messages
+  fan_codes
+  storage_mb
+  projects
+}
+
+enum ProjectStatus {
+  draft
+  published
+  paused
+}
+
+enum ValidationStatus {
+  pending
+  valid
+  invalid
+}
+
+enum AssetUploader {
+  creator
+  admin
+}
+
+enum VoiceStatus {
+  active
+  disabled
+}
+
+enum FanCodeBindMode {
+  none
+  browserDevice
+}
+
+enum FanCodeStatus {
+  active
+  revoked
+  expired
+}
+
+enum VoiceCloneStatus {
+  submitted
+  reviewing
+  approved
+  rejected
+  fulfilled
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  emailVerified        DateTime?
+  wechatOpenId         String?             @unique
+  role                 UserRole            @default(creator)
+  status               UserStatus          @default(active)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  accounts             Account[]
+  sessions             Session[]
+  creatorProfile       CreatorProfile?
+  creatorPlan          CreatorPlan?
+  manualOrders         ManualOrder[]
+  quotaLedgerEntries   QuotaLedgerEntry[]
+  chatUsages           ChatUsage[]
+  createdOrders        ManualOrder[]       @relation("OrdersCreatedBy")
+  confirmedOrders      ManualOrder[]       @relation("OrdersConfirmedBy")
+  createdLedgerEntries QuotaLedgerEntry[]  @relation("LedgerCreatedBy")
+  auditLogs            AuditLog[]          @relation("AuditActor")
+  projects             Project[]
+  voiceCloneRequests   VoiceCloneRequest[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model CreatorProfile {
+  userId      String   @id
+  displayName String
+  avatarUrl   String?
+  bio         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreatorPlan {
+  creatorId             String     @id
+  planName              String
+  startsAt              DateTime
+  expiresAt             DateTime
+  maxProjects           Int
+  storageLimitMb        Int
+  monthlyAiMessageLimit Int
+  fanCodeQuota          Int
+  usedAiMessages        Int        @default(0)
+  usedStorageMb         Int        @default(0)
+  usedFanCodes          Int        @default(0)
+  status                PlanStatus @default(active)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  creator               User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+}
+
+model ManualOrder {
+  id                  String             @id @default(cuid())
+  creatorId           String
+  orderType           OrderType
+  amount              Decimal            @db.Decimal(12, 2)
+  currency            String             @default("CNY")
+  paymentMethod       PaymentMethod
+  paymentStatus       PaymentStatus      @default(pending)
+  planName            String?
+  periodStart         DateTime?
+  periodEnd           DateTime?
+  projectQuotaDelta   Int                @default(0)
+  aiMessageQuotaDelta Int                @default(0)
+  storageQuotaDeltaMb Int                @default(0)
+  fanCodeQuotaDelta   Int                @default(0)
+  notes               String?
+  createdByAdminId    String
+  confirmedByAdminId  String?
+  confirmedAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  creator             User               @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdByAdmin      User               @relation("OrdersCreatedBy", fields: [createdByAdminId], references: [id])
+  confirmedByAdmin    User?              @relation("OrdersConfirmedBy", fields: [confirmedByAdminId], references: [id])
+  quotaLedgerEntries  QuotaLedgerEntry[]
+}
+
+model QuotaLedgerEntry {
+  id               String          @id @default(cuid())
+  creatorId        String
+  manualOrderId    String?
+  entryType        LedgerEntryType
+  resource         QuotaResource
+  amount           Int
+  reason           String
+  createdByAdminId String?
+  createdAt        DateTime        @default(now())
+  creator          User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  manualOrder      ManualOrder?    @relation(fields: [manualOrderId], references: [id])
+  createdByAdmin   User?           @relation("LedgerCreatedBy", fields: [createdByAdminId], references: [id])
+}
+
+model Project {
+  id                  String              @id @default(cuid())
+  creatorId           String
+  name                String
+  slug                String              @unique
+  avatarUrl           String?
+  intro               String?
+  systemPrompt        String              @db.Text
+  welcomeMessage      String
+  theme               String              @default("#0f766e")
+  status              ProjectStatus       @default(draft)
+  currentModelAssetId String?             @unique
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  creator             User                @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  currentModelAsset   ModelAsset?         @relation("CurrentProjectModel", fields: [currentModelAssetId], references: [id])
+  modelAssets         ModelAsset[]        @relation("ProjectModelAssets")
+  voiceAssets         VoiceAsset[]
+  triggerTags         TriggerTag[]
+  fanAccessCodes      FanAccessCode[]
+  viewerSessions      ViewerSession[]
+  chatUsages          ChatUsage[]
+  voiceCloneRequests  VoiceCloneRequest[]
+}
+
+model ModelAsset {
+  id                String           @id @default(cuid())
+  projectId         String
+  sourceZipUrl      String
+  modelJsonPath     String?
+  assetBasePath     String?
+  validationStatus  ValidationStatus @default(pending)
+  validationErrors  Json?
+  uploadedBy        AssetUploader
+  version           Int
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  project           Project          @relation("ProjectModelAssets", fields: [projectId], references: [id], onDelete: Cascade)
+  currentForProject Project?         @relation("CurrentProjectModel")
+
+  @@unique([projectId, version])
+}
+
+model VoiceAsset {
+  id          String       @id @default(cuid())
+  projectId   String
+  name        String
+  audioUrl    String
+  durationMs  Int?
+  tags        String[]
+  status      VoiceStatus  @default(active)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  triggerTags TriggerTag[] @relation("TriggerTagVoiceAssets")
+}
+
+model TriggerTag {
+  id               String       @id @default(cuid())
+  projectId        String
+  name             String
+  description      String?
+  keywords         String[]
+  promptFragment   String?      @db.Text
+  live2dExpression String?
+  live2dParams     Json?
+  priority         Int          @default(0)
+  enabled          Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  voiceAssets      VoiceAsset[] @relation("TriggerTagVoiceAssets")
+
+  @@unique([projectId, name])
+}
+
+model FanAccessCode {
+  id              String          @id @default(cuid())
+  projectId       String
+  codeHash        String          @unique
+  expiresAt       DateTime
+  maxMessages     Int
+  usedMessages    Int             @default(0)
+  bindMode        FanCodeBindMode @default(browserDevice)
+  boundDeviceHash String?
+  status          FanCodeStatus   @default(active)
+  batchId         String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  viewerSessions  ViewerSession[]
+  chatUsages      ChatUsage[]
+
+  @@index([projectId, batchId])
+}
+
+model ViewerSession {
+  id              String        @id @default(cuid())
+  projectId       String
+  fanAccessCodeId String
+  deviceHash      String
+  createdAt       DateTime      @default(now())
+  lastSeenAt      DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fanAccessCode   FanAccessCode @relation(fields: [fanAccessCodeId], references: [id], onDelete: Cascade)
+
+  @@unique([fanAccessCodeId, deviceHash])
+}
+
+model ChatUsage {
+  id              String        @id @default(cuid())
+  creatorId       String
+  projectId       String
+  fanAccessCodeId String
+  messageCount    Int
+  tokenEstimate   Int
+  createdAt       DateTime      @default(now())
+  creator         User          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fanAccessCode   FanAccessCode @relation(fields: [fanAccessCodeId], references: [id], onDelete: Cascade)
+}
+
+model VoiceCloneRequest {
+  id                     String           @id @default(cuid())
+  creatorId              String
+  projectId              String
+  status                 VoiceCloneStatus @default(submitted)
+  authorizationConfirmed Boolean
+  notes                  String?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  creator                User             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  project                Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorUserId String?
+  actorRole   UserRole?
+  action      String
+  targetType  String
+  targetId    String?
+  before      Json?
+  after       Json?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+  actor       User?     @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

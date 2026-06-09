@@ -1,0 +1,25 @@
+scrape_configs:
+  - job_name: live2d-web
+    scheme: https
+    metrics_path: /api/metrics
+    bearer_token_file: /etc/prometheus/secrets/live2d_metrics_bearer_token
+    static_configs:
+      - targets:
+          - your-domain.example
+
+  - job_name: live2d-health-full
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+      target:
+        - https://your-domain.example/api/health?mode=full
+    static_configs:
+      - targets:
+          - blackbox-exporter:9115
+    relabel_configs:
+      - source_labels:
+          - __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "checkedAt": "2026-06-06T00:00:00.000Z",
+  "deployBaseUrl": "https://app.live2d-prod.com",
+  "scrape": {
+    "metricsJob": {
+      "job": "live2d-web",
+      "up": true,
+      "sampleCount": 32
+    },
+    "fullReadinessProbe": {
+      "job": "live2d-health-full",
+      "success": true,
+      "target": "https://app.live2d-prod.com/api/health?mode=full"
+    }
+  },
+  "alerts": [
+    {
+      "name": "Live2DWebMetricsScrapeDown",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:00:00.000Z",
+      "resolvedAt": "2026-06-06T00:10:00.000Z"
+    },
+    {
+      "name": "Live2DFullReadinessDown",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:01:00.000Z",
+      "resolvedAt": "2026-06-06T00:11:00.000Z"
+    },
+    {
+      "name": "Live2DHttp5xx",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:02:00.000Z",
+      "resolvedAt": "2026-06-06T00:12:00.000Z"
+    },
+    {
+      "name": "Live2DChatHighLatency",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:03:00.000Z",
+      "resolvedAt": "2026-06-06T00:13:00.000Z"
+    },
+    {
+      "name": "Live2DRateLimitSpike",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:04:00.000Z",
+      "resolvedAt": "2026-06-06T00:14:00.000Z"
+    },
+    {
+      "name": "Live2DCspViolations",
+      "status": "fired_and_resolved",
+      "firedAt": "2026-06-06T00:05:00.000Z",
+      "resolvedAt": "2026-06-06T00:15:00.000Z"
+    }
+  ]
+}
