@@ -3,6 +3,7 @@ import { inspect } from "node:util";
 
 import { Client } from "pg";
 
+import { assertCheckoutUrlTemplate } from "@/lib/checkout-products";
 import { checkRedisRateLimitConnection, rateLimitReadiness } from "@/lib/rate-limit";
 import { securityHeaderReadiness } from "@/lib/security-headers";
 import { verifySmtpConnection } from "@/lib/smtp";
@@ -40,6 +41,7 @@ const requiredEnv = [
   "EMAIL_SERVER_PASSWORD",
   "EMAIL_FROM",
   "FAN_CODE_HASH_SECRET",
+  "PAYMENT_WEBHOOK_SECRET",
   "OPENAI_COMPATIBLE_BASE_URL",
   "OPENAI_COMPATIBLE_API_KEY",
   "OPENAI_COMPATIBLE_MODEL",
@@ -59,8 +61,10 @@ export async function runReadinessChecks(input: {
   checks.push(checkRequiredEnv());
   checks.push(checkSecretStrength("AUTH_SECRET"));
   checks.push(checkSecretStrength("FAN_CODE_HASH_SECRET"));
+  checks.push(checkSecretStrength("PAYMENT_WEBHOOK_SECRET"));
   checks.push(checkAssetProxyMode());
   checks.push(await wrapCheck("metrics_auth", async () => checkMetricsAuth()));
+  checks.push(await wrapCheck("checkout_url_template", async () => checkCheckoutUrlTemplate()));
   checks.push(await wrapCheck("security_headers", async () => securityHeaderReadiness()));
   checks.push(await wrapCheck("rate_limit_backend", async () => rateLimitReadiness()));
   checks.push(await wrapCheck("database", input.databaseCheck ?? defaultDatabaseCheck));
@@ -112,6 +116,13 @@ function checkAssetProxyMode(): ReadinessCheck {
 function checkMetricsAuth() {
   if (process.env.NODE_ENV === "production" && !process.env.METRICS_BEARER_TOKEN) {
     throw new Error("METRICS_BEARER_TOKEN is required in production");
+  }
+}
+
+function checkCheckoutUrlTemplate() {
+  const template = process.env.PAYMENT_CHECKOUT_URL_TEMPLATE;
+  if (template) {
+    assertCheckoutUrlTemplate(template);
   }
 }
 

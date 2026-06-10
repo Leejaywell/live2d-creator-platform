@@ -68,7 +68,8 @@ type E2EReport = {
     suspendedCreatorViewerAssetRejected: boolean;
     suspendedCreatorPublicProjectHidden: boolean;
     voiceCloneMissingAuthorizationRejected: boolean;
-    voiceCloneRequestAuditCount: number;
+    voiceCloneDisabledRejected: boolean;
+    voiceCloneRequestCount: number;
     fanCodePackOrderType: string;
     fanCodePackLedgerCount: number;
     modelSetupAssistanceAuditCount: number;
@@ -590,7 +591,8 @@ async function main() {
         suspendedCreatorViewerAssetRejected: creatorStatus.viewerAssetRejected,
         suspendedCreatorPublicProjectHidden: creatorStatus.publicProjectHidden,
         voiceCloneMissingAuthorizationRejected: voiceCloneRequest.missingAuthorizationRejected,
-        voiceCloneRequestAuditCount: voiceCloneRequest.auditCount,
+        voiceCloneDisabledRejected: voiceCloneRequest.disabledRejected,
+        voiceCloneRequestCount: voiceCloneRequest.requestCount,
         fanCodePackOrderType: fanCodePackOrder.orderType,
         fanCodePackLedgerCount: fanCodePackOrder.ledgerCount,
         modelSetupAssistanceAuditCount: modelSetupAssistance.auditCount,
@@ -1057,29 +1059,36 @@ async function verifyVoiceCloneAuthorization(input: {
     throw new Error("Expected voice clone request without authorization to be rejected");
   }
 
-  const request = await input.createVoiceCloneRequest({
-    creatorId: input.creatorId,
-    projectId: input.projectId,
-    authorizationConfirmed: true,
-    notes: "E2E authorized voice clone request",
-  });
-  if (!request.authorizationConfirmed) {
-    throw new Error("Expected authorized voice clone request to persist authorization confirmation");
+  let disabledRejected = false;
+  try {
+    await input.createVoiceCloneRequest({
+      creatorId: input.creatorId,
+      projectId: input.projectId,
+      authorizationConfirmed: true,
+      notes: "E2E should reject disabled voice clone intake",
+    });
+  } catch (error) {
+    if (error instanceof Error && /Voice cloning is disabled/.test(error.message)) {
+      disabledRejected = true;
+    } else {
+      throw error;
+    }
+  }
+  if (!disabledRejected) {
+    throw new Error("Expected authorized voice clone request to be rejected while intake is disabled");
   }
 
-  const auditCount = await input.prisma.auditLog.count({
+  const requestCount = await input.prisma.voiceCloneRequest.count({
     where: {
-      actorUserId: input.creatorId,
-      targetId: request.id,
-      targetType: "VoiceCloneRequest",
-      action: "voice_clone_request.created",
+      creatorId: input.creatorId,
+      projectId: input.projectId,
     },
   });
-  if (auditCount < 1) {
-    throw new Error("Expected voice clone request audit log");
+  if (requestCount !== 0) {
+    throw new Error(`Expected disabled voice clone intake to create no requests, got ${requestCount}`);
   }
 
-  return { missingAuthorizationRejected, auditCount };
+  return { missingAuthorizationRejected, disabledRejected, requestCount };
 }
 
 async function verifyModelSetupAssistanceRequest(input: {

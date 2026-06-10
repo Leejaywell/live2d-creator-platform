@@ -1,0 +1,1 @@
+ALTER TABLE "ManualOrder" ALTER COLUMN "createdByAdminId" DROP NOT NULL;

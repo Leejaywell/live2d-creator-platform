@@ -7,7 +7,7 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-docker compose -f docker-compose.integration.yml up -d --wait
+npm run integration:up
 set -a
 . ./.env.integration
 set +a

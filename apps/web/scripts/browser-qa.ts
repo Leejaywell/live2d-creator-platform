@@ -49,9 +49,9 @@ async function main() {
     await check("chat_reply", checks, async () => {
       await page.getByTestId("chat-message-input").fill(message);
       await page.getByTestId("chat-submit").click();
-      await page.getByText(/Reply received|Triggered:/).waitFor({ state: "visible", timeout: 30_000 });
-      const transcript = await page.getByTestId("chat-transcript").innerText();
-      if (!transcript.includes("assistant")) {
+      await page.getByText(/已收到回复|Reply received|Triggered:/).waitFor({ state: "visible", timeout: 30_000 });
+      const assistantReplies = await page.getByTestId("chat-transcript").locator('[data-role="assistant"]').count();
+      if (assistantReplies < 2) {
         throw new Error("Assistant reply missing from transcript");
       }
     });

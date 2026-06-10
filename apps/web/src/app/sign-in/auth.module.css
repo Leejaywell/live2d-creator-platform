@@ -1,0 +1,281 @@
+/*
+ * 登录页 — 「检票口」。整页居中的后台门禁,一侧是氛围,一侧是表单。
+ */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 28px;
+}
+
+.backLink {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition: color var(--speed) var(--ease);
+  animation: fade 0.6s var(--ease) both;
+}
+
+.backLink:hover {
+  color: var(--cyan);
+}
+
+.card {
+  width: min(880px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
+  animation: rise 0.6s var(--ease) 0.1s both;
+}
+
+/* ---------- 左侧氛围位 ---------- */
+
+.poster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 34px 30px;
+  background:
+    radial-gradient(420px 300px at 20% 110%, var(--pink-soft), transparent 70%),
+    radial-gradient(360px 260px at 110% -10%, var(--cyan-soft), transparent 70%),
+    var(--panel-raised);
+  border-right: 1px solid var(--line);
+}
+
+.poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.012) 3px 4px);
+  pointer-events: none;
+}
+
+.posterKicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--pink);
+}
+
+.poster h1 {
+  margin-top: 10px;
+  font-size: clamp(26px, 3.4vw, 36px);
+  font-weight: 800;
+  line-height: 1.22;
+}
+
+.posterFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.posterFoot strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ---------- 右侧表单 ---------- */
+
+.doors {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 34px 32px;
+}
+
+.door {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.door + .door {
+  padding-top: 22px;
+  border-top: 1px dashed var(--line);
+}
+
+.doorTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.doorTitle h2 {
+  font-size: 16px;
+}
+
+.door form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.door label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.door input {
+  font-family: var(--body);
+  font-size: 14.5px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-hi);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  padding: 11px 13px;
+  transition: border-color var(--speed) var(--ease), box-shadow var(--speed) var(--ease);
+}
+
+.door input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px var(--cyan-soft);
+}
+
+.door button {
+  align-self: stretch;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 99px;
+  background: linear-gradient(115deg, var(--pink-deep), var(--pink));
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow var(--speed) var(--ease), transform var(--speed) var(--ease);
+}
+
+.door button:hover {
+  box-shadow: 0 4px 24px var(--pink-glow);
+  transform: translateY(-1px);
+}
+
+.doorAlt button {
+  background: var(--inset);
+  border: 1px solid var(--line-strong);
+  color: var(--text-hi);
+}
+
+.doorAlt button:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 18px var(--cyan-soft);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.noticeOk,
+.noticeErr {
+  display: flex;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: var(--radius-s);
+  font-size: 13px;
+}
+
+.noticeOk {
+  border: 1px solid rgba(91, 220, 166, 0.4);
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.noticeErr {
+  border: 1px solid rgba(242, 96, 122, 0.4);
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--line-strong);
+  background: var(--inset);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.statusPill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.statusOn {
+  border-color: rgba(91, 220, 166, 0.4);
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.statusOn::before {
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .poster {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    gap: 24px;
+  }
+}

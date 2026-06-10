@@ -26,6 +26,8 @@ EMAIL_SERVER_USER=
 EMAIL_SERVER_PASSWORD=
 EMAIL_FROM=
 FAN_CODE_HASH_SECRET=
+PAYMENT_WEBHOOK_SECRET=
+PAYMENT_CHECKOUT_URL_TEMPLATE=
 OPENAI_COMPATIBLE_BASE_URL=
 OPENAI_COMPATIBLE_API_KEY=
 OPENAI_COMPATIBLE_MODEL=
@@ -49,7 +51,9 @@ CSP_SCRIPT_SRC=
 ENABLE_HSTS=
 ```
 
-Use long random values for `AUTH_SECRET` and `FAN_CODE_HASH_SECRET`. Never reuse staging secrets in production.
+Use long random values for `AUTH_SECRET`, `FAN_CODE_HASH_SECRET`, and `PAYMENT_WEBHOOK_SECRET`. Never reuse staging secrets in production.
+
+`PAYMENT_CHECKOUT_URL_TEMPLATE` is optional. When set, creator self-service checkout responses include that URL with `{orderId}` replaced by the pending order id; payment confirmation still requires the signed `/api/payments/webhook` callback.
 
 Validate the production environment file before running migrations or provider readiness:
 
@@ -348,12 +352,16 @@ Authentication email:
   - Admin manual order creation.
 - `POST /api/admin/orders/[orderId]/confirm`
   - Admin order confirmation with plan/quota ledger and audit log writes.
+- `POST /api/admin/orders/[orderId]/void`
+  - Admin pending-order voiding with audit logging.
+- `POST /api/admin/orders/[orderId]/refund`
+  - Admin confirmed-order refund marking. Reverses unused quota, writes negative ledger entries, and records audit logs.
 - `POST /api/admin/projects/[projectId]/status`
   - Admin project pause/restore/status control.
 - `POST /api/admin/projects/[projectId]/model-assets`
   - Admin-assisted Live2D zip upload, validation, storage, current model update, and audit logging.
 - `POST /api/admin/clone-requests/[requestId]/status`
-  - Admin voice clone request review/status updates.
+  - Admin voice clone request review/status updates for historical or explicitly re-enabled intake.
 - `POST /api/creator/projects`
   - Authenticated creator project creation.
 - `PATCH /api/creator/projects/[projectId]`
@@ -375,7 +383,11 @@ Authentication email:
 - `POST /api/creator/projects/[projectId]/model-assets/rollback`
   - Authenticated rollback to a previous valid Live2D model version with audit logging.
 - `POST /api/creator/projects/[projectId]/clone-requests`
-  - Authenticated voice-clone request submission with authorization confirmation.
+  - Authenticated voice-clone request submission with authorization confirmation when `voiceCloning.fulfillment` is explicitly enabled. The default mode is disabled.
+- `POST /api/creator/checkout`
+  - Authenticated creator self-service checkout order creation in provider checkout modes. Creates a pending order from a supported SKU and returns an optional checkout URL when `PAYMENT_CHECKOUT_URL_TEMPLATE` is configured.
+- `DELETE /api/creator/checkout/[orderId]`
+  - Authenticated creator cancellation for the creator's own pending self-service checkout order.
 - `POST /api/creator/fan-codes`
   - Authenticated creator fan-code batch generation. The creator UI immediately exports plaintext codes as CSV because plaintext is not stored.
 - `DELETE /api/creator/fan-codes/[codeId]`
@@ -398,6 +410,8 @@ Authentication email:
   - Prometheus-compatible metrics endpoint. Requires `Authorization: Bearer $METRICS_BEARER_TOKEN` when configured, and refuses unauthenticated production exposure.
 - `POST /api/csp-report`
   - CSP violation report sink. Records structured logs and increments `live2d_csp_violations_total`.
+- `POST /api/payments/webhook`
+  - Provider checkout callback. Requires `x-live2d-payment-signature` as an HMAC-SHA256 signature using `PAYMENT_WEBHOOK_SECRET`; confirmed matching events update orders, quota, and ledger entries.
 
 ## Remaining Production Work
 
@@ -416,10 +430,10 @@ Authentication email:
 - `/sign-in`
   - Auth entrypoint.
 - `/creator`
-  - Creator plan/project dashboard plus project creation and links to each project management page.
+  - Creator plan/project dashboard plus project creation, self-service checkout entry, billing history, usage analytics, and links to each project management page.
 - `/creator/projects/[projectId]`
-  - Per-project management page for settings, status, model upload/version rollback, trigger tag create/edit/delete/binding/testing, voice upload/update/replacement/disable, fan-code CSV generation/export/status/revocation, and clone requests.
+  - Per-project management page for settings, status, model upload/version rollback, trigger tag create/edit/delete/binding/testing, voice upload/update/replacement/disable, fan-code CSV generation/export/status/revocation, and disabled-by-default clone request history.
 - `/admin`
-  - Admin dashboard with admin-user, creator, order, project, clone request, and audit visibility plus forms for admin user upsert, creator creation, manual orders, order confirmation, project status, admin-assisted model upload, and clone request status.
+  - Admin dashboard with admin-user, creator, order, project, clone request, and audit visibility plus forms for admin user upsert, creator creation, manual orders, order confirmation, project status, admin-assisted model upload, and clone request status for historical or explicitly re-enabled intake.
 - `/c/[slug]`
   - Public audience page with fan-code validation, backend chat proxy integration, configured tag-driven Live2D parameter effects, triggered voice playback, and PixiJS/pixi-live2d-display rendering after access is granted.

@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/authz";
+import { normalizeProjectSlug } from "@/lib/project-slugs";
 import { createProject } from "@/lib/projects";
 import { jsonError, parseBody } from "@/lib/request";
 
-const optionalUrl = z.preprocess((value) => (value === "" ? undefined : value), z.string().url().optional());
+const optionalUrl = z.preprocess((value) => (value === "" ? null : value), z.string().url().nullable().optional());
 
 const createProjectSchema = z.object({
   name: z.string().min(1),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
+  slug: z.string().min(1).transform(normalizeProjectSlug).pipe(z.string().min(1).regex(/^[a-z0-9-]+$/)),
   intro: z.string().optional(),
   avatarUrl: optionalUrl,
+  backgroundUrl: optionalUrl,
   systemPrompt: z.string().min(1),
   welcomeMessage: z.string().min(1),
   theme: z.string().min(1).optional(),

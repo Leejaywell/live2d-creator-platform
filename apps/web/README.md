@@ -87,8 +87,8 @@ npm run browser:qa
 - Live2D zip validation utility and upload validation API.
 - Fan-code generation, hashing, device binding, validation, and quota deduction services.
 - OpenAI-compatible backend chat proxy with structured `reply`/`tags` handling and fallback behavior.
-- Admin dashboard for admin users, creators, manual orders, project status, clone request review, and audit visibility.
-- Creator dashboard and per-project management pages for project settings, model upload, trigger tag editing/binding, voice asset upload/replacement/management, fan-code CSV export, and clone requests.
+- Admin dashboard for admin users, creators, manual orders, project status, paused clone-request review, and audit visibility.
+- Creator dashboard and per-project management pages for project settings, model upload, trigger tag editing/binding, voice asset upload/replacement/management, fan-code CSV export, and mode-gated clone requests that default to disabled.
 - Security headers plus lightweight rate limiting for public fan-code validation and chat endpoints.
 - Configurable protected asset delivery through signed redirects or app-level streaming.
 - Readiness checks for environment, secrets, database, object storage, SMTP, and AI provider connectivity.

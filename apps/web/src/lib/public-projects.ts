@@ -13,6 +13,7 @@ export function listPublicCompanionProjects() {
       slug: true,
       intro: true,
       theme: true,
+      avatarUrl: true,
       triggerTags: {
         where: { enabled: true },
         orderBy: [{ priority: "desc" }, { createdAt: "desc" }],

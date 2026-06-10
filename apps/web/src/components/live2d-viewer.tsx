@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import styles from "./live2d-viewer.module.css";
 
 declare global {
   interface Window {
@@ -82,16 +84,19 @@ const expressionParams: Record<string, Array<{ id: string; value: number }>> = {
 export function Live2DViewer({
   projectSlug,
   viewerSessionId,
+  modelJsonUrl,
   activeTags,
   activeEffects,
 }: {
-  projectSlug: string;
-  viewerSessionId: string;
+  projectSlug?: string;
+  viewerSessionId?: string;
+  modelJsonUrl?: string;
   activeTags: string[];
   activeEffects: Live2DEffect[];
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const appRef = useRef<Live2DApplication | null>(null);
   const modelRef = useRef<Live2DModel | null>(null);
   const activeRef = useRef<Record<string, number>>({});
@@ -112,8 +117,10 @@ export function Live2DViewer({
   }
 
   useEffect(() => {
-    if (!viewerSessionId || !canvasRef.current || !rootRef.current) return;
+    const sourceUrl = modelJsonUrl ?? (projectSlug && viewerSessionId ? `/api/assets/live2d-model?${new URLSearchParams({ projectSlug, viewerSessionId }).toString()}` : "");
+    if (!sourceUrl || !canvasRef.current || !rootRef.current) return;
     let disposed = false;
+    setPhase("loading");
 
     async function boot() {
       await loadScript("https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js");
@@ -134,8 +141,7 @@ export function Live2DViewer({
       });
       appRef.current = app;
 
-      const params = new URLSearchParams({ projectSlug, viewerSessionId });
-      const model = await window.PIXI.live2d.Live2DModel.from(`/api/assets/live2d-model?${params.toString()}`);
+      const model = await window.PIXI.live2d.Live2DModel.from(sourceUrl);
       if (disposed) return;
       modelRef.current = model;
       app.stage.addChild(model);
@@ -144,6 +150,7 @@ export function Live2DViewer({
       model.internalModel?.on?.("beforeModelUpdate", () => applyExpressionState(model.internalModel?.coreModel));
       window.addEventListener("resize", layoutModel);
       window.addEventListener("pointermove", followPointer);
+      setPhase("ready");
     }
 
     function layoutModel() {
@@ -164,6 +171,9 @@ export function Live2DViewer({
 
     boot().catch((error) => {
       console.error(error);
+      if (!disposed) {
+        setPhase("error");
+      }
     });
 
     return () => {
@@ -174,7 +184,7 @@ export function Live2DViewer({
       appRef.current = null;
       modelRef.current = null;
     };
-  }, [projectSlug, viewerSessionId]);
+  }, [modelJsonUrl, projectSlug, viewerSessionId]);
 
   useEffect(() => {
     activeEffects.forEach((effect) => {
@@ -191,8 +201,24 @@ export function Live2DViewer({
   }, [activeEffects, activeTags]);
 
   return (
-    <div ref={rootRef} data-testid="live2d-viewer" style={{ position: "relative", minHeight: 420 }}>
-      <canvas ref={canvasRef} data-testid="live2d-canvas" aria-label="Live2D model canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+    <div ref={rootRef} className={styles.root} data-testid="live2d-viewer">
+      <canvas
+        ref={canvasRef}
+        className={phase === "ready" ? `${styles.canvas} ${styles.canvasReady}` : styles.canvas}
+        data-testid="live2d-canvas"
+        aria-label="Live2D 模型画布"
+      />
+      {phase === "loading" ? (
+        <div className={styles.status} aria-live="polite">
+          <div className={styles.spinner} aria-hidden />
+          <span>模型加载中…</span>
+        </div>
+      ) : null}
+      {phase === "error" ? (
+        <div className={`${styles.status} ${styles.statusError}`} aria-live="polite">
+          <span>模型加载失败,聊天不受影响</span>
+        </div>
+      ) : null}
     </div>
   );
 }

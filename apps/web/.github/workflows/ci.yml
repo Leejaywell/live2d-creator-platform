@@ -64,6 +64,7 @@ jobs:
       EMAIL_SERVER_PASSWORD: ci
       EMAIL_FROM: Live2D CI <no-reply@example.test>
       FAN_CODE_HASH_SECRET: ci-fan-secret-32-bytes-minimum-value
+      PAYMENT_WEBHOOK_SECRET: ci-payment-webhook-secret-32-bytes
       OPENAI_COMPATIBLE_BASE_URL: http://localhost:4010/v1
       OPENAI_COMPATIBLE_API_KEY: ci-key
       OPENAI_COMPATIBLE_MODEL: ci-model
@@ -146,6 +147,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}
+      PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
       MAX_LIVE2D_ZIP_BYTES: ${{ vars.MAX_LIVE2D_ZIP_BYTES }}
       OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
       OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
@@ -208,6 +210,7 @@ jobs:
       EMAIL_SERVER_PASSWORD: ${{ secrets.EMAIL_SERVER_PASSWORD }}
       EMAIL_FROM: ${{ vars.EMAIL_FROM }}
       FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}
+      PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
       OPENAI_COMPATIBLE_BASE_URL: ${{ vars.OPENAI_COMPATIBLE_BASE_URL }}
       OPENAI_COMPATIBLE_API_KEY: ${{ secrets.OPENAI_COMPATIBLE_API_KEY }}
       OPENAI_COMPATIBLE_MODEL: ${{ vars.OPENAI_COMPATIBLE_MODEL }}

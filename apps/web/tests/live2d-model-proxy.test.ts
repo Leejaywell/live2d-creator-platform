@@ -100,3 +100,18 @@ test("rewriteModelReferences normalizes backslash model asset references", () =>
     "https://app.example.test/api/assets/proxy?key=projects%2Fproject-1%2Fmodels%2Fv1%2Fnested%2Favatar.moc3&viewerSessionId=viewer-1",
   );
 });
+
+test("rewriteModelReferences supports authenticated previews without a viewer session", () => {
+  const modelJson = parseLive2DModelJson(JSON.stringify({ FileReferences: { Moc: "avatar.moc3" } }));
+
+  const rewritten = rewriteModelReferences({
+    modelJson,
+    modelJsonKey: "projects/project-1/models/v1/avatar.model3.json",
+    origin: "https://app.example.test",
+  });
+
+  assert.equal(
+    rewritten.FileReferences?.Moc,
+    "https://app.example.test/api/assets/proxy?key=projects%2Fproject-1%2Fmodels%2Fv1%2Favatar.moc3",
+  );
+});

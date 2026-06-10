@@ -34,7 +34,7 @@ export function parseLive2DModelJson(input: Buffer | string): Model3Json {
 export function rewriteModelReferences(input: {
   modelJson: Model3Json;
   modelJsonKey: string;
-  viewerSessionId: string;
+  viewerSessionId?: string;
   origin: string;
 }) {
   const references = input.modelJson.FileReferences;
@@ -44,10 +44,10 @@ export function rewriteModelReferences(input: {
   const rewrite = (value?: string) => {
     if (!value) return value;
     const key = resolveModelReferenceKey(baseKey, value);
-    const params = new URLSearchParams({
-      key,
-      viewerSessionId: input.viewerSessionId,
-    });
+    const params = new URLSearchParams({ key });
+    if (input.viewerSessionId) {
+      params.set("viewerSessionId", input.viewerSessionId);
+    }
     return `${input.origin}/api/assets/proxy?${params.toString()}`;
   };
 

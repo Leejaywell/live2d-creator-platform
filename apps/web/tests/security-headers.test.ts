@@ -9,11 +9,20 @@ test("securityHeaders include CSP for Live2D runtime sources", () => {
 
   assert.match(csp, /script-src/);
   assert.match(csp, /'unsafe-inline'/);
+  assert.doesNotMatch(csp, /'unsafe-eval'/);
   assert.match(csp, /https:\/\/cubism\.live2d\.com/);
   assert.match(csp, /https:\/\/cdnjs\.cloudflare\.com/);
   assert.match(csp, /https:\/\/cdn\.jsdelivr\.net/);
   assert.match(csp, /frame-ancestors 'none'/);
   assert.match(csp, /report-uri \/api\/csp-report/);
+});
+
+test("securityHeaders allow React development eval only in development", () => {
+  const developmentCsp = securityHeaders({ NODE_ENV: "development" }).find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+  const productionCsp = securityHeaders({ NODE_ENV: "production" }).find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+
+  assert.match(developmentCsp, /'unsafe-eval'/);
+  assert.doesNotMatch(productionCsp, /'unsafe-eval'/);
 });
 
 test("securityHeaders can emit report-only CSP outside production", () => {

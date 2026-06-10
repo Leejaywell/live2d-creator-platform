@@ -1,6 +1,8 @@
-import { FanCodeStatus, Prisma, ProjectStatus } from "@prisma/client";
+import { FanCodeStatus, Prisma, UserRole } from "@prisma/client";
 
 import { generateFanCode, hashBrowserDevice, hashFanCode, shouldBindDevice } from "@/lib/fan-codes";
+import { assertFanCodeCanUnlockProject } from "@/lib/fan-code-rules";
+import { assertPermission } from "@/lib/permissions";
 import { assertCreatorPlanActive } from "@/lib/plan-rules";
 import { prisma } from "@/lib/prisma";
 
@@ -35,7 +37,6 @@ export async function generateFanCodeBatch(input: {
       where: {
         id: input.projectId,
         creatorId: input.creatorId,
-        status: ProjectStatus.published,
       },
     });
 
@@ -198,6 +199,62 @@ export async function revokeFanCodeBatch(input: {
   });
 }
 
+export async function resetFanAccessCodeDeviceBinding(input: {
+  codeId: string;
+  actor: { id: string; role: UserRole };
+  creatorId?: string;
+}) {
+  if (input.actor.role === "creator" && !input.creatorId) {
+    throw new Error("Creator fan code reset requires creator scope");
+  }
+  if (input.actor.role !== "creator") {
+    assertPermission(input.actor.role, "fan_codes.manage");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.fanAccessCode.findFirstOrThrow({
+      where: {
+        id: input.codeId,
+        ...(input.creatorId ? { project: { creatorId: input.creatorId } } : {}),
+      },
+      include: { project: true },
+    });
+
+    if (!before.boundDeviceHash) {
+      throw new Error("Fan code is not bound to a device");
+    }
+
+    await tx.viewerSession.deleteMany({
+      where: { fanAccessCodeId: before.id },
+    });
+
+    const code = await tx.fanAccessCode.update({
+      where: { id: before.id },
+      data: { boundDeviceHash: null },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actor.id,
+        actorRole: input.actor.role,
+        action: "fan_code.device_binding_reset",
+        targetType: "FanAccessCode",
+        targetId: code.id,
+        before: {
+          boundDeviceHash: before.boundDeviceHash,
+          projectId: before.projectId,
+        },
+        after: {
+          boundDeviceHash: null,
+          invalidatedViewerSessions: true,
+        },
+      },
+    });
+
+    return code;
+  });
+}
+
 export async function validateFanCode(input: {
   projectSlug: string;
   code: string;
@@ -224,9 +281,10 @@ export async function validateFanCode(input: {
     });
 
     const code = project?.fanAccessCodes[0];
-    if (!project || project.status !== ProjectStatus.published || !code) {
+    if (!project || !code) {
       throw new Error("Invalid project or access code");
     }
+    assertFanCodeCanUnlockProject(project);
     if (project.creator.status !== "active") {
       throw new Error("Creator account is not active");
     }

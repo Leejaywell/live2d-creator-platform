@@ -22,7 +22,7 @@
     "monitoring:verify": "tsx scripts/verify-monitoring.ts",
     "monitoring:evidence:collect": "tsx scripts/collect-monitoring-evidence.ts",
     "monitoring:evidence:verify": "tsx scripts/verify-monitoring-evidence.ts",
-    "integration:up": "docker compose -f docker-compose.integration.yml up -d --wait",
+    "integration:up": "sh scripts/integration-up.sh",
     "integration:down": "docker compose -f docker-compose.integration.yml down",
     "integration:db:migrate": "sh -c 'set -a; . ./.env.integration; set +a; prisma migrate deploy'",
     "integration:readiness": "tsx scripts/readiness.ts --app-env-file .env.integration --full",

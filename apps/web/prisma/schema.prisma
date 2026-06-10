@@ -99,6 +99,16 @@ enum VoiceCloneStatus {
   fulfilled
 }
 
+enum PlatformSettingCategory {
+  ai
+  tts
+  storage
+  security
+  integrations
+  payments
+  voice_cloning
+}
+
 model User {
   id                   String              @id @default(cuid())
   email                String              @unique
@@ -201,13 +211,13 @@ model ManualOrder {
   storageQuotaDeltaMb Int                @default(0)
   fanCodeQuotaDelta   Int                @default(0)
   notes               String?
-  createdByAdminId    String
+  createdByAdminId    String?
   confirmedByAdminId  String?
   confirmedAt         DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   creator             User               @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  createdByAdmin      User               @relation("OrdersCreatedBy", fields: [createdByAdminId], references: [id])
+  createdByAdmin      User?              @relation("OrdersCreatedBy", fields: [createdByAdminId], references: [id])
   confirmedByAdmin    User?              @relation("OrdersConfirmedBy", fields: [confirmedByAdminId], references: [id])
   quotaLedgerEntries  QuotaLedgerEntry[]
 }
@@ -233,6 +243,7 @@ model Project {
   name                String
   slug                String              @unique
   avatarUrl           String?
+  backgroundUrl       String?
   intro               String?
   systemPrompt        String              @db.Text
   welcomeMessage      String
@@ -377,4 +388,19 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+model PlatformSetting {
+  key              String                  @id
+  category         PlatformSettingCategory
+  label            String
+  description      String?
+  value            Json
+  isSecret         Boolean                 @default(false)
+  updatedByAdminId String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([category])
+  @@index([updatedAt])
 }

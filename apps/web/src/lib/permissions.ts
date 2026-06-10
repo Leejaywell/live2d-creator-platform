@@ -8,6 +8,7 @@ export type Permission =
   | "quota.grant"
   | "projects.pause"
   | "assets.assist"
+  | "fan_codes.manage"
   | "clone_requests.review"
   | "support.notes"
   | "audit.view"
@@ -22,6 +23,7 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     "quota.grant",
     "projects.pause",
     "assets.assist",
+    "fan_codes.manage",
     "clone_requests.review",
     "support.notes",
     "audit.view",
@@ -34,6 +36,7 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     "quota.grant",
     "projects.pause",
     "assets.assist",
+    "fan_codes.manage",
     "clone_requests.review",
     "support.notes",
     "audit.view",

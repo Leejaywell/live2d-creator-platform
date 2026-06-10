@@ -57,6 +57,54 @@ test("buildTriggeredVoiceAssets returns protected voice proxy URLs for triggered
   assert.equal(new URL(`https://app.example${voices[0].url}`).searchParams.get("viewerSessionId"), "viewer-123");
 });
 
+test("buildTriggeredVoiceAssets suppresses voice playback when TTS is disabled", () => {
+  const voices = buildTriggeredVoiceAssets({
+    tags: ["comfort"],
+    viewerSessionId: "viewer-123",
+    ttsProvider: "disabled",
+    triggerTags: [
+      {
+        name: "comfort",
+        voiceAssets: [
+          {
+            id: "voice-1",
+            name: "comfort",
+            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
+            status: "active",
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.deepEqual(voices, []);
+});
+
+test("buildTriggeredVoiceAssets supports signed asset delivery URLs", () => {
+  const voices = buildTriggeredVoiceAssets({
+    tags: ["comfort"],
+    viewerSessionId: "viewer-123",
+    assetDeliveryMode: "signed-redirect",
+    triggerTags: [
+      {
+        name: "comfort",
+        voiceAssets: [
+          {
+            id: "voice-1",
+            name: "comfort",
+            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
+            status: "active",
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(voices.length, 1);
+  assert.equal(voices[0].url.startsWith("/api/assets/signed?"), true);
+  assert.equal(new URL(`https://app.example${voices[0].url}`).searchParams.get("viewerSessionId"), "viewer-123");
+});
+
 test("buildTriggeredLive2DEffects normalizes configured params and expression fallback", () => {
   const effects = buildTriggeredLive2DEffects({
     tags: ["脸红", "安慰"],

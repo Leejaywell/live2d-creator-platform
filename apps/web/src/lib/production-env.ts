@@ -1,4 +1,5 @@
 import { securityHeaderReadiness } from "./security-headers";
+import { assertCheckoutUrlTemplate } from "./checkout-products";
 
 export type ProductionEnvCheck = {
   name: string;
@@ -28,6 +29,7 @@ const requiredProductionEnv = [
   "EMAIL_SERVER_PASSWORD",
   "EMAIL_FROM",
   "FAN_CODE_HASH_SECRET",
+  "PAYMENT_WEBHOOK_SECRET",
   "OPENAI_COMPATIBLE_BASE_URL",
   "OPENAI_COMPATIBLE_API_KEY",
   "OPENAI_COMPATIBLE_MODEL",
@@ -52,6 +54,7 @@ const requiredProductionEnv = [
 const strongSecretEnv = [
   { name: "AUTH_SECRET", minLength: 32 },
   { name: "FAN_CODE_HASH_SECRET", minLength: 32 },
+  { name: "PAYMENT_WEBHOOK_SECRET", minLength: 32 },
   { name: "METRICS_BEARER_TOKEN", minLength: 32 },
 ];
 
@@ -126,6 +129,14 @@ function checkUrls(env: ProductionEnv): ProductionEnvCheck {
   const reportUri = env.CSP_REPORT_URI;
   if (reportUri && !reportUri.startsWith("/") && !isUrlWithProtocol(reportUri, ["https:"])) {
     failures.push("CSP_REPORT_URI must be a same-origin path or HTTPS URL");
+  }
+
+  if (env.PAYMENT_CHECKOUT_URL_TEMPLATE) {
+    try {
+      assertCheckoutUrlTemplate(env.PAYMENT_CHECKOUT_URL_TEMPLATE);
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : "PAYMENT_CHECKOUT_URL_TEMPLATE is invalid");
+    }
   }
 
   return failures.length ? { name: "url_safety", ok: false, detail: failures.join("; ") } : { name: "url_safety", ok: true };

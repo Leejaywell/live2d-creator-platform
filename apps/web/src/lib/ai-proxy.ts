@@ -21,12 +21,16 @@ export async function callAiProxy(input: {
   }>;
   recentMessages: Array<{ role: "user" | "assistant"; content: string }>;
   userMessage: string;
+  aiProvider?: "openai-compatible" | "disabled";
+  chatModel?: string;
 }): Promise<AiProxyResult> {
-  rejectObviousPromptInjection(input.userMessage);
+  if (input.aiProvider === "disabled") {
+    return localFallback(input);
+  }
 
   const baseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL;
   const apiKey = process.env.OPENAI_COMPATIBLE_API_KEY;
-  const model = process.env.OPENAI_COMPATIBLE_MODEL;
+  const model = input.chatModel || process.env.OPENAI_COMPATIBLE_MODEL;
 
   if (!baseUrl || !apiKey || !model) {
     return localFallback(input);
@@ -93,12 +97,6 @@ function parseAiResponseContent(content: unknown) {
     return JSON.parse(content);
   } catch {
     return null;
-  }
-}
-
-function rejectObviousPromptInjection(message: string) {
-  if (/system prompt|api key|secret|bypass|ignore previous|访问限制|系统提示词|密钥/i.test(message)) {
-    throw new Error("Message violates prompt safety rules");
   }
 }
 

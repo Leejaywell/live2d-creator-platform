@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 
+import type { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -97,10 +98,44 @@ export async function consumeMagicLink(email: string, token: string, response: N
     throw new Error("Account is not active");
   }
 
+  await prisma.verificationToken.delete({ where: { token: hashedToken } });
+  return createSessionForUser(user.id, response, { markEmailVerified: true });
+}
+
+export async function signInWithWechatOpenId(openId: string, response: NextResponse) {
+  const normalizedOpenId = openId.trim();
+  if (!normalizedOpenId) {
+    throw new Error("WeChat OpenID is required");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { wechatOpenId: normalizedOpenId },
+        {
+          accounts: {
+            some: {
+              provider: "wechat",
+              providerAccountId: normalizedOpenId,
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  if (!user || user.status !== "active") {
+    throw new Error("No active account is linked to this WeChat identity");
+  }
+
+  return createSessionForUser(user.id, response);
+}
+
+async function createSessionForUser(userId: string, response: NextResponse, options: { markEmailVerified?: boolean } = {}) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const sessionToken = randomToken();
   const expires = new Date(Date.now() + sessionMaxAgeMs);
-  await prisma.$transaction([
-    prisma.verificationToken.delete({ where: { token: hashedToken } }),
+  const writes: Prisma.PrismaPromise<unknown>[] = [
     prisma.session.create({
       data: {
         sessionToken: hashToken(sessionToken),
@@ -108,11 +143,16 @@ export async function consumeMagicLink(email: string, token: string, response: N
         expires,
       },
     }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: user.emailVerified ?? new Date() },
-    }),
-  ]);
+  ];
+  if (options.markEmailVerified && !user.emailVerified) {
+    writes.push(
+      prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: new Date() },
+      }),
+    );
+  }
+  await prisma.$transaction(writes);
 
   response.cookies.set(sessionCookieName, sessionToken, {
     httpOnly: true,

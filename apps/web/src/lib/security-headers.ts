@@ -51,15 +51,26 @@ export function securityHeaderReadiness(env: NodeJS.ProcessEnv = process.env) {
 function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
   const extraConnectSrc = splitSources(env.CSP_CONNECT_SRC);
   const extraScriptSrc = splitSources(env.CSP_SCRIPT_SRC);
+  const developmentScriptSrc = env.NODE_ENV === "development" ? ["'unsafe-eval'"] : [];
   const directives = [
     ["default-src", "'self'"],
     ["base-uri", "'self'"],
     ["object-src", "'none'"],
     ["frame-ancestors", "'none'"],
     ["form-action", "'self'"],
-    ["script-src", "'self'", "'unsafe-inline'", "https://cubism.live2d.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", ...extraScriptSrc],
+    [
+      "script-src",
+      "'self'",
+      "'unsafe-inline'",
+      ...developmentScriptSrc,
+      "https://cubism.live2d.com",
+      "https://cdnjs.cloudflare.com",
+      "https://cdn.jsdelivr.net",
+      ...extraScriptSrc,
+    ],
     ["style-src", "'self'", "'unsafe-inline'"],
-    ["img-src", "'self'", "data:", "blob:"],
+    /* https: 允许创作者配置外链头像与舞台背景图;仅图片资源,不放宽脚本与连接 */
+    ["img-src", "'self'", "data:", "blob:", "https:"],
     ["font-src", "'self'", "data:"],
     ["media-src", "'self'", "blob:", "data:"],
     ["connect-src", "'self'", ...extraConnectSrc],

@@ -26,11 +26,15 @@ export function FanCodeGenerator({ projectId }: FanCodeGeneratorProps) {
     event.preventDefault();
     if (pending) return;
     setPending(true);
-    setStatus("Submitting...");
+    setStatus("提交中…");
 
     try {
       const form = event.currentTarget;
       const formData = new FormData(form);
+      const rawExpiresAt = String(formData.get("expiresAt") ?? "");
+      if (rawExpiresAt) {
+        formData.set("expiresAt", new Date(rawExpiresAt).toISOString());
+      }
       const response = await fetch("/api/creator/fan-codes", {
         method: "POST",
         headers: {
@@ -41,17 +45,17 @@ export function FanCodeGenerator({ projectId }: FanCodeGeneratorProps) {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.error ?? "Request failed");
+        setStatus(data.error ?? "请求失败");
         return;
       }
 
       const generated = (data.codes ?? []) as GeneratedCode[];
       setCodes(generated);
-      setStatus(`Generated ${generated.length} codes`);
+      setStatus(`已生成 ${generated.length} 个粉丝码,纯文本仅本次展示`);
       downloadCsv(generated);
       router.refresh();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Request failed");
+      setStatus(error instanceof Error ? error.message : "请求失败");
     } finally {
       setPending(false);
     }
@@ -61,31 +65,31 @@ export function FanCodeGenerator({ projectId }: FanCodeGeneratorProps) {
     <form onSubmit={submit} aria-busy={pending}>
       <input type="hidden" name="projectId" value={projectId} />
       <label>
-        Quantity
+        生成数量
         <input name="quantity" type="number" min="1" max="500" defaultValue="5" />
       </label>
       <label>
-        Expires at
-        <input name="expiresAt" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} suppressHydrationWarning />
+        过期时间
+        <input name="expiresAt" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} suppressHydrationWarning />
       </label>
       <label>
-        Max messages
+        单码消息上限
         <input name="maxMessages" type="number" min="1" defaultValue="20" />
       </label>
       <label>
-        Bind mode
+        设备绑定
         <select name="bindMode" defaultValue="browserDevice">
-          <option value="browserDevice">browserDevice</option>
-          <option value="none">none</option>
+          <option value="browserDevice">绑定首个浏览器(browserDevice)</option>
+          <option value="none">不绑定(none)</option>
         </select>
       </label>
-      <button type="submit" disabled={pending}>{pending ? "Generating..." : "Generate and export CSV"}</button>
+      <button type="submit" disabled={pending}>{pending ? "生成中…" : "生成并导出 CSV"}</button>
       {status ? <p aria-live="polite">{status}</p> : null}
       {codes.length ? (
         <textarea
           readOnly
           value={codes.map((item) => item.code).join("\n")}
-          aria-label="Generated fan codes"
+          aria-label="本次生成的粉丝码"
         />
       ) : null}
     </form>
@@ -109,9 +113,14 @@ function downloadCsv(codes: GeneratedCode[]) {
 }
 
 function defaultFanCodeExpiry() {
-  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  return toDateTimeLocalValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 }
 
 function escapeCsvCell(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
+}
+
+function toDateTimeLocalValue(value: Date) {
+  const offsetMs = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
 }

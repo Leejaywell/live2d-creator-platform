@@ -13,6 +13,8 @@ const requiredEnv = {
   EMAIL_SERVER_PASSWORD: "mail-password",
   EMAIL_FROM: "Live2D <no-reply@example.com>",
   FAN_CODE_HASH_SECRET: "b".repeat(40),
+  PAYMENT_WEBHOOK_SECRET: "p".repeat(40),
+  PAYMENT_CHECKOUT_URL_TEMPLATE: "https://pay.example.com/checkout?order={orderId}",
   OPENAI_COMPATIBLE_BASE_URL: "https://api.example.com/v1",
   OPENAI_COMPATIBLE_API_KEY: "ai-key",
   OPENAI_COMPATIBLE_MODEL: "model",
@@ -59,6 +61,18 @@ test("basic readiness reports database check failure", async () => {
 
     assert.equal(report.ok, false);
     assert.match(report.checks.find((check) => check.name === "database")?.detail ?? "", /database unavailable/);
+  });
+});
+
+test("basic readiness rejects unsafe checkout URL template", async () => {
+  await withEnv({ ...requiredEnv, PAYMENT_CHECKOUT_URL_TEMPLATE: "https://pay.example.com/checkout" }, async () => {
+    const report = await runReadinessChecks({
+      mode: "basic",
+      databaseCheck: async () => {},
+    });
+
+    assert.equal(report.ok, false);
+    assert.equal(report.checks.some((check) => check.name === "checkout_url_template" && !check.ok), true);
   });
 });
 

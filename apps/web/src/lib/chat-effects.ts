@@ -11,6 +11,9 @@ export type TriggeredVoiceAssetReference = {
   tag: string;
 };
 
+export type TtsProviderMode = "preset-only" | "external-provider" | "disabled";
+export type AssetDeliveryMode = "app-proxy" | "signed-redirect";
+
 export type Live2DParamEffect = {
   id: string;
   value: number;
@@ -39,17 +42,24 @@ export function buildTriggeredVoiceAssets(input: {
   tags: string[];
   triggerTags: TriggerTagBinding[];
   viewerSessionId: string;
+  ttsProvider?: TtsProviderMode;
+  assetDeliveryMode?: AssetDeliveryMode;
 }) {
+  if (input.ttsProvider === "disabled") {
+    return [];
+  }
+
   return buildTriggeredVoiceAssetReferences(input).map((voice) => {
     const params = new URLSearchParams({
       key: voice.audioUrl,
       viewerSessionId: input.viewerSessionId,
     });
+    const endpoint = input.assetDeliveryMode === "signed-redirect" ? "/api/assets/signed" : "/api/assets/proxy";
     return {
       id: voice.id,
       name: voice.name,
       tag: voice.tag,
-      url: `/api/assets/proxy?${params.toString()}`,
+      url: `${endpoint}?${params.toString()}`,
     };
   });
 }

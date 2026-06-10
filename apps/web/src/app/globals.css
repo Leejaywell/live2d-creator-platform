@@ -1,13 +1,60 @@
+/*
+ * Backstage / 开演 — design tokens.
+ * 深墨紫舞台底色,樱粉 × 冰青双色舞台光,等宽仪表数字。
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* surfaces */
+  --bg: #0e0c15;
+  --bg-deep: #090711;
+  --panel: #14111d;
+  --panel-raised: #191525;
+  --panel-glass: rgba(20, 17, 29, 0.78);
+  --inset: rgba(255, 255, 255, 0.035);
+  --line: rgba(173, 162, 204, 0.14);
+  --line-strong: rgba(173, 162, 204, 0.28);
+
+  /* text */
+  --text-hi: #f3effc;
+  --text: #beb6d2;
+  --text-dim: #837b9b;
+
+  /* stage lights */
+  --pink: #ff6c9e;
+  --pink-deep: #e8487f;
+  --pink-soft: rgba(255, 108, 158, 0.14);
+  --pink-glow: rgba(255, 108, 158, 0.38);
+  --cyan: #6fe7da;
+  --cyan-soft: rgba(111, 231, 218, 0.12);
+  --cyan-glow: rgba(111, 231, 218, 0.32);
+
+  /* signals */
+  --good: #5bdca6;
+  --good-soft: rgba(91, 220, 166, 0.14);
+  --warn: #f2c14e;
+  --warn-soft: rgba(242, 193, 78, 0.14);
+  --bad: #f2607a;
+  --bad-soft: rgba(242, 96, 122, 0.15);
+
+  /* shape & motion */
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 22px;
+  --speed: 0.22s;
+  --ease: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* type */
+  --display: var(--font-display), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --body: var(--font-body), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --mono: var(--font-mono), "SF Mono", "PingFang SC", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
@@ -24,17 +71,28 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.6;
+  background:
+    radial-gradient(1100px 720px at 88% -12%, rgba(255, 108, 158, 0.075), transparent 62%),
+    radial-gradient(960px 640px at -12% 108%, rgba(111, 231, 218, 0.06), transparent 60%),
+    linear-gradient(var(--bg), var(--bg-deep));
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--display);
+  color: var(--text-hi);
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 a {
@@ -42,8 +100,51 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--pink-deep);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(173, 162, 204, 0.22);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(173, 162, 204, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

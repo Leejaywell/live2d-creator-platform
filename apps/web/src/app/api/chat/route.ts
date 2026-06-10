@@ -3,15 +3,18 @@ import { z } from "zod";
 
 import { callAiProxy } from "@/lib/ai-proxy";
 import { buildTriggeredLive2DEffects, buildTriggeredVoiceAssets } from "@/lib/chat-effects";
+import { enforceChatSafety, isChatSafetyError } from "@/lib/chat-safety";
 import { deductSuccessfulChatQuota } from "@/lib/fan-code-service";
 import { logEvent, recordApiRequest } from "@/lib/metrics";
+import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { jsonError, parseBody } from "@/lib/request";
+import { recordChatSafetyEvent } from "@/lib/safety-events";
 
 const requestSchema = z.object({
   viewerSessionId: z.string().min(1),
-  message: z.string().min(1).max(2000),
+  message: z.string().min(1).max(10000),
   recentMessages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) })).max(20).default([]),
 });
 
@@ -25,6 +28,24 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await parseBody(request, requestSchema);
+    const runtimeSettings = await getPlatformRuntimeSettings();
+    let userMessage: string;
+    try {
+      userMessage = enforceChatSafety(body.message, {
+        contentModeration: runtimeSettings.contentModeration,
+        maxFanMessageLength: runtimeSettings.maxFanMessageLength,
+      });
+    } catch (error) {
+      if (isChatSafetyError(error)) {
+        await recordChatSafetyEvent({
+          viewerSessionId: body.viewerSessionId,
+          message: body.message,
+          error,
+          ipAddress: request.headers.get("x-forwarded-for") ?? undefined,
+        });
+      }
+      throw error;
+    }
     const result = await prisma.$transaction(async (tx) => {
       const viewerSession = await tx.viewerSession.findUniqueOrThrow({
         where: { id: body.viewerSessionId },
@@ -78,7 +99,9 @@ export async function POST(request: NextRequest) {
           promptFragment: tag.promptFragment,
         })),
         recentMessages: body.recentMessages,
-        userMessage: body.message,
+        userMessage,
+        aiProvider: runtimeSettings.aiProvider,
+        chatModel: runtimeSettings.aiChatModel,
       });
 
       const quota = await deductSuccessfulChatQuota(tx, {
@@ -94,7 +117,11 @@ export async function POST(request: NextRequest) {
           tags: ai.tags,
           triggerTags: viewerSession.project.triggerTags,
           viewerSessionId: body.viewerSessionId,
+          ttsProvider: runtimeSettings.ttsProvider,
+          assetDeliveryMode: runtimeSettings.assetDeliveryMode,
         }),
+        ttsProvider: runtimeSettings.ttsProvider,
+        assetDeliveryMode: runtimeSettings.assetDeliveryMode,
         live2dEffects: buildTriggeredLive2DEffects({
           tags: ai.tags,
           triggerTags: viewerSession.project.triggerTags,

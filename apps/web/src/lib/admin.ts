@@ -1,8 +1,11 @@
 import { OrderType, PaymentMethod, Prisma, QuotaResource, UserRole, UserStatus, VoiceCloneStatus } from "@prisma/client";
 
+import { assertManualOrderAllowedForCheckout } from "@/lib/checkout-modes";
 import { assertPermission } from "@/lib/permissions";
 import { assertFuturePlanExpiration, defaultPlanExpiresAt, resolveManualOrderPlanPeriod } from "@/lib/plan-periods";
+import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
+import { normalizeWechatOpenId } from "@/lib/wechat-auth";
 
 export async function upsertAdminUser(input: {
   admin: { id: string; role: UserRole };
@@ -189,6 +192,83 @@ export async function updateCreatorStatus(input: {
   });
 }
 
+export async function updateUserWechatBinding(input: {
+  admin: { id: string; role: UserRole };
+  userId: string;
+  openId?: string;
+}) {
+  const normalizedOpenId = input.openId?.trim() ? normalizeWechatOpenId(input.openId) : null;
+
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUniqueOrThrow({
+      where: { id: input.userId },
+      include: { accounts: { where: { provider: "wechat" } } },
+    });
+
+    if (before.role === "creator") {
+      assertPermission(input.admin.role, "creators.manage");
+    } else {
+      assertPermission(input.admin.role, "admin.users.manage");
+    }
+
+    if (normalizedOpenId) {
+      const existing = await tx.user.findFirst({
+        where: {
+          id: { not: before.id },
+          OR: [
+            { wechatOpenId: normalizedOpenId },
+            { accounts: { some: { provider: "wechat", providerAccountId: normalizedOpenId } } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new Error("WeChat OpenID is already linked to another account");
+      }
+    }
+
+    await tx.account.deleteMany({
+      where: {
+        userId: before.id,
+        provider: "wechat",
+      },
+    });
+
+    const user = await tx.user.update({
+      where: { id: before.id },
+      data: { wechatOpenId: normalizedOpenId },
+    });
+
+    if (normalizedOpenId) {
+      await tx.account.create({
+        data: {
+          userId: before.id,
+          type: "oauth",
+          provider: "wechat",
+          providerAccountId: normalizedOpenId,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.admin.id,
+        actorRole: input.admin.role,
+        action: normalizedOpenId ? "user.wechat_linked" : "user.wechat_unlinked",
+        targetType: "User",
+        targetId: user.id,
+        before: {
+          wechatOpenId: before.wechatOpenId,
+          accounts: before.accounts.map((account) => account.providerAccountId),
+        },
+        after: { wechatOpenId: user.wechatOpenId },
+      },
+    });
+
+    return user;
+  });
+}
+
 export async function createManualOrder(input: {
   admin: { id: string; role: UserRole };
   creatorId: string;
@@ -205,6 +285,8 @@ export async function createManualOrder(input: {
   notes?: string;
 }) {
   assertPermission(input.admin.role, "plans.manage");
+  const settings = await getPlatformRuntimeSettings();
+  assertManualOrderAllowedForCheckout(settings.checkoutMode, input);
   resolveManualOrderPlanPeriod({ periodStart: input.periodStart, periodEnd: input.periodEnd });
   assertManualOrderHasBusinessImpact(input);
 

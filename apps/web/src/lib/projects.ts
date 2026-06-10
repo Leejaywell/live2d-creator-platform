@@ -1,13 +1,17 @@
 import { Prisma, ProjectStatus, UserRole, VoiceStatus } from "@prisma/client";
 
+import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
+import { assertProjectPublishReadiness } from "@/lib/project-readiness";
 import { prisma } from "@/lib/prisma";
+import { initialVoiceCloneStatusForFulfillment } from "@/lib/voice-clone-status";
 
 export async function createProject(input: {
   creatorId: string;
   name: string;
   slug: string;
   intro?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
+  backgroundUrl?: string | null;
   systemPrompt: string;
   welcomeMessage: string;
   theme?: string;
@@ -37,6 +41,7 @@ export async function createProject(input: {
               slug: input.slug,
               intro: input.intro,
               avatarUrl: input.avatarUrl,
+              backgroundUrl: input.backgroundUrl,
               systemPrompt: input.systemPrompt,
               welcomeMessage: input.welcomeMessage,
               theme: input.theme ?? "#0f766e",
@@ -79,7 +84,8 @@ export async function updateProject(input: {
   name?: string;
   slug?: string;
   intro?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
+  backgroundUrl?: string | null;
   systemPrompt?: string;
   welcomeMessage?: string;
   theme?: string;
@@ -96,6 +102,7 @@ export async function updateProject(input: {
         slug: input.slug,
         intro: input.intro,
         avatarUrl: input.avatarUrl,
+        backgroundUrl: input.backgroundUrl,
         systemPrompt: input.systemPrompt,
         welcomeMessage: input.welcomeMessage,
         theme: input.theme,
@@ -133,6 +140,15 @@ export async function setProjectStatus(input: {
       },
       include: {
         currentModelAsset: true,
+        triggerTags: {
+          select: { enabled: true },
+        },
+        voiceAssets: {
+          select: { status: true },
+        },
+        fanAccessCodes: {
+          select: { status: true, expiresAt: true },
+        },
       },
     });
 
@@ -146,6 +162,7 @@ export async function setProjectStatus(input: {
       if (!project.currentModelAsset || project.currentModelAsset.validationStatus !== "valid") {
         throw new Error("A valid Live2D model is required before publishing");
       }
+      assertProjectPublishReadiness(project);
     }
 
     const updated = await tx.project.update({
@@ -424,6 +441,9 @@ export async function createVoiceCloneRequest(input: {
     throw new Error("Voice clone authorization confirmation is required");
   }
 
+  const settings = await getPlatformRuntimeSettings();
+  const initialStatus = initialVoiceCloneStatusForFulfillment(settings.voiceCloningFulfillment);
+
   return prisma.$transaction(async (tx) => {
     await tx.project.findFirstOrThrow({
       where: { id: input.projectId, creatorId: input.creatorId },
@@ -433,6 +453,7 @@ export async function createVoiceCloneRequest(input: {
       data: {
         projectId: input.projectId,
         creatorId: input.creatorId,
+        status: initialStatus,
         authorizationConfirmed: true,
         notes: input.notes,
       },
@@ -445,7 +466,10 @@ export async function createVoiceCloneRequest(input: {
         action: "voice_clone_request.created",
         targetType: "VoiceCloneRequest",
         targetId: request.id,
-        after: request as unknown as Prisma.InputJsonValue,
+        after: {
+          ...request,
+          fulfillmentMode: settings.voiceCloningFulfillment,
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 

@@ -18,6 +18,7 @@ const requiredProductionAuditEnv = [
   "EMAIL_SERVER_PASSWORD",
   "EMAIL_FROM",
   "FAN_CODE_HASH_SECRET",
+  "PAYMENT_WEBHOOK_SECRET",
   "OPENAI_COMPATIBLE_BASE_URL",
   "OPENAI_COMPATIBLE_API_KEY",
   "OPENAI_COMPATIBLE_MODEL",
@@ -130,6 +131,7 @@ for (const snippet of requiredProductionAuditSnippets) {
 for (const snippet of [
   "DATABASE_URL: ${{ secrets.DATABASE_URL }}",
   "FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}",
+  "PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}",
   "OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}",
   "QA_MODEL_ZIP_URL: ${{ secrets.QA_MODEL_ZIP_URL }}",
   "if [ -z \"$QA_FAN_CODE\" ]; then",

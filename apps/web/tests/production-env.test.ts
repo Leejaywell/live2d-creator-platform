@@ -21,6 +21,8 @@ const validEnv: NodeJS.ProcessEnv = {
   EMAIL_SERVER_PASSWORD: "mail-password-with-enough-length",
   EMAIL_FROM: "Live2D <no-reply@live2d-prod.com>",
   FAN_CODE_HASH_SECRET: "b".repeat(40),
+  PAYMENT_WEBHOOK_SECRET: "p".repeat(40),
+  PAYMENT_CHECKOUT_URL_TEMPLATE: "https://pay.provider.test/checkout?order={orderId}",
   OPENAI_COMPATIBLE_BASE_URL: "https://api.provider.test/v1",
   OPENAI_COMPATIBLE_API_KEY: "ai-key-with-enough-length",
   OPENAI_COMPATIBLE_MODEL: "model",
@@ -104,6 +106,16 @@ test("validateProductionEnv rejects unsafe production CSP source overrides", () 
 
   assert.equal(report.ok, false);
   assert.equal(report.checks.some((check) => check.name === "security_headers" && !check.ok), true);
+});
+
+test("validateProductionEnv rejects unsafe checkout URL templates", () => {
+  const report = validateProductionEnv({
+    ...validEnv,
+    PAYMENT_CHECKOUT_URL_TEMPLATE: "http://pay.provider.test/checkout?order={orderId}",
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.some((check) => check.name === "url_safety" && !check.ok), true);
 });
 
 test("loadProductionEnvForValidation validates the env file without process env masking", () => {

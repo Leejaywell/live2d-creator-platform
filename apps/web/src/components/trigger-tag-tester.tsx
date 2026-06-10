@@ -23,7 +23,7 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("Testing...");
+    setStatus("测试中…");
     setResult(null);
 
     const formData = new FormData(event.currentTarget);
@@ -34,32 +34,32 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setStatus(data.error ?? "Trigger test failed");
+      setStatus(data.error ?? "标签测试失败");
       return;
     }
 
     setResult(data as TriggerTagTestResult);
-    setStatus("Test complete");
+    setStatus("测试完成");
   }
 
   return (
     <form onSubmit={submit}>
       <label>
-        Sample message
+        示例消息
         <textarea name="message" required />
       </label>
-      <button type="submit">Test trigger tags</button>
+      <button type="submit">测试触发标签</button>
       {status ? <p aria-live="polite">{status}</p> : null}
       {result ? (
         <div>
-          <strong>Reply</strong>
+          <strong>回复</strong>
           <p>{result.reply}</p>
-          <strong>Triggered tags</strong>
-          <p>{result.tags.join(", ") || "none"}</p>
-          <strong>Live2D effects</strong>
-          <p>{result.live2dEffects.flatMap((effect) => effect.params.map((param) => `${effect.tag}:${param.id}=${param.value}`)).join(", ") || "none"}</p>
-          <strong>Voice assets</strong>
-          <p>{result.voiceAssets.map((voice) => `${voice.tag}:${voice.name}`).join(", ") || "none"}</p>
+          <strong>命中标签</strong>
+          <p>{result.tags.join("、") || "无"}</p>
+          <strong>Live2D 效果</strong>
+          <p>{result.live2dEffects.flatMap((effect) => effect.params.map((param) => `${effect.tag}:${param.id}=${param.value}`)).join(", ") || "无"}</p>
+          <strong>触发语音</strong>
+          <p>{result.voiceAssets.map((voice) => `${voice.tag}:${voice.name}`).join("、") || "无"}</p>
         </div>
       ) : null}
     </form>
