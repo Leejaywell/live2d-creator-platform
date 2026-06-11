@@ -49,6 +49,7 @@ async function main() {
       creatorPlan: {
         create: {
           planName: "Seed Pro",
+          tier: "paid",
           startsAt: new Date(),
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           maxProjects: 3,
@@ -82,6 +83,7 @@ async function main() {
     create: {
       creatorId: creator.id,
       planName: "Seed Pro",
+      tier: "paid",
       startsAt: new Date(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       maxProjects: 3,
