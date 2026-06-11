@@ -399,7 +399,6 @@ export async function updateVoiceAsset(input: {
       data: {
         name: input.name,
         durationMs: input.durationMs,
-        tags: input.tags,
         status: input.status,
       },
     });

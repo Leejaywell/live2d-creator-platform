@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { StageBackdrop } from "@/components/ui/glass";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { wechatLoginHint, wechatLoginLabel } from "@/lib/wechat-auth";
 
@@ -14,6 +15,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
 
   return (
     <main className={styles.shell}>
+      <StageBackdrop />
       <Link className={styles.backLink} href="/">
         ← Live2D Creator
       </Link>

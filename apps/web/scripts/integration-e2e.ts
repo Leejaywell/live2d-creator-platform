@@ -196,7 +196,6 @@ async function main() {
           name: "E2E comfort",
           audioUrl: "s3://live2d-creator-platform/projects/e2e/voices/comfort.mp3",
           status: "active",
-          tags: ["脸红"],
         },
       });
       await tx.triggerTag.update({
@@ -1168,7 +1167,6 @@ async function verifyCrossProjectVoiceTagBindingRejected(input: {
       name: "E2E cross-project voice",
       audioUrl: "s3://live2d-creator-platform/projects/e2e-other/voices/cross.mp3",
       status: "active",
-      tags: ["cross"],
     },
   });
 
@@ -1679,7 +1677,6 @@ async function verifyViewerDisabledVoiceAssetRejected(input: {
       name: "E2E disabled voice",
       audioUrl: `s3://live2d-creator-platform/projects/${input.projectId}/voices/disabled-${input.suffix}.mp3`,
       status: "disabled",
-      tags: ["disabled"],
     },
   });
 

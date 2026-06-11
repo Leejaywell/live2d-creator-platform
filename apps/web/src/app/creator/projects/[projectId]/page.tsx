@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import styles from "@/app/dashboard.module.css";
 import { getCurrentSession } from "@/auth";
+import { StageBackdrop } from "@/components/ui/glass";
 import { ProjectManagementForms } from "@/components/project-management-forms";
 import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { resolveModelAssistanceRequests } from "@/lib/model-assistance-requests";
@@ -110,6 +111,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
 
   return (
     <main className={styles.shell}>
+      <StageBackdrop />
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>PROJECT</p>

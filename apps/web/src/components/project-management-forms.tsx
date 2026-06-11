@@ -57,7 +57,6 @@ export type EditableProject = {
     name: string;
     audioUrl: string;
     durationMs: number | null;
-    tags: string[];
     status: string;
   }[];
   fanAccessCodes: {
@@ -372,10 +371,7 @@ export function ProjectManagementForms({
                 WAV/MP3 文件
                 <input name="file" type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" required />
               </label>
-              <label>
-                标签
-                <input name="tags" />
-              </label>
+              <p className={styles.muted}>上传后在「触发标签」里把语音绑定到标签。</p>
             </ApiForm>
           </details>
           <ul className={styles.list}>
@@ -385,7 +381,12 @@ export function ProjectManagementForms({
                 <span className={voice.status === "active" ? `${styles.statusPill} ${styles.statusGood}` : styles.statusPill}>
                   {voice.status === "active" ? "启用" : "停用"}
                 </span>
-                <span>{voice.tags.join("、") || "未绑定标签"}</span>
+                <span>
+                  {project.triggerTags
+                    .filter((tag) => tag.voiceAssets.some((bound) => bound.id === voice.id))
+                    .map((tag) => tag.name)
+                    .join("、") || "未绑定标签"}
+                </span>
                 <audio controls src={`/api/assets/proxy?key=${encodeURIComponent(voice.audioUrl)}`} />
                 <details className={styles.collapse}>
                   <summary>编辑信息</summary>
@@ -397,10 +398,6 @@ export function ProjectManagementForms({
                     <label>
                       时长(毫秒)
                       <input name="durationMs" type="number" defaultValue={voice.durationMs ?? ""} />
-                    </label>
-                    <label>
-                      标签
-                      <input name="tags" defaultValue={voice.tags.join(",")} />
                     </label>
                     <label>
                       状态
@@ -421,10 +418,6 @@ export function ProjectManagementForms({
                     <label>
                       名称
                       <input name="name" defaultValue={voice.name} />
-                    </label>
-                    <label>
-                      标签
-                      <input name="tags" defaultValue={voice.tags.join(",")} />
                     </label>
                   </ApiForm>
                 </details>
@@ -524,7 +517,7 @@ function VoiceAssetPicker({
           <input name="voiceAssetIds" type="checkbox" value={voice.id} defaultChecked={selectedIds.includes(voice.id)} />
           <span>
             {voice.name}
-            <small>{voice.status === "disabled" ? "已停用" : voice.tags.join("、") || "无标签"}</small>
+            <small>{voice.status === "disabled" ? "已停用" : "启用"}</small>
           </span>
         </label>
       ))}

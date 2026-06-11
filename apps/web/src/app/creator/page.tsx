@@ -18,6 +18,7 @@ import {
   signedAmount,
 } from "@/lib/billing-history";
 import { checkoutModeLabel, manualOrderCheckoutHint } from "@/lib/checkout-modes";
+import { StageBackdrop } from "@/components/ui/glass";
 import { ensureCreatorPlan } from "@/lib/creator-onboarding";
 import { buildCheckoutUrl, checkoutSkuFromOrderNotes } from "@/lib/checkout-products";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
@@ -88,6 +89,7 @@ export default async function CreatorPage() {
 
   return (
     <main className={styles.shell}>
+      <StageBackdrop />
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>BACKSTAGE</p>
