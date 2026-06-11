@@ -24,6 +24,11 @@ enum PlanStatus {
   paused
 }
 
+enum PlanTier {
+  trial
+  paid
+}
+
 enum OrderType {
   plan
   fan_code_pack
@@ -190,6 +195,7 @@ model CreatorPlan {
   usedStorageMb         Int        @default(0)
   usedFanCodes          Int        @default(0)
   status                PlanStatus @default(active)
+  tier                  PlanTier   @default(trial)
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   creator               User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
@@ -271,6 +277,7 @@ model ModelAsset {
   assetBasePath     String?
   validationStatus  ValidationStatus @default(pending)
   validationErrors  Json?
+  capabilities      Json?
   uploadedBy        AssetUploader
   version           Int
   createdAt         DateTime         @default(now())
@@ -287,7 +294,6 @@ model VoiceAsset {
   name        String
   audioUrl    String
   durationMs  Int?
-  tags        String[]
   status      VoiceStatus  @default(active)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -303,6 +309,7 @@ model TriggerTag {
   keywords         String[]
   promptFragment   String?      @db.Text
   live2dExpression String?
+  expressionName   String?
   live2dParams     Json?
   priority         Int          @default(0)
   enabled          Boolean      @default(true)

@@ -68,7 +68,6 @@ export async function uploadVoiceAsset(input: {
         projectId: input.projectId,
         name: input.name,
         audioUrl: object.url,
-        tags: input.tags ?? [],
         status: "active",
       },
     });
@@ -155,7 +154,6 @@ export async function replaceVoiceAssetAudio(input: {
       data: {
         name: input.name || before.name,
         audioUrl: object.url,
-        tags: input.tags,
         status: "active",
       },
     });
