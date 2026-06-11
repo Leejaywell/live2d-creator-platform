@@ -18,6 +18,7 @@ import {
   signedAmount,
 } from "@/lib/billing-history";
 import { checkoutModeLabel, manualOrderCheckoutHint } from "@/lib/checkout-modes";
+import { ensureCreatorPlan } from "@/lib/creator-onboarding";
 import { buildCheckoutUrl, checkoutSkuFromOrderNotes } from "@/lib/checkout-products";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +34,7 @@ export default async function CreatorPage() {
 
   const usageDays = 7;
   const [plan, projects, usageRecords, orders, quotaLedgerEntries, runtimeSettings] = await Promise.all([
-    prisma.creatorPlan.findUnique({ where: { creatorId: session.user.id } }),
+    ensureCreatorPlan(session.user.id),
     prisma.project.findMany({
       where: { creatorId: session.user.id },
       include: {
