@@ -9,6 +9,7 @@
     "docker:build": "node scripts/docker-build.mjs",
     "lint": "eslint",
     "test": "node --import tsx --test tests/*.test.ts",
+    "journey:check": "tsx scripts/creator-journey-check.ts",
     "readiness": "tsx scripts/readiness.ts",
     "readiness:full": "tsx scripts/readiness.ts --full",
     "browser:install": "playwright install chromium",
