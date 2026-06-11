@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import styles from "@/app/dashboard.module.css";
+import { createTagAction, setProjectStatusAction, updateProjectAction } from "@/app/creator/projects/[projectId]/actions";
+import { ActionSubmit } from "@/components/action-submit";
 import { ApiForm } from "@/components/api-form";
 import { FanCodeGenerator } from "@/components/fan-code-generator";
 import { Live2DViewer } from "@/components/live2d-viewer";
@@ -95,7 +97,7 @@ export function ProjectManagementForms({
       <section className={styles.twoColumn} id="ws-basics">
         <section className={styles.panel}>
           <h2>项目设置</h2>
-          <ApiForm action={`/api/creator/projects/${projectId}`} method="PATCH" submitLabel="保存设置">
+          <form action={updateProjectAction.bind(null, projectId)}>
             <label>
               名称
               <input name="name" defaultValue={project.name} required />
@@ -128,13 +130,14 @@ export function ProjectManagementForms({
               主题色
               <input name="theme" type="color" defaultValue={project.theme || "#ff6c9e"} required aria-label="项目主题色" />
             </label>
-          </ApiForm>
+            <ActionSubmit>保存设置</ActionSubmit>
+          </form>
         </section>
 
         <div className={styles.forms}>
           <section className={styles.panel}>
             <h2>发布 / 暂停</h2>
-            <ApiForm action={`/api/creator/projects/${projectId}/publish`} submitLabel="更新状态">
+            <form action={setProjectStatusAction.bind(null, projectId)}>
               <label>
                 状态
                 <select name="status" defaultValue={project.status}>
@@ -143,7 +146,8 @@ export function ProjectManagementForms({
                   <option value="draft">草稿(draft)</option>
                 </select>
               </label>
-            </ApiForm>
+              <ActionSubmit>更新状态</ActionSubmit>
+            </form>
             <div className={styles.nav}>
               <Link href={`/c/${project.slug}`}>观众页</Link>
               <ShareLinkCopyButton path={`/c/${project.slug}`} label="复制分享链接" />
@@ -257,7 +261,7 @@ export function ProjectManagementForms({
           <h2>触发标签</h2>
           <details className={styles.collapse}>
             <summary>新建触发标签</summary>
-            <ApiForm action={`/api/creator/projects/${projectId}/tags`} submitLabel="创建标签">
+            <form action={createTagAction.bind(null, projectId)}>
               <label>
                 名称
                 <input name="name" required />
@@ -287,7 +291,8 @@ export function ProjectManagementForms({
                 <input name="priority" type="number" defaultValue="0" />
               </label>
               <VoiceAssetPicker voices={project.voiceAssets} />
-            </ApiForm>
+              <ActionSubmit>创建标签</ActionSubmit>
+            </form>
           </details>
           <ul className={styles.list}>
             {project.triggerTags.map((tag) => (
