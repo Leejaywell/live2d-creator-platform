@@ -3,6 +3,7 @@ import path from "node:path";
 import { AssetUploader, Prisma, UserRole } from "@prisma/client";
 
 import { extractLive2DZipFiles, validateLive2DZip } from "@/lib/live2d-validation";
+import { parseModelCapabilities } from "@/lib/model-capabilities";
 import { hasPermission } from "@/lib/permissions";
 import { assertCreatorPlanActive } from "@/lib/plan-rules";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,13 @@ export async function uploadModelAsset(input: {
   const validation = await validateLive2DZip(input.data);
   const extractedFiles = validation.ok ? await extractLive2DZipFiles(input.data) : [];
   const uploadedBytes = input.data.byteLength + extractedFiles.reduce((sum, file) => sum + file.data.byteLength, 0);
+
+  const modelJsonFile = validation.ok
+    ? extractedFiles.find((file) => file.path === validation.modelJsonPath)
+    : undefined;
+  const capabilities = modelJsonFile
+    ? parseModelCapabilities(JSON.parse(modelJsonFile.data.toString("utf8")))
+    : null;
 
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.findFirstOrThrow({
@@ -84,6 +92,7 @@ export async function uploadModelAsset(input: {
         assetBasePath: validation.ok ? `${baseKey}/extracted` : null,
         validationStatus: validation.ok ? "valid" : "invalid",
         validationErrors: validation.ok ? validation.warnings : validation.errors,
+        capabilities: capabilities as Prisma.InputJsonValue | undefined,
         uploadedBy: input.uploadedBy ?? "creator",
         version,
       },
