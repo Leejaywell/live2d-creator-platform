@@ -5,6 +5,7 @@ import styles from "@/app/dashboard.module.css";
 import { getCurrentSession } from "@/auth";
 import { StageBackdrop } from "@/components/ui/glass";
 import { ProjectManagementForms } from "@/components/project-management-forms";
+import { WorkspaceShell, type WorkspaceStep } from "@/components/workspace-shell";
 import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { resolveModelAssistanceRequests } from "@/lib/model-assistance-requests";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
@@ -109,6 +110,18 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
   const readinessScore = readiness.filter((item) => item.done).length;
   const modelAssistanceRequests = resolveModelAssistanceRequests(modelAssistanceLogs, adminModelFulfillments);
 
+  const modelPreviewUrl =
+    project.currentModelAsset?.validationStatus === "valid"
+      ? `/api/creator/projects/${project.id}/model-assets/${project.currentModelAsset.id}/preview`
+      : null;
+  const workspaceSteps: WorkspaceStep[] = [
+    { label: "基本信息", anchor: "ws-basics", done: readiness[0]?.done ?? false },
+    { label: "模型", anchor: "ws-model", done: readiness[1]?.done ?? false },
+    { label: "标签", anchor: "ws-tags", done: readiness[2]?.done ?? false },
+    { label: "语音", anchor: "ws-voice", done: readiness[3]?.done ?? false },
+    { label: "发码", anchor: "ws-codes", done: readiness[4]?.done ?? false },
+  ];
+
   return (
     <main className={styles.shell}>
       <StageBackdrop />
@@ -194,7 +207,9 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
         </div>
       </section>
 
-      <ProjectManagementForms project={{ ...project, modelAssistanceRequests }} voiceCloneFulfillment={platformSettings.voiceCloningFulfillment} />
+      <WorkspaceShell modelPreviewUrl={modelPreviewUrl} steps={workspaceSteps}>
+        <ProjectManagementForms project={{ ...project, modelAssistanceRequests }} voiceCloneFulfillment={platformSettings.voiceCloningFulfillment} />
+      </WorkspaceShell>
     </main>
   );
 }

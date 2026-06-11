@@ -92,7 +92,7 @@ export function ProjectManagementForms({
 
   return (
     <div className={styles.forms}>
-      <section className={styles.twoColumn}>
+      <section className={styles.twoColumn} id="ws-basics">
         <section className={styles.panel}>
           <h2>项目设置</h2>
           <ApiForm action={`/api/creator/projects/${projectId}`} method="PATCH" submitLabel="保存设置">
@@ -189,7 +189,7 @@ export function ProjectManagementForms({
         </div>
       </section>
 
-      <section className={styles.panel}>
+      <section className={styles.panel} id="ws-model">
         <h2>Live2D 模型</h2>
         {project.currentModelAsset?.validationStatus === "valid" ? (
           <div className={styles.modelPreview}>
@@ -252,7 +252,7 @@ export function ProjectManagementForms({
         </ul>
       </section>
 
-      <section className={styles.twoColumn}>
+      <section className={styles.twoColumn} id="ws-tags">
         <section className={styles.panel}>
           <h2>触发标签</h2>
           <details className={styles.collapse}>
@@ -357,7 +357,7 @@ export function ProjectManagementForms({
         </section>
       </section>
 
-      <section className={styles.twoColumn}>
+      <section className={styles.twoColumn} id="ws-voice">
         <section className={styles.panel}>
           <h2>语音资产</h2>
           <details className={styles.collapse}>
@@ -433,7 +433,7 @@ export function ProjectManagementForms({
           </ul>
         </section>
 
-        <section className={styles.panel}>
+        <section className={styles.panel} id="ws-codes">
           <h2>粉丝访问码</h2>
           <FanCodeGenerator projectId={projectId} />
           <h3>最近的粉丝码</h3>
