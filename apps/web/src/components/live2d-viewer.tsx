@@ -41,15 +41,21 @@ type Live2DModel = {
     set: (value: number) => void;
   };
   focus?: (x: number, y: number) => void;
+  motion?: (group: string, index?: number, priority?: number) => unknown;
   internalModel?: {
     width?: number;
     height?: number;
     coreModel?: Live2DCoreModel;
+    settings?: {
+      motions?: Record<string, Array<{ File?: string }>>;
+    };
     on?: (event: string, handler: () => void) => void;
   };
   width?: number;
   height?: number;
 };
+
+type TapVoice = { id: string; name: string; url: string; tags: string[] };
 
 type Live2DCoreModel = {
   parameters?: {
@@ -63,22 +69,6 @@ type Live2DCoreModel = {
 export type Live2DEffect = {
   tag: string;
   params: Array<{ id: string; value: number }>;
-};
-
-const expressionParams: Record<string, Array<{ id: string; value: number }>> = {
-  脸红: [
-    { id: "Param5", value: 1 },
-    { id: "ParamBrowLAngle", value: 0.75 },
-  ],
-  哭哭: [
-    { id: "Param3", value: 1 },
-    { id: "ParamBrowLAngle", value: 1 },
-    { id: "ParamBrowLForm", value: -0.55 },
-  ],
-  爱心: [{ id: "Param4", value: 1 }],
-  眼罩: [{ id: "Param", value: 1 }],
-  冰块: [{ id: "Param6", value: 1 }],
-  狐耳: [{ id: "Param7", value: 1 }],
 };
 
 export function Live2DViewer({
@@ -101,11 +91,41 @@ export function Live2DViewer({
   const modelRef = useRef<Live2DModel | null>(null);
   const activeRef = useRef<Record<string, number>>({});
   const effectParamsRef = useRef<Record<string, Array<{ id: string; value: number }>>>({});
+  const tapVoicesRef = useRef<TapVoice[]>([]);
+
+  useEffect(() => {
+    if (!projectSlug || !viewerSessionId) return;
+    let cancelled = false;
+    fetch(`/api/assets/tap-voices?viewerSessionId=${encodeURIComponent(viewerSessionId)}`)
+      .then((response) => (response.ok ? response.json() : { voices: [] }))
+      .then((data) => {
+        if (!cancelled) tapVoicesRef.current = (data.voices ?? []) as TapVoice[];
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [projectSlug, viewerSessionId]);
+
+  function handleTap(event: { clientX: number; clientY: number }) {
+    const model = modelRef.current;
+    const canvas = canvasRef.current;
+    if (!model || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const relativeY = (event.clientY - rect.top) / Math.max(rect.height, 1);
+    playTapMotion(model, relativeY < 0.45 ? "head" : "body");
+    const voices = tapVoicesRef.current;
+    if (voices.length) {
+      const voice = voices[Math.floor(Math.random() * voices.length)];
+      const audio = new Audio(voice.url);
+      audio.play().catch(() => undefined);
+    }
+  }
 
   function applyExpressionState(core?: Live2DCoreModel) {
     if (!core) return;
     const now = performance.now();
-    const paramSets = { ...expressionParams, ...effectParamsRef.current };
+    const paramSets = effectParamsRef.current;
     Object.entries(paramSets).forEach(([name, params]) => {
       const isActive = (activeRef.current[name] ?? 0) > now;
       params.forEach((param) => {
@@ -158,11 +178,17 @@ export function Live2DViewer({
       const model = modelRef.current;
       const root = rootRef.current;
       if (!app || !model || !root) return;
-      const height = root.getBoundingClientRect().height;
+      const rect = root.getBoundingClientRect();
+      const viewWidth = rect.width;
+      const viewHeight = rect.height;
+      const baseWidth = model.internalModel?.width || model.width || 1;
       const baseHeight = model.internalModel?.height || model.height || 1400;
-      model.scale.set((height / Math.max(baseHeight, 1)) * 1.08);
-      model.x = app.renderer.width / 2;
-      model.y = app.renderer.height + 24;
+      // Contain the whole model inside the canvas so tall full-body models are
+      // not cropped the way bust-framed models can be when filling height alone.
+      const scale = Math.min(viewWidth / Math.max(baseWidth, 1), viewHeight / Math.max(baseHeight, 1)) * 0.92;
+      model.scale.set(scale);
+      model.x = viewWidth / 2;
+      model.y = viewHeight;
     }
 
     function followPointer(event: PointerEvent) {
@@ -187,15 +213,13 @@ export function Live2DViewer({
   }, [modelJsonUrl, projectSlug, viewerSessionId]);
 
   useEffect(() => {
+    // The runtime only applies expression params the server sent for the matched
+    // tags (built from each tag's live2dParams/expression) — no model-specific
+    // hardcoding, so any uploaded model works.
     activeEffects.forEach((effect) => {
       if (effect.params.length) {
         effectParamsRef.current[effect.tag] = effect.params;
         activeRef.current[effect.tag] = performance.now() + 4200;
-      }
-    });
-    activeTags.forEach((tag) => {
-      if (expressionParams[tag]) {
-        activeRef.current[tag] = performance.now() + 4200;
       }
     });
   }, [activeEffects, activeTags]);
@@ -207,6 +231,8 @@ export function Live2DViewer({
         className={phase === "ready" ? `${styles.canvas} ${styles.canvasReady}` : styles.canvas}
         data-testid="live2d-canvas"
         aria-label="Live2D 模型画布"
+        style={{ cursor: phase === "ready" ? "pointer" : "default" }}
+        onPointerDown={handleTap}
       />
       {phase === "loading" ? (
         <div className={styles.status} aria-live="polite">
@@ -221,6 +247,30 @@ export function Live2DViewer({
       ) : null}
     </div>
   );
+}
+
+function playTapMotion(model: Live2DModel, region: "head" | "body") {
+  const groups = model.internalModel?.settings?.motions;
+  if (!groups || typeof model.motion !== "function") return;
+  const groupNames = Object.keys(groups);
+  if (!groupNames.length) return;
+
+  // A dedicated "Tap" motion group (e.g. Cubism sample models) wins outright.
+  const tapGroup = groupNames.find((name) => /tap/i.test(name));
+  if (tapGroup) {
+    const list = groups[tapGroup] ?? [];
+    model.motion(tapGroup, Math.floor(Math.random() * Math.max(list.length, 1)), 3);
+    return;
+  }
+
+  // Otherwise use the default group, preferring touch_head/touch_body by region.
+  const group = groupNames.includes("") ? "" : groupNames[0];
+  const list = groups[group] ?? [];
+  const wanted = region === "head" ? "touch_head" : "touch_body";
+  let index = list.findIndex((motion) => motion.File?.toLowerCase().includes(wanted));
+  if (index < 0) index = list.findIndex((motion) => /touch|tap/i.test(motion.File ?? ""));
+  if (index < 0) index = Math.floor(Math.random() * Math.max(list.length, 1));
+  model.motion(group, index, 3);
 }
 
 function getParam(core: Live2DCoreModel, id: string) {

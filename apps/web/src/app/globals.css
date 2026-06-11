@@ -38,12 +38,23 @@
   --bad: #f2607a;
   --bad-soft: rgba(242, 96, 122, 0.15);
 
+  /* glass surfaces (glassmorphism + stage) */
+  --glass-bg: rgba(255, 255, 255, 0.055);
+  --glass-bg-strong: rgba(255, 255, 255, 0.085);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-blur: 18px;
+  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7), 0 2px 0 0 var(--glass-highlight) inset;
+  --scrim: rgba(9, 7, 17, 0.55);
+
   /* shape & motion */
   --radius-s: 8px;
   --radius-m: 14px;
   --radius-l: 22px;
   --speed: 0.22s;
   --ease: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* type */
   --display: var(--font-display), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -137,6 +148,24 @@ textarea {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(173, 162, 204, 0.4);
+}
+
+/* Glass surface utility — translucent panel floating over the stage. */
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+/* Opaque fallback where backdrop-filter is unsupported, so text stays legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--panel-raised);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
