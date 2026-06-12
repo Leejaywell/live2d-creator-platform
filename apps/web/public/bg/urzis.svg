@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="32%" r="65%">
+      <stop offset="0%" stop-color="#1c8f84"/>
+      <stop offset="45%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#08312e"/>
+    </radialGradient>
+    <linearGradient id="veil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b3a36" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#04201d" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="30%" r="40%">
+      <stop offset="0%" stop-color="#5fe3d3" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#5fe3d3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#glow)"/>
+  <circle cx="540" cy="560" r="520" fill="url(#halo)"/>
+  <g fill="#ffffff" opacity="0.05">
+    <circle cx="200" cy="380" r="2.5"/><circle cx="880" cy="300" r="2"/>
+    <circle cx="700" cy="640" r="1.8"/><circle cx="340" cy="720" r="2.2"/>
+    <circle cx="900" cy="820" r="1.6"/><circle cx="160" cy="980" r="2"/>
+    <circle cx="780" cy="1080" r="2.4"/><circle cx="420" cy="1180" r="1.7"/>
+  </g>
+  <rect width="1080" height="1920" fill="url(#veil)"/>
+</svg>
