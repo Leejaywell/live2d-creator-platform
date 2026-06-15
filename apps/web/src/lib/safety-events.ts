@@ -8,7 +8,7 @@ export type SafetyEventView = {
   id: string;
   projectName: string;
   projectSlug: string;
-  creatorEmail: string;
+  creatorUsername: string;
   code: string;
   severity: string;
   messagePreview: string;
@@ -27,7 +27,7 @@ export async function recordChatSafetyEvent(input: {
       project: {
         include: {
           creator: {
-            select: { email: true },
+            select: { username: true },
           },
         },
       },
@@ -45,7 +45,7 @@ export async function recordChatSafetyEvent(input: {
         projectId: viewerSession?.projectId,
         projectName: viewerSession?.project.name,
         projectSlug: viewerSession?.project.slug,
-        creatorEmail: viewerSession?.project.creator.email,
+        creatorUsername: viewerSession?.project.creator.username,
         code: input.error.code,
         severity: input.error.severity,
         messagePreview: previewMessage(input.message),

@@ -54,14 +54,11 @@ start_node_service 4010 scripts/fake-openai-server.mjs
 start_node_service 4020 scripts/fake-redis-rest-server.mjs
 PORT=19000 node scripts/fake-s3-server.mjs &
 PIDS="$PIDS $!"
-SMTP_PORT=1025 API_PORT=8025 node scripts/fake-smtp-mailpit-server.mjs &
-PIDS="$PIDS $!"
 
 wait_postgres
 wait_http "http://localhost:4010/health"
 wait_http "http://localhost:4020/health"
 wait_http "http://localhost:19000/health"
-wait_http "http://localhost:8025/health"
 
 set -a
 . ./.env.integration.host

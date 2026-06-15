@@ -5,18 +5,15 @@
 // Run: set -a; . ./.env; set +a; npx tsx scripts/creator-journey-check.ts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 
 import { prisma } from "../src/lib/prisma";
 import { ensureCreatorPlan } from "../src/lib/creator-onboarding";
 import { createProject, createTriggerTag, setProjectStatus } from "../src/lib/projects";
 import { uploadModelAsset } from "../src/lib/model-assets";
-import { uploadVoiceAsset } from "../src/lib/voice-assets";
 import { generateFanCodeBatch, validateFanCode } from "../src/lib/fan-code-service";
-import { buildTriggeredVoiceAssets } from "../src/lib/chat-effects";
+import { buildTriggeredLive2DEffects } from "../src/lib/chat-effects";
 
 const MODEL_ZIP = process.env.QA_MODEL_ZIP_PATH || "/tmp/l2d/izumi-model.zip";
-const VOICE_WAV = process.env.JOURNEY_VOICE_PATH || "/tmp/l2d/serve/izumi/runtime/sounds/izumi_01.wav";
 const slug = `journey-${Date.now().toString(36)}`;
 
 async function main() {
@@ -53,16 +50,6 @@ async function main() {
     const blush = caps.expressions.find((e) => /blush/i.test(e.name));
     console.log(`4. uploadModelAsset -> valid, ${caps.expressions.length} expressions parsed (e.g. ${blush?.name ?? caps.expressions[0].name})  PASS`);
 
-    const voice = await uploadVoiceAsset({
-      projectId: project.id,
-      creatorId: creator.id,
-      name: "脸红语音",
-      fileName: path.basename(VOICE_WAV),
-      contentType: "audio/wav",
-      data: readFileSync(VOICE_WAV),
-    });
-    console.log(`5. uploadVoiceAsset  PASS`);
-
     const tag = await createTriggerTag({
       projectId: project.id,
       creatorId: creator.id,
@@ -70,12 +57,9 @@ async function main() {
       keywords: ["想你", "喜欢"],
       promptFragment: "更亲密。",
       live2dParams: [{ id: "Param5", value: 1 }],
-      voiceAssetIds: [voice.id],
     });
-    const boundTag = await prisma.triggerTag.findUniqueOrThrow({ where: { id: tag.id }, include: { voiceAssets: true } });
-    assert.equal(boundTag.voiceAssets.length, 1, "voice must be bound to tag via relation");
-    assert.equal(boundTag.voiceAssets[0].id, voice.id);
-    console.log(`6. createTriggerTag + bind voice via relation  PASS`);
+    assert.equal(Array.isArray(tag.live2dParams) ? tag.live2dParams.length : 0, 1, "tag must include a Live2D parameter effect");
+    console.log(`5. createTriggerTag + Live2D effect  PASS`);
 
     const codes = await generateFanCodeBatch({
       projectId: project.id,
@@ -86,7 +70,7 @@ async function main() {
       bindMode: "none",
     });
     assert.equal(codes.length, 2);
-    console.log(`7. generateFanCodeBatch -> ${codes.length} codes  PASS`);
+    console.log(`6. generateFanCodeBatch -> ${codes.length} codes  PASS`);
 
     const published = await setProjectStatus({
       projectId: project.id,
@@ -96,7 +80,7 @@ async function main() {
       status: "published",
     });
     assert.equal(published.status, "published");
-    console.log(`8. publish (passes model-required gate)  PASS`);
+    console.log(`7. publish (passes model-required gate)  PASS`);
 
     const session = await validateFanCode({
       projectSlug: slug,
@@ -105,20 +89,18 @@ async function main() {
       userAgent: "journey-agent",
     });
     assert.ok(session.viewerSessionId, "fan code must unlock a viewer session");
-    console.log(`9. validateFanCode -> viewer session unlocked  PASS`);
+    console.log(`8. validateFanCode -> viewer session unlocked  PASS`);
 
     const triggerTags = await prisma.triggerTag.findMany({
       where: { projectId: project.id, enabled: true },
-      include: { voiceAssets: { where: { status: "active" } } },
     });
-    const triggered = buildTriggeredVoiceAssets({
+    const triggered = buildTriggeredLive2DEffects({
       tags: ["脸红"],
       triggerTags,
-      viewerSessionId: session.viewerSessionId,
     });
-    assert.equal(triggered.length, 1, "audience trigger must return the bound voice");
-    assert.equal(triggered[0].id, voice.id);
-    console.log(`10. audience trigger '脸红' -> plays bound voice  PASS`);
+    assert.equal(triggered.length, 1, "audience trigger must return the Live2D effect");
+    assert.equal(triggered[0].tag, "脸红");
+    console.log(`9. audience trigger '脸红' -> applies Live2D effect  PASS`);
 
     console.log("\n✅ FULL CREATOR JOURNEY RUNS THROUGH END-TO-END");
   } finally {

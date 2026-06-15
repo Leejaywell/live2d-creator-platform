@@ -34,7 +34,7 @@ Checks:
   - placeholder/example values are rejected
   - secrets have minimum length
   - public/provider URLs use production-safe schemes
-  - production-only modes are enforced for rate limiting, CSP, HSTS, and SMTP
+  - production-only modes are enforced for rate limiting, CSP, and HSTS
 `);
 }
 

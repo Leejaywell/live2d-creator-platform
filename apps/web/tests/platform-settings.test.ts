@@ -6,9 +6,8 @@ import { parsePlatformSettingValue, platformSettingDefinitionFor, platformSettin
 test("platform settings include MVP provider and policy controls", () => {
   const keys = platformSettingDefinitions.map((setting) => setting.key);
   assert.equal(keys.includes("ai.chatModel"), true);
-  assert.equal(keys.includes("integrations.wechatLogin"), true);
+  assert.equal(keys.includes("integrations.wechatLogin"), false);
   assert.equal(keys.includes("payments.checkout"), true);
-  assert.equal(keys.includes("voiceCloning.fulfillment"), true);
 });
 
 test("parsePlatformSettingValue accepts configured enum and numeric values", () => {
@@ -19,12 +18,6 @@ test("parsePlatformSettingValue accepts configured enum and numeric values", () 
   const maxLength = platformSettingDefinitionFor("security.maxFanMessageLength");
   assert.ok(maxLength);
   assert.equal(parsePlatformSettingValue(maxLength, 1200), 1200);
-});
-
-test("voice clone fulfillment is disabled by default", () => {
-  const voiceCloning = platformSettingDefinitionFor("voiceCloning.fulfillment");
-  assert.ok(voiceCloning);
-  assert.equal(voiceCloning.defaultValue, "disabled");
 });
 
 test("parsePlatformSettingValue rejects unsupported or unsafe values", () => {

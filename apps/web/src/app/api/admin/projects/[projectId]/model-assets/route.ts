@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requirePermission } from "@/lib/authz";
+import { requireAdminRole } from "@/lib/authz";
 import { uploadModelAsset } from "@/lib/model-assets";
 import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/request";
 
 export async function POST(request: NextRequest, context: RouteContext<"/api/admin/projects/[projectId]/model-assets">) {
   try {
-    const session = await requirePermission("assets.assist");
+    const session = await requireAdminRole();
     const { projectId } = await context.params;
     const project = await prisma.project.findUniqueOrThrow({
       where: { id: projectId },

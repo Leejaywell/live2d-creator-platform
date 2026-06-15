@@ -4,6 +4,7 @@ import test from "node:test";
 import { PaymentMethod } from "@prisma/client";
 
 import {
+  adminOrderProducts,
   assertCheckoutRequestAllowed,
   assertCheckoutUrlTemplate,
   buildCheckoutUrl,
@@ -18,8 +19,16 @@ test("checkout products expose payable quota impact", () => {
   assert.equal(product?.amount, "399.00");
   assert.equal(product?.currency, "CNY");
   assert.equal(product?.paymentMethods.includes(PaymentMethod.wechat), true);
+  assert.equal(product?.paymentMethods.includes(PaymentMethod.alipay), true);
+  assert.equal(product?.paymentMethods.includes(PaymentMethod.other), true);
   assert.equal(product?.projectQuotaDelta, 3);
   assert.equal(product?.aiMessageQuotaDelta, 10000);
+});
+
+test("admin order packages exclude quota-only products", () => {
+  assert.equal(adminOrderProducts.some((product) => product.sku === "starter-monthly"), true);
+  assert.equal(adminOrderProducts.some((product) => product.sku === "pro-monthly"), true);
+  assert.equal(adminOrderProducts.some((product) => product.sku === "fan-code-pack-500"), false);
 });
 
 test("checkout request mode rejects manual-only commercial flow", () => {
@@ -62,6 +71,8 @@ test("checkout URL template requires HTTPS and order interpolation", () => {
 
 test("checkout SKU is recovered only from supported checkout order notes", () => {
   assert.equal(checkoutSkuFromOrderNotes("Checkout request: pro-monthly"), "pro-monthly");
+  assert.equal(checkoutSkuFromOrderNotes("Creator package request: starter-monthly"), "starter-monthly");
+  assert.equal(checkoutSkuFromOrderNotes("Admin package order: pro-monthly"), undefined);
   assert.equal(checkoutSkuFromOrderNotes("Checkout request: unknown"), undefined);
   assert.equal(checkoutSkuFromOrderNotes("Manual order from support"), undefined);
 });

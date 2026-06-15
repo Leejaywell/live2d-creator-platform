@@ -52,8 +52,6 @@ export function quotaResourceLabel(resource: QuotaResource | string) {
       return "AI messages";
     case "fan_codes":
       return "Fan codes";
-    case "storage_mb":
-      return "Storage MB";
     case "projects":
       return "Projects";
     default:
@@ -99,7 +97,6 @@ export function manualOrderQuotaImpactLabel(input: {
   const parts = [
     input.projectQuotaDelta ? `${signedAmount(input.projectQuotaDelta)} projects` : "",
     input.aiMessageQuotaDelta ? `${signedAmount(input.aiMessageQuotaDelta)} AI messages` : "",
-    input.storageQuotaDeltaMb ? `${signedAmount(input.storageQuotaDeltaMb)} storage MB` : "",
     input.fanCodeQuotaDelta ? `${signedAmount(input.fanCodeQuotaDelta)} fan codes` : "",
   ].filter(Boolean);
 

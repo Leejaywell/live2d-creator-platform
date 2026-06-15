@@ -6,7 +6,6 @@ import { Client } from "pg";
 import { assertCheckoutUrlTemplate } from "@/lib/checkout-products";
 import { checkRedisRateLimitConnection, rateLimitReadiness } from "@/lib/rate-limit";
 import { securityHeaderReadiness } from "@/lib/security-headers";
-import { verifySmtpConnection } from "@/lib/smtp";
 import { deleteObject, getObjectBytes, putObject, signedGetUrl } from "@/lib/storage";
 
 export type ReadinessMode = "basic" | "full";
@@ -35,11 +34,6 @@ const requiredEnv = [
   "DATABASE_URL",
   "AUTH_SECRET",
   "AUTH_URL",
-  "EMAIL_SERVER_HOST",
-  "EMAIL_SERVER_PORT",
-  "EMAIL_SERVER_USER",
-  "EMAIL_SERVER_PASSWORD",
-  "EMAIL_FROM",
   "FAN_CODE_HASH_SECRET",
   "PAYMENT_WEBHOOK_SECRET",
   "OPENAI_COMPATIBLE_BASE_URL",
@@ -72,7 +66,6 @@ export async function runReadinessChecks(input: {
   if (mode === "full") {
     checks.push(await wrapCheck("rate_limit_connection", checkRedisRateLimitConnection));
     checks.push(await wrapCheck("object_storage_roundtrip", checkObjectStorageRoundTrip));
-    checks.push(await wrapCheck("smtp_connection", checkSmtpConnection));
     checks.push(await wrapCheck("ai_completion", checkAiCompletion));
   }
 
@@ -161,10 +154,6 @@ async function checkObjectStorageRoundTrip() {
   } finally {
     await deleteObject(key);
   }
-}
-
-async function checkSmtpConnection() {
-  await verifySmtpConnection();
 }
 
 async function checkAiCompletion() {

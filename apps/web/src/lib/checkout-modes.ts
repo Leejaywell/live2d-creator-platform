@@ -18,20 +18,18 @@ export function resolveManualOrderType(input: { orderType?: OrderType | string; 
 }
 
 export function assertManualOrderAllowedForCheckout(
-  mode: CheckoutMode,
+  _mode: CheckoutMode,
   input: { orderType?: OrderType | string; planName?: string | null },
 ) {
   const orderType = resolveManualOrderType(input);
-  if (mode === "manual-only" || orderType === OrderType.quota_adjustment) {
-    return;
+  if (orderType === OrderType.quota_adjustment) {
+    throw new Error("Manual quota adjustment orders are disabled; use quota grants instead");
   }
-
-  throw new Error("Manual plan and fan-code orders are disabled while checkout provider mode is active");
 }
 
 export function manualOrderCheckoutHint(mode: CheckoutMode) {
   if (mode === "manual-only") {
-    return "Manual orders are the commercial source of truth.";
+    return "订单只使用预设套餐; 额外加量请使用赠送配额。";
   }
-  return "Provider checkout is the commercial source of truth; use manual orders only for quota adjustments.";
+  return "支付服务商模式下,后台订单仍只使用预设套餐; 额外加量请使用赠送配额。";
 }

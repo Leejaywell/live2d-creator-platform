@@ -58,11 +58,6 @@ jobs:
       DATABASE_URL: postgresql://live2d:live2d@localhost:5432/live2d_creator_platform?schema=public
       AUTH_SECRET: ci-auth-secret-32-bytes-minimum-value
       AUTH_URL: http://localhost:3000
-      EMAIL_SERVER_HOST: localhost
-      EMAIL_SERVER_PORT: "1025"
-      EMAIL_SERVER_USER: ci
-      EMAIL_SERVER_PASSWORD: ci
-      EMAIL_FROM: Live2D CI <no-reply@example.test>
       FAN_CODE_HASH_SECRET: ci-fan-secret-32-bytes-minimum-value
       PAYMENT_WEBHOOK_SECRET: ci-payment-webhook-secret-32-bytes
       OPENAI_COMPATIBLE_BASE_URL: http://localhost:4010/v1
@@ -159,7 +154,8 @@ jobs:
       QA_PROJECT_SLUG: ${{ inputs.qa_project_slug }}
       QA_FAN_CODE: ${{ secrets.QA_FAN_CODE }}
       QA_CHAT_MESSAGE: ${{ vars.QA_CHAT_MESSAGE }}
-      QA_CREATOR_EMAIL: ${{ vars.QA_CREATOR_EMAIL }}
+      QA_CREATOR_USERNAME: ${{ vars.QA_CREATOR_USERNAME }}
+      QA_CREATOR_PASSWORD: ${{ secrets.QA_CREATOR_PASSWORD }}
       QA_PROJECT_NAME: ${{ vars.QA_PROJECT_NAME }}
       QA_MODEL_ZIP_PATH: ${{ vars.QA_MODEL_ZIP_PATH }}
       QA_MODEL_ZIP_URL: ${{ secrets.QA_MODEL_ZIP_URL }}
@@ -202,13 +198,6 @@ jobs:
       DEPLOY_BASE_URL: ${{ inputs.deploy_base_url }}
       AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       AUTH_URL: ${{ inputs.deploy_base_url }}
-      EMAIL_SERVER_HOST: ${{ vars.EMAIL_SERVER_HOST }}
-      EMAIL_SERVER_PORT: ${{ vars.EMAIL_SERVER_PORT }}
-      EMAIL_SERVER_SECURE: ${{ vars.EMAIL_SERVER_SECURE }}
-      EMAIL_SERVER_STARTTLS: ${{ vars.EMAIL_SERVER_STARTTLS }}
-      EMAIL_SERVER_USER: ${{ secrets.EMAIL_SERVER_USER }}
-      EMAIL_SERVER_PASSWORD: ${{ secrets.EMAIL_SERVER_PASSWORD }}
-      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
       FAN_CODE_HASH_SECRET: ${{ secrets.FAN_CODE_HASH_SECRET }}
       PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
       OPENAI_COMPATIBLE_BASE_URL: ${{ vars.OPENAI_COMPATIBLE_BASE_URL }}
@@ -242,7 +231,8 @@ jobs:
       QA_PROJECT_SLUG: ${{ inputs.qa_project_slug }}
       QA_FAN_CODE: ${{ secrets.QA_FAN_CODE }}
       QA_CHAT_MESSAGE: ${{ vars.QA_CHAT_MESSAGE }}
-      QA_CREATOR_EMAIL: ${{ vars.QA_CREATOR_EMAIL }}
+      QA_CREATOR_USERNAME: ${{ vars.QA_CREATOR_USERNAME }}
+      QA_CREATOR_PASSWORD: ${{ secrets.QA_CREATOR_PASSWORD }}
       QA_PROJECT_NAME: ${{ vars.QA_PROJECT_NAME }}
       QA_MODEL_ZIP_PATH: ${{ vars.QA_MODEL_ZIP_PATH }}
       QA_EXPECT_LIVE2D: ${{ inputs.qa_expect_live2d }}

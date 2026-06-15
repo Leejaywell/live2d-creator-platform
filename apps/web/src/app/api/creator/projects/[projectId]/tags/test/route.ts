@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { callAiProxy } from "@/lib/ai-proxy";
-import { buildTriggeredLive2DEffects, buildTriggeredVoiceAssetReferences } from "@/lib/chat-effects";
+import { buildTriggeredLive2DEffects } from "@/lib/chat-effects";
 import { requireSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { jsonError, parseBody } from "@/lib/request";
@@ -25,11 +25,6 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
       include: {
         triggerTags: {
           where: { enabled: true },
-          include: {
-            voiceAssets: {
-              where: { status: "active" },
-            },
-          },
           orderBy: { priority: "desc" },
         },
       },
@@ -47,11 +42,6 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
       userMessage: body.message,
     });
 
-    const voiceAssets = buildTriggeredVoiceAssetReferences({
-      tags: ai.tags,
-      triggerTags: project.triggerTags,
-    }).map(({ id, name, tag }) => ({ id, name, tag }));
-
     return NextResponse.json({
       reply: ai.reply,
       tags: ai.tags,
@@ -60,7 +50,6 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
         tags: ai.tags,
         triggerTags: project.triggerTags,
       }),
-      voiceAssets,
     });
   } catch (error) {
     return jsonError(error, "Trigger tag test failed");

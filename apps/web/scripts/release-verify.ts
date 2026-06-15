@@ -62,13 +62,12 @@ const checks: CheckDefinition[] = [
     command: [
       "sh",
       "-c",
-      "NODE_ENV=production DATABASE_URL=postgresql://unused:unused@localhost:5432/unused tsx prisma/seed.ts >/tmp/live2d-seed-prod.out 2>/tmp/live2d-seed-prod.err; status=$?; test \"$status\" -ne 0 && grep -q 'SEED_SUPER_ADMIN_EMAIL and SEED_CREATOR_EMAIL are required' /tmp/live2d-seed-prod.err",
+      "NODE_ENV=production DATABASE_URL=postgresql://unused:unused@localhost:5432/unused tsx prisma/seed.ts >/tmp/live2d-seed-prod.out 2>/tmp/live2d-seed-prod.err; status=$?; test \"$status\" -ne 0 && grep -q 'SEED_SUPER_ADMIN_USERNAME' /tmp/live2d-seed-prod.err",
     ],
     required: true,
   },
   { name: "final_release_audit_entrypoint", command: ["tsx", "scripts/final-release-audit.ts", "--help"], required: true },
   { name: "fake_s3_syntax", command: ["node", "--check", "scripts/fake-s3-server.mjs"], required: true },
-  { name: "fake_smtp_syntax", command: ["node", "--check", "scripts/fake-smtp-mailpit-server.mjs"], required: true },
   { name: "standalone_start_syntax", command: ["node", "--check", "scripts/start-standalone.mjs"], required: true },
   { name: "standalone_sanitize_syntax", command: ["node", "--check", "scripts/sanitize-standalone-output.mjs"], required: true },
 ];

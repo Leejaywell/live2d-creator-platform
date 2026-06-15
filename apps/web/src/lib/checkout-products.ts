@@ -18,35 +18,37 @@ export type CheckoutProduct = {
   fanCodeQuotaDelta: number;
 };
 
+export const manualPaymentMethods = [PaymentMethod.wechat, PaymentMethod.alipay, PaymentMethod.other] as const;
+
 export const checkoutProducts: readonly CheckoutProduct[] = [
   {
     sku: "starter-monthly",
     label: "Starter Monthly",
-    description: "1 project, 1,000 AI messages, 500 MB storage, and 100 fan codes.",
+    description: "1 project, 1,000 AI messages, and 100 fan codes.",
     amount: "99.00",
     currency: "CNY",
     orderType: OrderType.plan,
-    paymentMethods: [PaymentMethod.wechat, PaymentMethod.alipay],
+    paymentMethods: [...manualPaymentMethods],
     planName: "Starter",
     periodDays: 30,
     projectQuotaDelta: 1,
     aiMessageQuotaDelta: 1000,
-    storageQuotaDeltaMb: 500,
+    storageQuotaDeltaMb: 0,
     fanCodeQuotaDelta: 100,
   },
   {
     sku: "pro-monthly",
     label: "Pro Monthly",
-    description: "3 projects, 10,000 AI messages, 2 GB storage, and 1,000 fan codes.",
+    description: "3 projects, 10,000 AI messages, and 1,000 fan codes.",
     amount: "399.00",
     currency: "CNY",
     orderType: OrderType.plan,
-    paymentMethods: [PaymentMethod.wechat, PaymentMethod.alipay],
+    paymentMethods: [...manualPaymentMethods],
     planName: "Pro",
     periodDays: 30,
     projectQuotaDelta: 3,
     aiMessageQuotaDelta: 10000,
-    storageQuotaDeltaMb: 2048,
+    storageQuotaDeltaMb: 0,
     fanCodeQuotaDelta: 1000,
   },
   {
@@ -56,7 +58,7 @@ export const checkoutProducts: readonly CheckoutProduct[] = [
     amount: "59.00",
     currency: "CNY",
     orderType: OrderType.fan_code_pack,
-    paymentMethods: [PaymentMethod.wechat, PaymentMethod.alipay],
+    paymentMethods: [...manualPaymentMethods],
     projectQuotaDelta: 0,
     aiMessageQuotaDelta: 0,
     storageQuotaDeltaMb: 0,
@@ -64,12 +66,31 @@ export const checkoutProducts: readonly CheckoutProduct[] = [
   },
 ];
 
+export const adminOrderProducts = checkoutProducts.filter((product) => product.orderType === OrderType.plan);
+
 export function checkoutProductForSku(sku: string) {
   return checkoutProducts.find((product) => product.sku === sku);
 }
 
+export function adminOrderProductForSku(sku: string) {
+  return adminOrderProducts.find((product) => product.sku === sku);
+}
+
+export function paymentMethodLabel(method: string) {
+  switch (method) {
+    case "wechat":
+      return "微信";
+    case "alipay":
+      return "支付宝";
+    case "bank_transfer":
+      return "银行转账";
+    default:
+      return "其他";
+  }
+}
+
 export function checkoutSkuFromOrderNotes(notes?: string | null) {
-  const match = notes?.match(/^Checkout request: ([a-z0-9-]+)$/);
+  const match = notes?.match(/^(?:Checkout request|Creator package request): ([a-z0-9-]+)$/);
   return match && checkoutProductForSku(match[1]) ? match[1] : undefined;
 }
 

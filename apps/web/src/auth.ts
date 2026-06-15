@@ -1,20 +1,19 @@
 import crypto from "node:crypto";
 
-import type { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+import { normalizeUsername } from "@/lib/account-identity";
+import { verifyPassword } from "@/lib/password-auth";
 import { prisma } from "@/lib/prisma";
-import { sendMail } from "@/lib/smtp";
 
 const sessionCookieName = "live2d_session";
-const magicLinkMaxAgeMs = 15 * 60 * 1000;
 const sessionMaxAgeMs = Number(process.env.AUTH_SESSION_MAX_AGE_DAYS || 30) * 24 * 60 * 60 * 1000;
 
 export type AuthSession = {
   user: {
     id: string;
-    email: string;
+    username: string | null;
     role: "super_admin" | "ops_admin" | "support_admin" | "creator";
     status: "active" | "suspended";
   };
@@ -40,119 +39,35 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
   return {
     user: {
       id: session.user.id,
-      email: session.user.email,
+      username: session.user.username,
       role: session.user.role,
       status: session.user.status,
     },
   };
 }
 
-export async function requestMagicLink(email: string, origin: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-    throw new Error("Enter a valid email address");
-  }
+export async function signInWithPassword(username: string, password: string, response: NextResponse) {
+  const normalizedUsername = normalizeUsername(username);
 
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (!user || user.status !== "active") {
-    return;
-  }
-
-  const token = randomToken();
-  await prisma.verificationToken.create({
-    data: {
-      identifier: normalizedEmail,
-      token: hashToken(token),
-      expires: new Date(Date.now() + magicLinkMaxAgeMs),
-    },
-  });
-
-  const url = new URL("/api/auth/callback", process.env.AUTH_URL || origin);
-  url.searchParams.set("email", normalizedEmail);
-  url.searchParams.set("token", token);
-
-  await sendMail({
-    to: normalizedEmail,
-    subject: "Sign in to Live2D Creator Platform",
-    text: `Use this link to sign in:\n\n${url.toString()}\n\nThis link expires in 15 minutes.`,
-    html: `<p>Use this link to sign in:</p><p><a href="${escapeHtml(url.toString())}">Sign in</a></p><p>This link expires in 15 minutes.</p>`,
-  });
-}
-
-export async function consumeMagicLink(email: string, token: string, response: NextResponse) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const hashedToken = hashToken(token);
-  const verificationToken = await prisma.verificationToken.findUnique({
-    where: { token: hashedToken },
-  });
-
-  if (!verificationToken || verificationToken.identifier !== normalizedEmail || verificationToken.expires <= new Date()) {
-    if (verificationToken) {
-      await prisma.verificationToken.delete({ where: { token: hashedToken } }).catch(() => undefined);
-    }
-    throw new Error("Invalid or expired sign-in link");
-  }
-
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (!user || user.status !== "active") {
-    throw new Error("Account is not active");
-  }
-
-  await prisma.verificationToken.delete({ where: { token: hashedToken } });
-  return createSessionForUser(user.id, response, { markEmailVerified: true });
-}
-
-export async function signInWithWechatOpenId(openId: string, response: NextResponse) {
-  const normalizedOpenId = openId.trim();
-  if (!normalizedOpenId) {
-    throw new Error("WeChat OpenID is required");
-  }
-
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { wechatOpenId: normalizedOpenId },
-        {
-          accounts: {
-            some: {
-              provider: "wechat",
-              providerAccountId: normalizedOpenId,
-            },
-          },
-        },
-      ],
-    },
-  });
-
-  if (!user || user.status !== "active") {
-    throw new Error("No active account is linked to this WeChat identity");
+  const user = await prisma.user.findUnique({ where: { username: normalizedUsername } });
+  if (!user || user.status !== "active" || !(await verifyPassword(password, user.passwordHash))) {
+    throw new Error("Invalid username or password");
   }
 
   return createSessionForUser(user.id, response);
 }
 
-async function createSessionForUser(userId: string, response: NextResponse, options: { markEmailVerified?: boolean } = {}) {
+async function createSessionForUser(userId: string, response: NextResponse) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const sessionToken = randomToken();
   const expires = new Date(Date.now() + sessionMaxAgeMs);
-  const writes: Prisma.PrismaPromise<unknown>[] = [
-    prisma.session.create({
-      data: {
-        sessionToken: hashToken(sessionToken),
-        userId: user.id,
-        expires,
-      },
-    }),
-  ];
-  if (options.markEmailVerified && !user.emailVerified) {
-    writes.push(
-      prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: new Date() },
-      }),
-    );
-  }
-  await prisma.$transaction(writes);
+  await prisma.session.create({
+    data: {
+      sessionToken: hashToken(sessionToken),
+      userId: user.id,
+      expires,
+    },
+  });
 
   response.cookies.set(sessionCookieName, sessionToken, {
     httpOnly: true,
@@ -189,8 +104,4 @@ function randomToken() {
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
-}
-
-function escapeHtml(value: string) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

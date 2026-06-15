@@ -1,4 +1,4 @@
-import { FanCodeStatus, ProjectStatus, UserRole, VoiceStatus } from "@prisma/client";
+import { FanCodeStatus, ProjectStatus, UserRole } from "@prisma/client";
 
 import { projectIdFromStorageKey } from "@/lib/asset-keys";
 import { hasPermission } from "@/lib/permissions";
@@ -67,9 +67,6 @@ export async function authorizeViewerAssetAccess(viewerSessionId: string, key: s
             },
           },
           currentModelAsset: true,
-          voiceAssets: {
-            where: { status: VoiceStatus.active },
-          },
         },
       },
     },
@@ -98,11 +95,9 @@ export async function authorizeViewerAssetAccess(viewerSessionId: string, key: s
   }
 
   const allowedModelPrefix = viewerSession.project.currentModelAsset?.assetBasePath;
-  const allowedVoiceKeys = new Set(viewerSession.project.voiceAssets.map((asset) => parseStorageKey(asset.audioUrl)));
   const canAccessModel = Boolean(allowedModelPrefix && parsedKey.startsWith(`${allowedModelPrefix}/`));
-  const canAccessVoice = allowedVoiceKeys.has(parsedKey);
 
-  if (!canAccessModel && !canAccessVoice) {
+  if (!canAccessModel) {
     throw new Error("Asset is not available for this viewer session");
   }
 

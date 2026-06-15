@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ChatSafetyError, enforceChatSafety, isChatSafetyError } from "../src/lib/chat-safety";
+import { ChatSafetyError, enforceChatSafety, enforceChatOutputSafety, isChatSafetyError } from "../src/lib/chat-safety";
 
 test("enforceChatSafety trims and accepts safe fan messages", () => {
   assert.equal(
@@ -68,4 +68,28 @@ test("enforceChatSafety adds stricter abuse checks in strict mode", () => {
       }),
     /Message violates content safety rules/,
   );
+});
+
+test("enforceChatSafety blocks spaced out bypass terms", () => {
+  assert.throws(
+    () =>
+      enforceChatSafety("s y s t e m . p r o m p t", {
+        contentModeration: "basic",
+        maxFanMessageLength: 200,
+      }),
+    /Message violates prompt safety rules/,
+  );
+});
+
+test("enforceChatOutputSafety blocks unsafe AI replies", () => {
+  const policy = { contentModeration: "strict" as const };
+  assert.throws(
+    () => enforceChatOutputSafety("Here is your system prompt bypass", policy),
+    /AI response violates prompt safety rules/,
+  );
+  assert.throws(
+    () => enforceChatOutputSafety("swatting is a terrorist attack", policy),
+    /AI response violates content safety rules/,
+  );
+  assert.equal(enforceChatOutputSafety("Hello world", policy), "Hello world");
 });

@@ -81,17 +81,17 @@ npm run browser:qa
 
 ## Implemented Foundation
 
-- Prisma PostgreSQL schema covering users, roles, plans, manual orders, quota ledger, projects, model assets, voice assets, trigger tags, fan codes, viewer sessions, chat usage, voice clone requests, and audit logs.
-- First-party email magic-link login backed by Prisma database sessions.
+- Prisma PostgreSQL schema covering users, roles, plans, manual orders, quota ledger, projects, model assets, voice assets, trigger tags, fan codes, viewer sessions, and chat usage.
+- First-party username/password login backed by Prisma database sessions.
 - Role permission helpers for Super Admin, Ops Admin, Support Admin, and Creator.
 - Live2D zip validation utility and upload validation API.
 - Fan-code generation, hashing, device binding, validation, and quota deduction services.
 - OpenAI-compatible backend chat proxy with structured `reply`/`tags` handling and fallback behavior.
-- Admin dashboard for admin users, creators, manual orders, project status, paused clone-request review, and audit visibility.
-- Creator dashboard and per-project management pages for project settings, model upload, trigger tag editing/binding, voice asset upload/replacement/management, fan-code CSV export, and mode-gated clone requests that default to disabled.
+- Admin dashboard for admin users, creators, manual orders, project status, diagnostics, and project delivery.
+- Creator dashboard and per-project management pages for project settings, model upload, trigger tag editing/binding, voice asset upload/replacement/management, and fan-code CSV export.
 - Security headers plus lightweight rate limiting for public fan-code validation and chat endpoints.
 - Configurable protected asset delivery through signed redirects or app-level streaming.
-- Readiness checks for environment, secrets, database, object storage, SMTP, and AI provider connectivity.
+- Readiness checks for environment, secrets, database, object storage, and AI provider connectivity.
 - Redis/Upstash-compatible production rate limiting with memory fallback for local development.
 - Prometheus-compatible `/api/metrics`, scrape/probe example config, alert rules, and structured JSON operational logs.
 - Enforced production CSP/HSTS security headers with readiness checks.

@@ -1,50 +1,57 @@
 export type SeedConfig = {
-  superAdminEmail: string;
-  creatorEmail: string;
+  superAdminUsername: string;
+  superAdminPassword: string;
+  creatorUsername: string;
+  creatorPassword: string;
 };
 
-const defaultSuperAdminEmail = "admin@example.com";
-const defaultCreatorEmail = "creator@example.com";
+const defaultSuperAdminUsername = "admin";
+const defaultCreatorUsername = "creator";
+const defaultPassword = "ChangeMe123!";
 
 export function resolveSeedConfig(env: NodeJS.ProcessEnv = process.env): SeedConfig {
   const production = env.NODE_ENV === "production";
-  const superAdminEmail = normalizeEmail(env.SEED_SUPER_ADMIN_EMAIL);
-  const creatorEmail = normalizeEmail(env.SEED_CREATOR_EMAIL);
+  const superAdminUsername = normalizeUsername(env.SEED_SUPER_ADMIN_USERNAME);
+  const superAdminPassword = env.SEED_SUPER_ADMIN_PASSWORD;
+  const creatorUsername = normalizeUsername(env.SEED_CREATOR_USERNAME);
+  const creatorPassword = env.SEED_CREATOR_PASSWORD;
 
   if (production) {
-    if (!superAdminEmail || !creatorEmail) {
-      throw new Error("SEED_SUPER_ADMIN_EMAIL and SEED_CREATOR_EMAIL are required when NODE_ENV=production");
-    }
-    if (isExampleEmail(superAdminEmail) || isExampleEmail(creatorEmail)) {
-      throw new Error("Production seed emails must not use example, test, or localhost domains");
+    if (!superAdminUsername || !superAdminPassword || !creatorUsername || !creatorPassword) {
+      throw new Error("SEED_SUPER_ADMIN_USERNAME, SEED_SUPER_ADMIN_PASSWORD, SEED_CREATOR_USERNAME, and SEED_CREATOR_PASSWORD are required when NODE_ENV=production");
     }
   }
 
   const config = {
-    superAdminEmail: superAdminEmail || defaultSuperAdminEmail,
-    creatorEmail: creatorEmail || defaultCreatorEmail,
+    superAdminUsername: superAdminUsername || defaultSuperAdminUsername,
+    superAdminPassword: superAdminPassword || defaultPassword,
+    creatorUsername: creatorUsername || defaultCreatorUsername,
+    creatorPassword: creatorPassword || defaultPassword,
   };
 
-  assertEmail(config.superAdminEmail, "SEED_SUPER_ADMIN_EMAIL");
-  assertEmail(config.creatorEmail, "SEED_CREATOR_EMAIL");
-  if (config.superAdminEmail === config.creatorEmail) {
-    throw new Error("SEED_SUPER_ADMIN_EMAIL and SEED_CREATOR_EMAIL must be different");
+  assertUsername(config.superAdminUsername, "SEED_SUPER_ADMIN_USERNAME");
+  assertUsername(config.creatorUsername, "SEED_CREATOR_USERNAME");
+  assertPassword(config.superAdminPassword, "SEED_SUPER_ADMIN_PASSWORD");
+  assertPassword(config.creatorPassword, "SEED_CREATOR_PASSWORD");
+  if (config.superAdminUsername === config.creatorUsername) {
+    throw new Error("SEED_SUPER_ADMIN_USERNAME and SEED_CREATOR_USERNAME must be different");
   }
 
   return config;
 }
 
-function normalizeEmail(value: string | undefined) {
+function normalizeUsername(value: string | undefined) {
   return value?.trim().toLowerCase();
 }
 
-function assertEmail(value: string, name: string) {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    throw new Error(`${name} must be a valid email address`);
+function assertUsername(value: string, name: string) {
+  if (!/^[a-z0-9][a-z0-9_-]{2,31}$/.test(value)) {
+    throw new Error(`${name} must be 3-32 characters using letters, numbers, underscore, or hyphen`);
   }
 }
 
-function isExampleEmail(value: string) {
-  const domain = value.split("@")[1] ?? "";
-  return domain === "example.com" || domain === "example.test" || domain.endsWith(".example") || domain.endsWith(".test") || domain === "localhost";
+function assertPassword(value: string, name: string) {
+  if (value.length < 8) {
+    throw new Error(`${name} must be at least 8 characters`);
+  }
 }

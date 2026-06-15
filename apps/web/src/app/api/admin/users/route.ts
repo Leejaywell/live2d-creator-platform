@@ -6,7 +6,8 @@ import { requirePermission } from "@/lib/authz";
 import { jsonError, parseBody } from "@/lib/request";
 
 const adminUserSchema = z.object({
-  email: z.string().trim().email(),
+  username: z.string().trim().min(1),
+  password: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(8).optional()),
   role: z.enum(["super_admin", "ops_admin", "support_admin"]),
   status: z.enum(["active", "suspended"]).default("active"),
 });
@@ -17,7 +18,8 @@ export async function POST(request: NextRequest) {
     const body = await parseBody(request, adminUserSchema);
     const user = await upsertAdminUser({
       admin: { id: session.user.id, role: session.user.role },
-      email: body.email,
+      username: body.username,
+      password: body.password,
       role: body.role,
       status: body.status,
     });

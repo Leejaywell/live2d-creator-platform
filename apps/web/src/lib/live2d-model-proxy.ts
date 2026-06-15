@@ -15,7 +15,7 @@ export type Model3Json = {
     Pose?: string;
     DisplayInfo?: string;
     Expressions?: Array<{ File?: string }>;
-    Motions?: Record<string, Array<{ File?: string }>>;
+    Motions?: Record<string, Array<{ File?: string; Sound?: string }>>;
   };
 };
 
@@ -66,6 +66,7 @@ export function rewriteModelReferences(input: {
       motions.map((motion) => ({
         ...motion,
         File: rewrite(motion.File),
+        Sound: rewrite(motion.Sound),
       })),
     ]),
   );

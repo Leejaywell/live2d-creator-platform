@@ -21,13 +21,6 @@ const requiredProductionEnv = [
   "DEPLOY_BASE_URL",
   "AUTH_SECRET",
   "AUTH_URL",
-  "EMAIL_SERVER_HOST",
-  "EMAIL_SERVER_PORT",
-  "EMAIL_SERVER_SECURE",
-  "EMAIL_SERVER_STARTTLS",
-  "EMAIL_SERVER_USER",
-  "EMAIL_SERVER_PASSWORD",
-  "EMAIL_FROM",
   "FAN_CODE_HASH_SECRET",
   "PAYMENT_WEBHOOK_SECRET",
   "OPENAI_COMPATIBLE_BASE_URL",
@@ -59,7 +52,6 @@ const strongSecretEnv = [
 ];
 
 const credentialEnv = [
-  { name: "EMAIL_SERVER_PASSWORD", minLength: 8 },
   { name: "OPENAI_COMPATIBLE_API_KEY", minLength: 8 },
   { name: "OBJECT_STORAGE_ACCESS_KEY_ID", minLength: 16 },
   { name: "OBJECT_STORAGE_SECRET_ACCESS_KEY", minLength: 16 },
@@ -73,15 +65,12 @@ export function validateProductionEnv(env: ProductionEnv, envFile?: string): Pro
   checks.push(checkPlaceholders(env));
   checks.push(checkStrongSecrets(env));
   checks.push(checkUrls(env));
-  checks.push(checkNumericEnv(env, "EMAIL_SERVER_PORT", 1, 65535));
   checks.push(checkNumericEnv(env, "MAX_LIVE2D_ZIP_BYTES", 1024 * 1024, 1024 * 1024 * 500));
   checks.push(checkNumericEnv(env, "ASSET_SIGNED_URL_TTL_SECONDS", 60, 3600));
   checks.push(checkEnum(env, "ASSET_PROXY_MODE", ["redirect", "stream"]));
   checks.push(checkEnum(env, "RATE_LIMIT_BACKEND", ["redis"]));
   checks.push(checkEnum(env, "CSP_REPORT_ONLY", ["false", ""]));
   checks.push(checkEnum(env, "ENABLE_HSTS", ["true", ""]));
-  checks.push(checkEnum(env, "EMAIL_SERVER_SECURE", ["true", "false"]));
-  checks.push(checkSmtpTransportSecurity(env));
   checks.push(checkSecurityHeaders(env));
 
   return {
@@ -154,18 +143,6 @@ function checkEnum(env: ProductionEnv, name: string, allowed: string[]): Product
   return allowed.includes(value)
     ? { name: `${name.toLowerCase()}_value`, ok: true }
     : { name: `${name.toLowerCase()}_value`, ok: false, detail: `${name} must be one of: ${allowed.map((item) => item || "(empty)").join(", ")}` };
-}
-
-function checkSmtpTransportSecurity(env: ProductionEnv): ProductionEnvCheck {
-  if (env.EMAIL_SERVER_SECURE === "true" || env.EMAIL_SERVER_STARTTLS === "true") {
-    return { name: "email_transport_security", ok: true };
-  }
-
-  return {
-    name: "email_transport_security",
-    ok: false,
-    detail: "EMAIL_SERVER_STARTTLS must be true unless EMAIL_SERVER_SECURE is true for implicit TLS",
-  };
 }
 
 function checkSecurityHeaders(env: ProductionEnv): ProductionEnvCheck {

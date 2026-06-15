@@ -8,10 +8,8 @@ import { ProjectManagementForms } from "@/components/project-management-forms";
 import { WorkspaceShell, type WorkspaceStep } from "@/components/workspace-shell";
 import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { resolveModelAssistanceRequests } from "@/lib/model-assistance-requests";
-import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { projectPublishReadiness } from "@/lib/project-readiness";
 import { prisma } from "@/lib/prisma";
-import { voiceCloneFulfillmentLabel } from "@/lib/voice-clone-status";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +32,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
   }
 
   const { projectId } = await params;
-  const [project, modelAssistanceLogs, adminModelFulfillments, platformSettings] = await Promise.all([
+  const [project, modelAssistanceLogs, adminModelFulfillments] = await Promise.all([
     prisma.project.findFirst({
       where: {
         id: projectId,
@@ -42,27 +40,11 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
       },
       include: {
         triggerTags: {
-          include: {
-            voiceAssets: {
-              select: { id: true },
-            },
-          },
           orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        },
-        voiceAssets: {
-          orderBy: { createdAt: "desc" },
         },
         fanAccessCodes: {
           orderBy: { createdAt: "desc" },
           take: 20,
-        },
-        voiceCloneRequests: {
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        },
-        modelAssets: {
-          orderBy: { version: "desc" },
-          take: 5,
         },
         currentModelAsset: true,
       },
@@ -73,7 +55,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
         targetId: projectId,
         action: "model_setup_assistance.requested",
       },
-      include: { actor: { select: { email: true } } },
+      include: { actor: { select: { username: true } } },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
@@ -92,7 +74,6 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
-    getPlatformRuntimeSettings(),
   ]);
 
   if (!project) {
@@ -118,8 +99,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
     { label: "基本信息", anchor: "ws-basics", done: readiness[0]?.done ?? false },
     { label: "模型", anchor: "ws-model", done: readiness[1]?.done ?? false },
     { label: "标签", anchor: "ws-tags", done: readiness[2]?.done ?? false },
-    { label: "语音", anchor: "ws-voice", done: readiness[3]?.done ?? false },
-    { label: "发码", anchor: "ws-codes", done: readiness[4]?.done ?? false },
+    { label: "发码", anchor: "ws-codes", done: readiness[3]?.done ?? false },
   ];
 
   return (
@@ -135,6 +115,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
         </div>
         <nav className={styles.nav}>
           <Link href="/creator">工作台</Link>
+          <Link href={`/creator/projects/${project.id}/preview`}>调试预览</Link>
           <Link href={`/c/${project.slug}`}>观众页</Link>
           <Link href="/api/auth/signout">退出登录</Link>
         </nav>
@@ -144,17 +125,12 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
         <div className={`${styles.panel} ${styles.metric}`}>
           <span>当前模型</span>
           <strong>{project.currentModelAsset?.validationStatus ?? "无"}</strong>
-          <p className={styles.muted}>{project.currentModelAsset ? `版本 ${project.currentModelAsset.version}` : "还没有可用的模型版本。"}</p>
+          <p className={styles.muted}>{project.currentModelAsset ? "重新上传会覆盖当前模型。" : "还没有可用的模型。"}</p>
         </div>
         <div className={`${styles.panel} ${styles.metric}`}>
           <span>粉丝码</span>
           <strong>{project.fanAccessCodes.length}</strong>
           <p className={styles.muted}>本页展示最近的访问码。</p>
-        </div>
-        <div className={`${styles.panel} ${styles.metric}`}>
-          <span>声音克隆请求</span>
-          <strong>{project.voiceCloneRequests.length}</strong>
-          <p className={styles.muted}>当前模式:{voiceCloneFulfillmentLabel(platformSettings.voiceCloningFulfillment)}。</p>
         </div>
         <div className={`${styles.panel} ${styles.metric}`}>
           <span>发布就绪度</span>
@@ -208,7 +184,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
       </section>
 
       <WorkspaceShell modelPreviewUrl={modelPreviewUrl} steps={workspaceSteps}>
-        <ProjectManagementForms project={{ ...project, modelAssistanceRequests }} voiceCloneFulfillment={platformSettings.voiceCloningFulfillment} />
+        <ProjectManagementForms project={{ ...project, modelAssistanceRequests }} />
       </WorkspaceShell>
     </main>
   );

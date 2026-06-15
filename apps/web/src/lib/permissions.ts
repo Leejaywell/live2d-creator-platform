@@ -9,9 +9,7 @@ export type Permission =
   | "projects.pause"
   | "assets.assist"
   | "fan_codes.manage"
-  | "clone_requests.review"
   | "support.notes"
-  | "audit.view"
   | "provider_secrets.manage";
 
 const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
@@ -24,9 +22,7 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     "projects.pause",
     "assets.assist",
     "fan_codes.manage",
-    "clone_requests.review",
     "support.notes",
-    "audit.view",
     "provider_secrets.manage",
   ]),
   ops_admin: new Set([
@@ -37,11 +33,9 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     "projects.pause",
     "assets.assist",
     "fan_codes.manage",
-    "clone_requests.review",
     "support.notes",
-    "audit.view",
   ]),
-  support_admin: new Set(["support.notes", "audit.view"]),
+  support_admin: new Set(["support.notes"]),
   creator: new Set([]),
 };
 

@@ -31,7 +31,7 @@ test("parsePaymentWebhookPayload accepts confirmed payment events", () => {
   assert.deepEqual(
     parsePaymentWebhookPayload(
       JSON.stringify({
-        provider: "wechat",
+        provider: "alipay",
         eventId: "evt_1",
         orderId: "order_1",
         paymentStatus: "confirmed",
@@ -40,7 +40,7 @@ test("parsePaymentWebhookPayload accepts confirmed payment events", () => {
       }),
     ),
     {
-      provider: "wechat",
+      provider: "alipay",
       eventId: "evt_1",
       orderId: "order_1",
       paymentStatus: "confirmed",
@@ -56,7 +56,7 @@ test("parsePaymentWebhookPayload rejects incomplete or non-confirmed events", ()
     () =>
       parsePaymentWebhookPayload(
         JSON.stringify({
-          provider: "wechat",
+          provider: "alipay",
           orderId: "order_1",
           paymentStatus: "pending",
           amount: "399.00",
@@ -69,7 +69,7 @@ test("parsePaymentWebhookPayload rejects incomplete or non-confirmed events", ()
 
 test("assertPaymentWebhookMatchesOrder checks amount, currency, and provider for idempotent webhooks", () => {
   const payload = {
-    provider: "wechat",
+    provider: "alipay",
     orderId: "order_1",
     paymentStatus: "confirmed",
     amount: "399.00",
@@ -78,11 +78,11 @@ test("assertPaymentWebhookMatchesOrder checks amount, currency, and provider for
   const order = {
     amount: new Prisma.Decimal("399"),
     currency: "cny",
-    paymentMethod: "wechat",
+    paymentMethod: "alipay",
   };
 
   assert.doesNotThrow(() => assertPaymentWebhookMatchesOrder(payload, order));
   assert.throws(() => assertPaymentWebhookMatchesOrder({ ...payload, amount: "398.99" }, order), /amount/);
   assert.throws(() => assertPaymentWebhookMatchesOrder({ ...payload, currency: "USD" }, order), /currency/);
-  assert.throws(() => assertPaymentWebhookMatchesOrder({ ...payload, provider: "alipay" }, order), /provider/);
+  assert.throws(() => assertPaymentWebhookMatchesOrder({ ...payload, provider: "other" }, order), /provider/);
 });

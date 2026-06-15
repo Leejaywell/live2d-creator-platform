@@ -42,20 +42,20 @@ type Live2DModel = {
   };
   focus?: (x: number, y: number) => void;
   motion?: (group: string, index?: number, priority?: number) => unknown;
+  expression?: (name: string | number) => void;
   internalModel?: {
     width?: number;
     height?: number;
     coreModel?: Live2DCoreModel;
     settings?: {
       motions?: Record<string, Array<{ File?: string }>>;
+      expressions?: Array<{ Name?: string; File?: string }>;
     };
     on?: (event: string, handler: () => void) => void;
   };
   width?: number;
   height?: number;
 };
-
-type TapVoice = { id: string; name: string; url: string; tags: string[] };
 
 type Live2DCoreModel = {
   parameters?: {
@@ -69,6 +69,7 @@ type Live2DCoreModel = {
 export type Live2DEffect = {
   tag: string;
   params: Array<{ id: string; value: number }>;
+  expression?: string;
 };
 
 export function Live2DViewer({
@@ -77,12 +78,14 @@ export function Live2DViewer({
   modelJsonUrl,
   activeTags,
   activeEffects,
+  isSpeaking,
 }: {
   projectSlug?: string;
   viewerSessionId?: string;
   modelJsonUrl?: string;
   activeTags: string[];
   activeEffects: Live2DEffect[];
+  isSpeaking?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,21 +94,6 @@ export function Live2DViewer({
   const modelRef = useRef<Live2DModel | null>(null);
   const activeRef = useRef<Record<string, number>>({});
   const effectParamsRef = useRef<Record<string, Array<{ id: string; value: number }>>>({});
-  const tapVoicesRef = useRef<TapVoice[]>([]);
-
-  useEffect(() => {
-    if (!projectSlug || !viewerSessionId) return;
-    let cancelled = false;
-    fetch(`/api/assets/tap-voices?viewerSessionId=${encodeURIComponent(viewerSessionId)}`)
-      .then((response) => (response.ok ? response.json() : { voices: [] }))
-      .then((data) => {
-        if (!cancelled) tapVoicesRef.current = (data.voices ?? []) as TapVoice[];
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [projectSlug, viewerSessionId]);
 
   function handleTap(event: { clientX: number; clientY: number }) {
     const model = modelRef.current;
@@ -114,25 +102,57 @@ export function Live2DViewer({
     const rect = canvas.getBoundingClientRect();
     const relativeY = (event.clientY - rect.top) / Math.max(rect.height, 1);
     playTapMotion(model, relativeY < 0.45 ? "head" : "body");
-    const voices = tapVoicesRef.current;
-    if (voices.length) {
-      const voice = voices[Math.floor(Math.random() * voices.length)];
-      const audio = new Audio(voice.url);
-      audio.play().catch(() => undefined);
+  }
+
+  const isSpeakingRef = useRef(isSpeaking);
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
+
+  function driveMouth(core?: Live2DCoreModel) {
+    if (!core) return;
+    let target = 0;
+    if (isSpeakingRef.current) {
+      const elapsed = performance.now();
+      target = Math.abs(Math.sin(elapsed / 80) * 0.4 + Math.sin(elapsed / 30) * 0.3);
+      if (Math.sin(elapsed / 400) < -0.7) {
+        target = 0;
+      }
     }
+    const current = getParam(core, "ParamMouthOpenY") || 0;
+    const easing = target > current ? 0.86 : 0.62;
+    setParam(core, "ParamMouthOpenY", current + (target - current) * easing);
   }
 
   function applyExpressionState(core?: Live2DCoreModel) {
     if (!core) return;
     const now = performance.now();
     const paramSets = effectParamsRef.current;
+    
+    const targetValues: Record<string, number> = {};
+    
     Object.entries(paramSets).forEach(([name, params]) => {
       const isActive = (activeRef.current[name] ?? 0) > now;
-      params.forEach((param) => {
-        const current = getParam(core, param.id);
-        const target = isActive ? param.value : 0;
-        setParam(core, param.id, current + (target - current) * 0.18);
-      });
+      if (isActive) {
+        params.forEach((param) => {
+          const existing = targetValues[param.id] ?? 0;
+          if (Math.abs(param.value) > Math.abs(existing)) {
+            targetValues[param.id] = param.value;
+          }
+        });
+      }
+    });
+
+    const allControlledParamIds = new Set<string>();
+    Object.values(paramSets).forEach((params) => {
+      params.forEach((p) => allControlledParamIds.add(p.id));
+    });
+
+    allControlledParamIds.forEach((paramId) => {
+      const target = targetValues[paramId] ?? 0;
+      const current = getParam(core, paramId);
+      const next = current + (target - current) * 0.12;
+      setParam(core, paramId, next);
     });
   }
 
@@ -143,13 +163,19 @@ export function Live2DViewer({
     setPhase("loading");
 
     async function boot() {
-      await loadScript("https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js");
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js");
-      await loadScript("https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js");
+      await withTimeout(
+        Promise.all([
+          loadScript("https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"),
+          loadScript("https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js"),
+        ]).then(() => loadScript("https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js")),
+        10000,
+        "Live2D resources loading timed out",
+      );
 
       if (disposed || !window.PIXI?.live2d || !canvasRef.current || !rootRef.current) return;
 
       appRef.current?.destroy(true, { children: true, texture: false, baseTexture: false });
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 920;
       const app = new window.PIXI.Application({
         view: canvasRef.current,
         transparent: true,
@@ -157,7 +183,7 @@ export function Live2DViewer({
         resizeTo: rootRef.current,
         antialias: true,
         autoDensity: true,
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        resolution: isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2),
       });
       appRef.current = app;
 
@@ -167,7 +193,10 @@ export function Live2DViewer({
       app.stage.addChild(model);
       model.anchor?.set(0.5, 1);
       layoutModel();
-      model.internalModel?.on?.("beforeModelUpdate", () => applyExpressionState(model.internalModel?.coreModel));
+      model.internalModel?.on?.("beforeModelUpdate", () => {
+        applyExpressionState(model.internalModel?.coreModel);
+        driveMouth(model.internalModel?.coreModel);
+      });
       window.addEventListener("resize", layoutModel);
       window.addEventListener("pointermove", followPointer);
       setPhase("ready");
@@ -217,6 +246,21 @@ export function Live2DViewer({
     // tags (built from each tag's live2dParams/expression) — no model-specific
     // hardcoding, so any uploaded model works.
     activeEffects.forEach((effect) => {
+      if (effect.expression && modelRef.current) {
+        const model = modelRef.current;
+        const expressions = model.internalModel?.settings?.expressions;
+        const exists = Array.isArray(expressions) && expressions.some(
+          (exp) => exp.Name?.toLowerCase() === effect.expression?.toLowerCase()
+        );
+        if (exists) {
+          try {
+            model.expression?.(effect.expression);
+          } catch (err) {
+            console.error("Failed to play expression", effect.expression, err);
+          }
+        }
+      }
+
       if (effect.params.length) {
         effectParamsRef.current[effect.tag] = effect.params;
         activeRef.current[effect.tag] = performance.now() + 4200;
@@ -226,6 +270,9 @@ export function Live2DViewer({
 
   return (
     <div ref={rootRef} className={styles.root} data-testid="live2d-viewer">
+      <link rel="preload" href="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js" as="script" />
+      <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js" as="script" />
+      <link rel="preload" href="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js" as="script" />
       <canvas
         ref={canvasRef}
         className={phase === "ready" ? `${styles.canvas} ${styles.canvasReady}` : styles.canvas}
@@ -310,5 +357,23 @@ function loadScript(src: string) {
     });
     script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
     document.head.appendChild(script);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMsg));
+    }, ms);
+    promise.then(
+      (res) => {
+        clearTimeout(timer);
+        resolve(res);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
   });
 }

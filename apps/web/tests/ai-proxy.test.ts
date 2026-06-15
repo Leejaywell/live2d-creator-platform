@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { callAiProxy } from "../src/lib/ai-proxy";
+import { callAiProxy, callAiProxyStream } from "../src/lib/ai-proxy";
 
 const baseInput = {
   systemPrompt: "You are a companion.",
@@ -15,6 +15,17 @@ const baseInput = {
   ],
   recentMessages: [],
 };
+
+async function readStream(stream: ReadableStream<string>): Promise<string[]> {
+  const reader = stream.getReader();
+  const chunks: string[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return chunks;
+}
 
 test("callAiProxy skips provider calls when AI provider is disabled", async () => {
   const originalFetch = globalThis.fetch;
@@ -33,6 +44,86 @@ test("callAiProxy skips provider calls when AI provider is disabled", async () =
     assert.equal(called, false);
     assert.equal(result.reply, "Offer gentle support. 我听见了，会陪你慢慢处理。");
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("callAiProxyStream yields chunks and done payload when disabled", async () => {
+  const resultStream = await callAiProxyStream({
+    ...baseInput,
+    aiProvider: "disabled",
+    userMessage: "I feel sad today.",
+  });
+
+  const chunks = await readStream(resultStream);
+  assert.ok(chunks.length > 1);
+
+  const lastChunk = JSON.parse(chunks[chunks.length - 1]);
+  assert.equal(lastChunk.type, "done");
+  assert.equal(lastChunk.reply, "Offer gentle support. 我听见了，会陪你慢慢处理。");
+  assert.deepEqual(lastChunk.tags, ["comfort"]);
+
+  const contentChunks = chunks.slice(0, -1).map(c => JSON.parse(c));
+  assert.ok(contentChunks.every(c => c.type === "content"));
+  const reconstructedReply = contentChunks.map(c => c.content).join("");
+  assert.equal(reconstructedReply, "Offer gentle support. 我听见了，会陪你慢慢处理。");
+});
+
+test("callAiProxyStream parses OpenAI SSE stream", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = {
+    baseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+    apiKey: process.env.OPENAI_COMPATIBLE_API_KEY,
+    model: process.env.OPENAI_COMPATIBLE_MODEL,
+  };
+
+  process.env.OPENAI_COMPATIBLE_BASE_URL = "https://ai.example.test";
+  process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+  process.env.OPENAI_COMPATIBLE_MODEL = "test-model";
+
+  // Simulate chunk-by-chunk SSE response
+  const sseData = [
+    'data: {"choices":[{"delta":{"content":"{"}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":"\\\"reply\\\":\\\"Hello\\\""}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":",\\\"tags\\\":[\\\"comfort\\\"]}"}}]}\n\n',
+    "data: [DONE]\n\n"
+  ];
+
+  globalThis.fetch = (async () => {
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        for (const msg of sseData) {
+          controller.enqueue(encoder.encode(msg));
+        }
+        controller.close();
+      }
+    });
+    return new Response(stream, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const resultStream = await callAiProxyStream({
+      ...baseInput,
+      userMessage: "I feel sad today.",
+    });
+
+    const chunks = await readStream(resultStream);
+    assert.ok(chunks.length >= 2);
+
+    const contentChunks = chunks.slice(0, -1).map(c => JSON.parse(c));
+    assert.ok(contentChunks.every(c => c.type === "content"));
+    const reconstructedReply = contentChunks.map(c => c.content).join("");
+    assert.equal(reconstructedReply, "Hello");
+
+    const lastChunk = JSON.parse(chunks[chunks.length - 1]);
+    assert.equal(lastChunk.type, "done");
+    assert.equal(lastChunk.reply, "Hello");
+    assert.deepEqual(lastChunk.tags, ["comfort"]);
+  } finally {
+    restoreEnv("OPENAI_COMPATIBLE_BASE_URL", originalEnv.baseUrl);
+    restoreEnv("OPENAI_COMPATIBLE_API_KEY", originalEnv.apiKey);
+    restoreEnv("OPENAI_COMPATIBLE_MODEL", originalEnv.model);
     globalThis.fetch = originalFetch;
   }
 });

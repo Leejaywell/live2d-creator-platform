@@ -33,19 +33,10 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     defaultValue: "gpt-4.1-mini",
   },
   {
-    key: "tts.provider",
-    category: "tts",
-    label: "TTS provider",
-    description: "Mode for future generated speech; preset voice clips remain available either way.",
-    valueType: "enum",
-    defaultValue: "preset-only",
-    options: ["preset-only", "external-provider", "disabled"],
-  },
-  {
     key: "storage.deliveryMode",
     category: "storage",
     label: "Asset delivery",
-    description: "How protected model and voice assets are served to browsers.",
+    description: "How protected model assets are served to browsers.",
     valueType: "enum",
     defaultValue: "app-proxy",
     options: ["app-proxy", "signed-redirect"],
@@ -68,15 +59,6 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     defaultValue: 1200,
   },
   {
-    key: "integrations.wechatLogin",
-    category: "integrations",
-    label: "WeChat login",
-    description: "Login integration status. Credentials stay in deployment secrets.",
-    valueType: "enum",
-    defaultValue: "reserved",
-    options: ["reserved", "sandbox", "enabled", "disabled"],
-  },
-  {
     key: "payments.checkout",
     category: "payments",
     label: "Checkout mode",
@@ -84,15 +66,6 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     valueType: "enum",
     defaultValue: "manual-only",
     options: ["manual-only", "provider-sandbox", "provider-live"],
-  },
-  {
-    key: "voiceCloning.fulfillment",
-    category: "voice_cloning",
-    label: "Voice cloning fulfillment",
-    description: "Voice-clone request intake is paused unless explicitly enabled for manual review.",
-    valueType: "enum",
-    defaultValue: "disabled",
-    options: ["manual-review", "provider-sandbox", "provider-live", "disabled"],
   },
 ];
 

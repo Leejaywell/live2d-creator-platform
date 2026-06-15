@@ -4,7 +4,7 @@ export type ModelAssistanceRequestView = {
   id: string;
   projectId: string;
   projectName: string;
-  creatorEmail: string;
+  creatorUsername: string;
   notes: string;
   createdAt: Date;
   status: "pending" | "fulfilled";
@@ -24,7 +24,7 @@ export function modelAssistanceRequestFromAuditLog(event: {
   id: string;
   targetId: string | null;
   after: Prisma.JsonValue | null;
-  actor?: { email: string } | null;
+  actor?: { username: string | null } | null;
   createdAt: Date;
 }, fulfillment?: ModelAssistanceFulfillment | null): ModelAssistanceRequestView {
   const data = auditObject(event.after);
@@ -32,7 +32,7 @@ export function modelAssistanceRequestFromAuditLog(event: {
     id: event.id,
     projectId: stringValue(data.projectId, event.targetId ?? ""),
     projectName: stringValue(data.projectName, "Unknown project"),
-    creatorEmail: event.actor?.email ?? "Unknown creator",
+    creatorUsername: event.actor?.username ?? "Unknown creator",
     notes: stringValue(data.notes, ""),
     createdAt: event.createdAt,
     status: fulfillment ? "fulfilled" : "pending",
@@ -47,7 +47,7 @@ export function resolveModelAssistanceRequests(
     id: string;
     targetId: string | null;
     after: Prisma.JsonValue | null;
-    actor?: { email: string } | null;
+    actor?: { username: string | null } | null;
     createdAt: Date;
   }>,
   fulfillments: ModelAssistanceFulfillment[],
@@ -63,8 +63,7 @@ export function resolveModelAssistanceRequests(
 
 export function modelAssistanceStatusText(request: Pick<ModelAssistanceRequestView, "createdAt" | "status" | "fulfilledAt" | "fulfilledModelVersion">) {
   if (request.status === "fulfilled") {
-    const modelVersion = request.fulfilledModelVersion ? ` with model version ${request.fulfilledModelVersion}` : "";
-    return `Fulfilled${modelVersion} on ${request.fulfilledAt?.toISOString() ?? "an unknown date"}.`;
+    return `Fulfilled on ${request.fulfilledAt?.toISOString() ?? "an unknown date"}.`;
   }
   return `Requested ${request.createdAt.toISOString()}. Waiting for admin-assisted model setup.`;
 }

@@ -16,7 +16,7 @@ test("rewriteModelReferences rewrites model asset references through the asset p
         Textures: ["textures/texture_00.png"],
         Physics: "physics.json",
         Expressions: [{ Name: "Happy", File: "expressions/happy.exp3.json" }],
-        Motions: { Idle: [{ File: "motions/idle.motion3.json" }] },
+        Motions: { Idle: [{ File: "motions/idle.motion3.json", Sound: "sounds/idle.wav" }] },
       },
     }),
   );
@@ -47,6 +47,10 @@ test("rewriteModelReferences rewrites model asset references through the asset p
   assert.equal(
     rewritten.FileReferences?.Motions?.Idle?.[0].File,
     "https://app.example.test/api/assets/proxy?key=projects%2Fproject-1%2Fmodels%2Fv1%2Fmotions%2Fidle.motion3.json&viewerSessionId=viewer-1",
+  );
+  assert.equal(
+    rewritten.FileReferences?.Motions?.Idle?.[0].Sound,
+    "https://app.example.test/api/assets/proxy?key=projects%2Fproject-1%2Fmodels%2Fv1%2Fsounds%2Fidle.wav&viewerSessionId=viewer-1",
   );
 });
 

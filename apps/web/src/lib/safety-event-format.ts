@@ -13,7 +13,7 @@ export function safetyEventFromAuditLog(event: { id: string; after: Prisma.JsonV
     id: event.id,
     projectName: stringValue(data.projectName, "Unknown project"),
     projectSlug: stringValue(data.projectSlug, ""),
-    creatorEmail: stringValue(data.creatorEmail, "Unknown creator"),
+    creatorUsername: stringValue(data.creatorUsername, "Unknown creator"),
     code: stringValue(data.code, "unknown"),
     severity: stringValue(data.severity, "medium"),
     messagePreview: stringValue(data.messagePreview, ""),

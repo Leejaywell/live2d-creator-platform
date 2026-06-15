@@ -59,7 +59,6 @@ export async function refundManualOrder(orderId: string, admin: { id: string; ro
       where: { creatorId: order.creatorId },
       data: {
         maxProjects: { increment: reversal.projectQuotaDelta },
-        storageLimitMb: { increment: reversal.storageQuotaDeltaMb },
         monthlyAiMessageLimit: { increment: reversal.aiMessageQuotaDelta },
         fanCodeQuota: { increment: reversal.fanCodeQuotaDelta },
       },
@@ -88,6 +87,37 @@ export async function refundManualOrder(orderId: string, admin: { id: string; ro
     });
 
     return refundedOrder;
+  });
+}
+
+export async function deleteManualOrder(orderId: string, admin: { id: string; role: UserRole }, ipAddress?: string) {
+  assertPermission(admin.role, "plans.manage");
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.manualOrder.findUniqueOrThrow({
+      where: { id: orderId },
+    });
+
+    await tx.quotaLedgerEntry.updateMany({
+      where: { manualOrderId: order.id },
+      data: { manualOrderId: null },
+    });
+    const deleted = await tx.manualOrder.delete({
+      where: { id: order.id },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: admin.id,
+        actorRole: admin.role,
+        action: "manual_order.deleted",
+        targetType: "ManualOrder",
+        targetId: order.id,
+        before: order as unknown as Prisma.InputJsonValue,
+        ipAddress,
+      },
+    });
+
+    return deleted;
   });
 }
 
@@ -170,7 +200,7 @@ async function confirmManualOrderInternal(input: {
         startsAt: planPeriod.startsAt,
         expiresAt: planPeriod.expiresAt,
         maxProjects: Math.max(order.projectQuotaDelta, 1),
-        storageLimitMb: Math.max(order.storageQuotaDeltaMb, 0),
+        storageLimitMb: 0,
         monthlyAiMessageLimit: Math.max(order.aiMessageQuotaDelta, 0),
         fanCodeQuota: Math.max(order.fanCodeQuotaDelta, 0),
       },
@@ -179,7 +209,6 @@ async function confirmManualOrderInternal(input: {
         startsAt: order.periodStart ? planPeriod.startsAt : undefined,
         expiresAt: order.periodEnd || order.periodStart ? planPeriod.expiresAt : undefined,
         maxProjects: { increment: order.projectQuotaDelta },
-        storageLimitMb: { increment: order.storageQuotaDeltaMb },
         monthlyAiMessageLimit: { increment: order.aiMessageQuotaDelta },
         fanCodeQuota: { increment: order.fanCodeQuotaDelta },
         status: "active",
@@ -257,7 +286,7 @@ async function assertManualOrderQuotaImpact(
   ]);
 
   if (!plan) {
-    if (order.projectQuotaDelta < 0 || order.aiMessageQuotaDelta < 0 || order.storageQuotaDeltaMb < 0 || order.fanCodeQuotaDelta < 0) {
+    if (order.projectQuotaDelta < 0 || order.aiMessageQuotaDelta < 0 || order.fanCodeQuotaDelta < 0) {
       throw new Error("Manual order cannot reduce quota before a creator plan exists");
     }
     return;
@@ -266,7 +295,6 @@ async function assertManualOrderQuotaImpact(
   const next = {
     maxProjects: plan.maxProjects + order.projectQuotaDelta,
     monthlyAiMessageLimit: plan.monthlyAiMessageLimit + order.aiMessageQuotaDelta,
-    storageLimitMb: plan.storageLimitMb + order.storageQuotaDeltaMb,
     fanCodeQuota: plan.fanCodeQuota + order.fanCodeQuotaDelta,
   };
 
@@ -275,9 +303,6 @@ async function assertManualOrderQuotaImpact(
   }
   if (next.monthlyAiMessageLimit < plan.usedAiMessages) {
     throw new Error("Manual order would reduce AI message quota below current usage");
-  }
-  if (next.storageLimitMb < plan.usedStorageMb) {
-    throw new Error("Manual order would reduce storage quota below current usage");
   }
   if (next.fanCodeQuota < plan.usedFanCodes) {
     throw new Error("Manual order would reduce fan-code quota below current usage");
@@ -297,7 +322,7 @@ function reverseOrderQuotaImpact(order: {
     creatorId: order.creatorId,
     projectQuotaDelta: -order.projectQuotaDelta,
     aiMessageQuotaDelta: -order.aiMessageQuotaDelta,
-    storageQuotaDeltaMb: -order.storageQuotaDeltaMb,
+    storageQuotaDeltaMb: 0,
     fanCodeQuotaDelta: -order.fanCodeQuotaDelta,
   };
 }
@@ -318,7 +343,6 @@ async function createLedgerEntries(
   const entries = [
     [QuotaResource.projects, order.projectQuotaDelta],
     [QuotaResource.ai_messages, order.aiMessageQuotaDelta],
-    [QuotaResource.storage_mb, order.storageQuotaDeltaMb],
     [QuotaResource.fan_codes, order.fanCodeQuotaDelta],
   ] as const;
 

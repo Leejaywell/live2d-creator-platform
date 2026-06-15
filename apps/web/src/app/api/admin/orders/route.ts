@@ -1,39 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OrderType, PaymentMethod } from "@prisma/client";
+import { PaymentMethod } from "@prisma/client";
 import { z } from "zod";
 
 import { createManualOrder } from "@/lib/admin";
 import { requirePermission } from "@/lib/authz";
+import { adminOrderProductForSku, checkoutOrderPeriod } from "@/lib/checkout-products";
 import { jsonError, parseBody } from "@/lib/request";
-
-const optionalDateTime = z.preprocess((value) => (value === "" ? undefined : value), z.string().datetime().optional());
-const optionalNonEmptyString = z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional());
-const amountSchema = z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Amount must use up to two decimal places");
 
 const orderSchema = z.object({
   creatorId: z.string().min(1),
-  orderType: z.nativeEnum(OrderType).optional(),
-  amount: amountSchema,
+  sku: z.string().min(1),
   paymentMethod: z.nativeEnum(PaymentMethod),
-  planName: optionalNonEmptyString,
-  periodStart: optionalDateTime,
-  periodEnd: optionalDateTime,
-  projectQuotaDelta: z.number().int().default(0),
-  aiMessageQuotaDelta: z.number().int().default(0),
-  storageQuotaDeltaMb: z.number().int().default(0),
-  fanCodeQuotaDelta: z.number().int().default(0),
-  notes: optionalNonEmptyString,
 });
 
 export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission("plans.manage");
     const body = await parseBody(request, orderSchema);
+    const product = adminOrderProductForSku(body.sku);
+    if (!product) {
+      throw new Error("Unsupported admin order package");
+    }
+    if (!product.paymentMethods.includes(body.paymentMethod)) {
+      throw new Error("Unsupported payment method for this package");
+    }
+    const period = checkoutOrderPeriod(product);
     const order = await createManualOrder({
       admin: { id: session.user.id, role: session.user.role },
-      ...body,
-      periodStart: body.periodStart ? new Date(body.periodStart) : undefined,
-      periodEnd: body.periodEnd ? new Date(body.periodEnd) : undefined,
+      creatorId: body.creatorId,
+      orderType: product.orderType,
+      amount: product.amount,
+      paymentMethod: body.paymentMethod,
+      planName: product.planName,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      projectQuotaDelta: product.projectQuotaDelta,
+      aiMessageQuotaDelta: product.aiMessageQuotaDelta,
+      storageQuotaDeltaMb: product.storageQuotaDeltaMb,
+      fanCodeQuotaDelta: product.fanCodeQuotaDelta,
+      notes: `Admin package order: ${product.sku}`,
     });
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

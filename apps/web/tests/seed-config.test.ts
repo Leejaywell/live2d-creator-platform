@@ -7,49 +7,54 @@ test("resolveSeedConfig keeps local defaults outside production", () => {
   const config = resolveSeedConfig({});
 
   assert.deepEqual(config, {
-    superAdminEmail: "admin@example.com",
-    creatorEmail: "creator@example.com",
+    superAdminUsername: "admin",
+    superAdminPassword: "ChangeMe123!",
+    creatorUsername: "creator",
+    creatorPassword: "ChangeMe123!",
   });
 });
 
-test("resolveSeedConfig requires explicit production emails", () => {
+test("resolveSeedConfig requires explicit production account credentials", () => {
   assert.throws(
     () => resolveSeedConfig({ NODE_ENV: "production" }),
-    /SEED_SUPER_ADMIN_EMAIL and SEED_CREATOR_EMAIL are required/,
+    /SEED_SUPER_ADMIN_USERNAME/,
   );
 });
 
-test("resolveSeedConfig rejects example production emails", () => {
+test("resolveSeedConfig rejects invalid usernames", () => {
   assert.throws(
     () =>
       resolveSeedConfig({
-        NODE_ENV: "production",
-        SEED_SUPER_ADMIN_EMAIL: "admin@example.com",
-        SEED_CREATOR_EMAIL: "creator@real-domain.com",
+        SEED_SUPER_ADMIN_USERNAME: "bad email",
+        SEED_CREATOR_USERNAME: "creator",
       }),
-    /must not use example/,
+    /SEED_SUPER_ADMIN_USERNAME must be 3-32 characters/,
   );
 });
 
-test("resolveSeedConfig accepts distinct production emails", () => {
+test("resolveSeedConfig accepts distinct production account credentials", () => {
   const config = resolveSeedConfig({
     NODE_ENV: "production",
-    SEED_SUPER_ADMIN_EMAIL: "Admin@Live2D-Prod.com ",
-    SEED_CREATOR_EMAIL: "creator@live2d-prod.com",
+    SEED_SUPER_ADMIN_USERNAME: "Admin_Ops ",
+    SEED_SUPER_ADMIN_PASSWORD: "admin-password",
+    SEED_CREATOR_USERNAME: "creator-main",
+    SEED_CREATOR_PASSWORD: "creator-password",
   });
 
   assert.deepEqual(config, {
-    superAdminEmail: "admin@live2d-prod.com",
-    creatorEmail: "creator@live2d-prod.com",
+    superAdminUsername: "admin_ops",
+    superAdminPassword: "admin-password",
+    creatorUsername: "creator-main",
+    creatorPassword: "creator-password",
   });
 });
 
-test("resolveSeedConfig rejects duplicate seed emails", () => {
+test("resolveSeedConfig rejects duplicate seed usernames", () => {
   assert.throws(
     () =>
       resolveSeedConfig({
-        SEED_SUPER_ADMIN_EMAIL: "owner@example.com",
-        SEED_CREATOR_EMAIL: " OWNER@example.com ",
+        SEED_SUPER_ADMIN_USERNAME: "owner",
+        SEED_CREATOR_USERNAME: " OWNER ",
       }),
     /must be different/,
   );

@@ -10,11 +10,6 @@ type TriggerTagTestResult = {
     tag: string;
     params: Array<{ id: string; value: number }>;
   }>;
-  voiceAssets: Array<{
-    id: string;
-    name: string;
-    tag: string;
-  }>;
 };
 
 export function TriggerTagTester({ projectId }: { projectId: string }) {
@@ -58,8 +53,6 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
           <p>{result.tags.join("、") || "无"}</p>
           <strong>Live2D 效果</strong>
           <p>{result.live2dEffects.flatMap((effect) => effect.params.map((param) => `${effect.tag}:${param.id}=${param.value}`)).join(", ") || "无"}</p>
-          <strong>触发语音</strong>
-          <p>{result.voiceAssets.map((voice) => `${voice.tag}:${voice.name}`).join("、") || "无"}</p>
         </div>
       ) : null}
     </form>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, Spline_Sans_Mono, Syne } from "next/font/google";
+import { DetailsDismissOnOutsideClick } from "@/components/details-dismiss-on-outside-click";
 import "./globals.css";
 
 const displayFont = Syne({
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
     default: "Live2D Creator Platform · 开演",
     template: "%s · Live2D Creator Platform",
   },
-  description: "主播自己的 Live2D AI 伙伴舞台:上传模型、配置语音与触发标签、发放粉丝码,让观众走进专属角色页。",
+  description: "主播自己的 Live2D AI 伙伴舞台:上传模型、配置触发标签、发放粉丝码,让观众走进专属角色页。",
 };
 
 export default function RootLayout({
@@ -33,7 +34,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
-      <body>{children}</body>
+      <body>
+        <DetailsDismissOnOutsideClick />
+        {children}
+      </body>
     </html>
   );
 }

@@ -10,24 +10,22 @@ import {
 } from "@/lib/platform-setting-definitions";
 import { prisma } from "@/lib/prisma";
 
+const RUNTIME_SETTINGS_TTL_MS = 5 * 60 * 1000;
+let runtimeSettingsCache: { data: PlatformRuntimeSettings; ts: number } | null = null;
+
 export type PlatformSettingView = PlatformSettingDefinition & {
   value: PlatformSettingValue;
   source: "default" | "database";
   updatedAt?: Date;
 };
 
-export type WechatLoginMode = "reserved" | "sandbox" | "enabled" | "disabled";
-
 export type PlatformRuntimeSettings = {
   aiProvider: "openai-compatible" | "disabled";
   aiChatModel: string;
   contentModeration: "off" | "basic" | "strict";
   maxFanMessageLength: number;
-  ttsProvider: "preset-only" | "external-provider" | "disabled";
   assetDeliveryMode: "app-proxy" | "signed-redirect";
   checkoutMode: "manual-only" | "provider-sandbox" | "provider-live";
-  wechatLogin: WechatLoginMode;
-  voiceCloningFulfillment: "manual-review" | "provider-sandbox" | "provider-live" | "disabled";
 };
 
 export async function listPlatformSettings() {
@@ -46,24 +44,24 @@ export async function listPlatformSettings() {
 }
 
 export async function getPlatformRuntimeSettings(): Promise<PlatformRuntimeSettings> {
+  if (runtimeSettingsCache && Date.now() - runtimeSettingsCache.ts < RUNTIME_SETTINGS_TTL_MS) {
+    return runtimeSettingsCache.data;
+  }
+
   const settings = await listPlatformSettings();
   const byKey = new Map(settings.map((setting) => [setting.key, setting.value]));
 
-  return {
+  const result: PlatformRuntimeSettings = {
     aiProvider: parseRuntimeEnum(byKey.get("ai.provider"), ["openai-compatible", "disabled"], "openai-compatible"),
     aiChatModel: parseRuntimeString(byKey.get("ai.chatModel"), "gpt-4.1-mini"),
     contentModeration: parseRuntimeEnum(byKey.get("security.contentModeration"), ["off", "basic", "strict"], "basic"),
     maxFanMessageLength: parseRuntimeNumber(byKey.get("security.maxFanMessageLength"), 1200),
-    ttsProvider: parseRuntimeEnum(byKey.get("tts.provider"), ["preset-only", "external-provider", "disabled"], "preset-only"),
     assetDeliveryMode: parseRuntimeEnum(byKey.get("storage.deliveryMode"), ["app-proxy", "signed-redirect"], "app-proxy"),
     checkoutMode: parseRuntimeEnum(byKey.get("payments.checkout"), ["manual-only", "provider-sandbox", "provider-live"], "manual-only"),
-    wechatLogin: parseRuntimeEnum(byKey.get("integrations.wechatLogin"), ["reserved", "sandbox", "enabled", "disabled"], "reserved"),
-    voiceCloningFulfillment: parseRuntimeEnum(
-      byKey.get("voiceCloning.fulfillment"),
-      ["manual-review", "provider-sandbox", "provider-live", "disabled"],
-      "disabled",
-    ),
   };
+
+  runtimeSettingsCache = { data: result, ts: Date.now() };
+  return result;
 }
 
 export async function upsertPlatformSetting(input: {
@@ -116,6 +114,7 @@ export async function upsertPlatformSetting(input: {
       },
     });
 
+    runtimeSettingsCache = null;
     return setting;
   });
 }

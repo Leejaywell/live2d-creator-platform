@@ -24,7 +24,6 @@ const tagSchema = z.object({
   live2dParams: optionalJsonString("live2dParams must be valid JSON"),
   priority: z.number().int().default(0),
   enabled: z.boolean().default(true),
-  voiceAssetIds: csvSchema.optional(),
 });
 
 export async function POST(request: NextRequest, context: RouteContext<"/api/creator/projects/[projectId]/tags">) {

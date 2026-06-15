@@ -1,109 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildTriggeredLive2DEffects, buildTriggeredVoiceAssets } from "../src/lib/chat-effects";
-
-test("buildTriggeredVoiceAssets returns protected voice proxy URLs for triggered tags", () => {
-  const voices = buildTriggeredVoiceAssets({
-    tags: ["安慰", "脸红"],
-    viewerSessionId: "viewer-123",
-    triggerTags: [
-      {
-        name: "安慰",
-        voiceAssets: [
-          {
-            id: "voice-1",
-            name: "comfort",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
-            status: "active",
-          },
-          {
-            id: "voice-disabled",
-            name: "disabled",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-disabled.mp3",
-            status: "disabled",
-          },
-        ],
-      },
-      {
-        name: "脸红",
-        voiceAssets: [
-          {
-            id: "voice-1",
-            name: "comfort duplicate",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
-            status: "active",
-          },
-        ],
-      },
-      {
-        name: "未触发",
-        voiceAssets: [
-          {
-            id: "voice-2",
-            name: "unused",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-2.mp3",
-            status: "active",
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(voices.length, 1);
-  assert.equal(voices[0].id, "voice-1");
-  assert.equal(voices[0].tag, "安慰");
-  assert.equal(voices[0].url.startsWith("/api/assets/proxy?"), true);
-  assert.equal(new URL(`https://app.example${voices[0].url}`).searchParams.get("viewerSessionId"), "viewer-123");
-});
-
-test("buildTriggeredVoiceAssets suppresses voice playback when TTS is disabled", () => {
-  const voices = buildTriggeredVoiceAssets({
-    tags: ["comfort"],
-    viewerSessionId: "viewer-123",
-    ttsProvider: "disabled",
-    triggerTags: [
-      {
-        name: "comfort",
-        voiceAssets: [
-          {
-            id: "voice-1",
-            name: "comfort",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
-            status: "active",
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.deepEqual(voices, []);
-});
-
-test("buildTriggeredVoiceAssets supports signed asset delivery URLs", () => {
-  const voices = buildTriggeredVoiceAssets({
-    tags: ["comfort"],
-    viewerSessionId: "viewer-123",
-    assetDeliveryMode: "signed-redirect",
-    triggerTags: [
-      {
-        name: "comfort",
-        voiceAssets: [
-          {
-            id: "voice-1",
-            name: "comfort",
-            audioUrl: "s3://live2d-creator-platform/projects/p1/voices/voice-1.mp3",
-            status: "active",
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(voices.length, 1);
-  assert.equal(voices[0].url.startsWith("/api/assets/signed?"), true);
-  assert.equal(new URL(`https://app.example${voices[0].url}`).searchParams.get("viewerSessionId"), "viewer-123");
-});
+import { buildTriggeredLive2DEffects } from "../src/lib/chat-effects";
 
 test("buildTriggeredLive2DEffects normalizes configured params and expression fallback", () => {
   const effects = buildTriggeredLive2DEffects({
@@ -112,18 +10,15 @@ test("buildTriggeredLive2DEffects normalizes configured params and expression fa
       {
         name: "脸红",
         live2dParams: { Param5: 1, ParamBrowLAngle: 0.75, ignored: "bad" },
-        voiceAssets: [],
       },
       {
         name: "安慰",
         live2dExpression: "Param3=0.5",
         live2dParams: [{ id: "ParamSmile", value: 1 }],
-        voiceAssets: [],
       },
       {
         name: "未触发",
         live2dParams: { ParamSkip: 1 },
-        voiceAssets: [],
       },
     ],
   });
@@ -142,6 +37,27 @@ test("buildTriggeredLive2DEffects normalizes configured params and expression fa
         { id: "ParamSmile", value: 1 },
         { id: "Param3", value: 0.5 },
       ],
+    },
+  ]);
+});
+
+test("buildTriggeredLive2DEffects extracts model expression names", () => {
+  const effects = buildTriggeredLive2DEffects({
+    tags: ["高兴"],
+    triggerTags: [
+      {
+        name: "高兴",
+        live2dExpression: "happy_face",
+        live2dParams: {},
+      },
+    ],
+  });
+
+  assert.deepEqual(effects, [
+    {
+      tag: "高兴",
+      params: [],
+      expression: "happy_face",
     },
   ]);
 });

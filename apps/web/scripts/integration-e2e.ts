@@ -6,9 +6,9 @@ import { applyScriptEnvToProcess, loadEnvFileForScript } from "../src/lib/env-fi
 
 type E2EReport = {
   ok: boolean;
-  creatorEmail: string;
+  creatorUsername: string;
   auth: {
-    magicLinkEmailSent: boolean;
+    passwordAccepted: boolean;
     sessionCreated: boolean;
     cookieSet: boolean;
   };
@@ -26,8 +26,8 @@ type E2EReport = {
     chatFanCodeQuotaExhaustedRejected: boolean;
     chatAiQuotaRollbackVerified: boolean;
     projectQuotaExceededRejected: boolean;
-    modelRollbackVersion: number;
-    modelRollbackAuditCount: number;
+    modelOverwriteAssetCount: number;
+    modelOverwriteAuditCount: number;
     revokedFanCodeCount: number;
     revokedFanCodeBatchCount: number;
     fanCodeQuotaExceededRejected: boolean;
@@ -35,10 +35,7 @@ type E2EReport = {
     adminUploadedModelVersion: number;
     adminModelUploadAuditCount: number;
     invalidModelUploadRecorded: boolean;
-    triggeredVoiceAssetCount: number;
     triggeredLive2DEffectCount: number;
-    crossProjectVoiceTagBindingRejected: boolean;
-    viewerDisabledVoiceAssetRejected: boolean;
     expiredPlanNewSessionRejected: boolean;
     expiredPlanViewerAssetAccessRejected: boolean;
     manualOrderCreatedAuditCount: number;
@@ -50,26 +47,21 @@ type E2EReport = {
     crossCreatorAssetAccessRejected: boolean;
     loggedInViewerAssetFallbackAllowed: boolean;
     adminEmergencyModelUploadVersion: number;
-    adminEmergencyVoiceUploadAuditCount: number;
     supportNoteAuditCount: number;
     supportNoteMissingTargetRejected: boolean;
-    customCreatorPlanStorageLimitMb: number;
     customCreatorPlanAuditCount: number;
-    customCreatorEmailNormalized: boolean;
+    customCreatorUsernameNormalized: boolean;
     invalidCreatorPlanExpirationRejected: boolean;
-    adminEmailCreatorCreationRejected: boolean;
+    adminUsernameCreatorCreationRejected: boolean;
     quotaGrantLedgerCount: number;
     quotaGrantAuditCount: number;
-    storageQuotaGrantLedgerCount: number;
+    storageQuotaGrantRejected: boolean;
     quotaGrantNonCreatorRejected: boolean;
     draftPublicProjectHidden: boolean;
     creatorStatusAuditCount: number;
     suspendedCreatorNewSessionRejected: boolean;
     suspendedCreatorViewerAssetRejected: boolean;
     suspendedCreatorPublicProjectHidden: boolean;
-    voiceCloneMissingAuthorizationRejected: boolean;
-    voiceCloneDisabledRejected: boolean;
-    voiceCloneRequestCount: number;
     fanCodePackOrderType: string;
     fanCodePackLedgerCount: number;
     modelSetupAssistanceAuditCount: number;
@@ -91,25 +83,27 @@ async function main() {
   const [
     { generateFanCodeBatch, validateFanCode, deductSuccessfulChatQuota, revokeFanAccessCode, revokeFanCodeBatch },
     { callAiProxy },
-    { consumeMagicLink, requestMagicLink },
+    { signInWithPassword },
     { prisma },
+    { internalEmailForUsername },
+    { hashPassword },
     { createCreatorAccount, createManualOrder, createSupportNote, grantCreatorQuota, updateCreatorStatus },
     { confirmManualOrder },
-    { rollbackModelAsset, uploadModelAsset },
-    { uploadVoiceAsset },
-    { buildTriggeredLive2DEffects, buildTriggeredVoiceAssets },
+    { uploadModelAsset },
+    { buildTriggeredLive2DEffects },
     { authorizeAssetAccess, authorizeAuthenticatedAssetAccess, authorizeViewerAssetAccess },
-    { createModelSetupAssistanceRequest, createProject, createTriggerTag, createVoiceCloneRequest, setProjectStatus },
+    { createModelSetupAssistanceRequest, createProject, setProjectStatus },
     { findPublicAudienceProject, listPublicCompanionProjects },
   ] = await Promise.all([
     import("../src/lib/fan-code-service"),
     import("../src/lib/ai-proxy"),
     import("../src/auth"),
     import("../src/lib/prisma"),
+    import("../src/lib/account-identity"),
+    import("../src/lib/password-auth"),
     import("../src/lib/admin"),
     import("../src/lib/orders"),
     import("../src/lib/model-assets"),
-    import("../src/lib/voice-assets"),
     import("../src/lib/chat-effects"),
     import("../src/lib/asset-access"),
     import("../src/lib/projects"),
@@ -117,7 +111,12 @@ async function main() {
   ]);
 
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const creatorEmail = `e2e-${suffix}@example.test`;
+  const creatorUsername = `e2e-${suffix}`;
+  const adminUsername = `admin-${suffix}`;
+  const supportUsername = `support-${suffix}`;
+  const creatorPassword = "ChangeMe123!";
+  const adminPassword = "ChangeMe123!";
+  const supportPassword = "ChangeMe123!";
   const projectSlug = `e2e-${suffix}`;
   const keepData = process.env.E2E_KEEP_DATA === "true";
   let creatorId = "";
@@ -126,10 +125,17 @@ async function main() {
   let projectId = "";
 
   try {
+    const [creatorPasswordHash, adminPasswordHash, supportPasswordHash] = await Promise.all([
+      hashPassword(creatorPassword),
+      hashPassword(adminPassword),
+      hashPassword(supportPassword),
+    ]);
     const setup = await prisma.$transaction(async (tx) => {
       const creator = await tx.user.create({
         data: {
-          email: creatorEmail,
+          username: creatorUsername,
+          email: internalEmailForUsername(creatorUsername),
+          passwordHash: creatorPasswordHash,
           role: "creator",
           status: "active",
           emailVerified: new Date(),
@@ -144,7 +150,7 @@ async function main() {
               startsAt: new Date(),
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
               maxProjects: 1,
-              storageLimitMb: 256,
+              storageLimitMb: 0,
               monthlyAiMessageLimit: 10,
               fanCodeQuota: 5,
             },
@@ -153,7 +159,9 @@ async function main() {
       });
       const admin = await tx.user.create({
         data: {
-          email: `admin-${suffix}@example.test`,
+          username: adminUsername,
+          email: internalEmailForUsername(adminUsername),
+          passwordHash: adminPasswordHash,
           role: "ops_admin",
           status: "active",
           emailVerified: new Date(),
@@ -161,7 +169,9 @@ async function main() {
       });
       const supportAdmin = await tx.user.create({
         data: {
-          email: `support-${suffix}@example.test`,
+          username: supportUsername,
+          email: internalEmailForUsername(supportUsername),
+          passwordHash: supportPasswordHash,
           role: "support_admin",
           status: "active",
           emailVerified: new Date(),
@@ -190,28 +200,6 @@ async function main() {
           },
         },
       });
-      const voice = await tx.voiceAsset.create({
-        data: {
-          projectId: project.id,
-          name: "E2E comfort",
-          audioUrl: "s3://live2d-creator-platform/projects/e2e/voices/comfort.mp3",
-          status: "active",
-        },
-      });
-      await tx.triggerTag.update({
-        where: {
-          projectId_name: {
-            projectId: project.id,
-            name: "脸红",
-          },
-        },
-        data: {
-          voiceAssets: {
-            connect: { id: voice.id },
-          },
-        },
-      });
-
       return { admin, creator, project, supportAdmin };
     });
     adminId = setup.admin.id;
@@ -219,10 +207,10 @@ async function main() {
     creatorId = setup.creator.id;
     projectId = setup.project.id;
 
-    const auth = await verifyMagicLinkAuth({
-      creatorEmail,
-      requestMagicLink,
-      consumeMagicLink,
+    const auth = await verifyPasswordAuth({
+      creatorUsername,
+      creatorPassword,
+      signInWithPassword,
       prisma,
     });
 
@@ -247,7 +235,6 @@ async function main() {
       include: {
         triggerTags: {
           where: { enabled: true },
-          include: { voiceAssets: true },
           orderBy: { priority: "desc" },
         },
       },
@@ -296,14 +283,6 @@ async function main() {
     if (aiLedgerCount < 1) {
       throw new Error("Expected at least one AI quota ledger row");
     }
-    const triggeredVoices = buildTriggeredVoiceAssets({
-      tags: ["脸红"],
-      triggerTags: project.triggerTags,
-      viewerSessionId: session.viewerSessionId,
-    });
-    if (triggeredVoices.length !== 1 || !triggeredVoices[0].url.includes(encodeURIComponent(session.viewerSessionId))) {
-      throw new Error("Expected triggered voice proxy URL for 脸红 tag");
-    }
     const triggeredLive2DEffects = buildTriggeredLive2DEffects({
       tags: ["脸红"],
       triggerTags: project.triggerTags,
@@ -311,24 +290,16 @@ async function main() {
     if (triggeredLive2DEffects.length !== 1 || triggeredLive2DEffects[0].params[0]?.id !== "Param5") {
       throw new Error("Expected triggered Live2D params for 脸红 tag");
     }
-    const crossProjectVoiceTagBindingRejected = await verifyCrossProjectVoiceTagBindingRejected({
-      prisma,
-      createTriggerTag,
-      creatorId,
-      projectId,
-      suffix,
-    });
-
     const projectQuotaExceededRejected = await verifyProjectQuotaExceededRejected({
       createProject,
       creatorId,
       suffix,
     });
-    const modelRollback = await verifyModelRollback({
+    const modelOverwrite = await verifyModelUploadOverwrite({
       prisma,
-      rollbackModelAsset,
       creatorId,
       projectId,
+      uploadModelAsset,
     });
     const fanCodeRevocation = await verifyFanCodeRevocation({
       generateFanCodeBatch,
@@ -419,10 +390,10 @@ async function main() {
       adminId,
       suffix,
     });
-    const adminEmailCreatorCreationRejected = await verifyAdminEmailCreatorCreationRejected({
+    const adminUsernameCreatorCreationRejected = await verifyAdminUsernameCreatorCreationRejected({
       createCreatorAccount,
       adminId,
-      adminEmail: setup.admin.email,
+      adminUsername: setup.admin.username || adminUsername,
     });
     const quotaGrant = await verifyAdminQuotaGrant({
       prisma,
@@ -463,12 +434,6 @@ async function main() {
       viewerSessionId: session.viewerSessionId,
       suffix,
     });
-    const voiceCloneRequest = await verifyVoiceCloneAuthorization({
-      prisma,
-      createVoiceCloneRequest,
-      creatorId,
-      projectId,
-    });
     const modelSetupAssistance = await verifyModelSetupAssistanceRequest({
       prisma,
       createModelSetupAssistanceRequest,
@@ -479,13 +444,6 @@ async function main() {
       prisma,
       setProjectStatus,
       creatorId,
-      suffix,
-    });
-    const viewerDisabledVoiceAssetRejected = await verifyViewerDisabledVoiceAssetRejected({
-      prisma,
-      authorizeViewerAssetAccess,
-      projectId,
-      viewerSessionId: session.viewerSessionId,
       suffix,
     });
     const loggedInViewerAssetFallbackAllowed = await verifyLoggedInViewerAssetFallbackAllowed({
@@ -516,13 +474,6 @@ async function main() {
       creatorId,
       projectId,
     });
-    const adminEmergencyVoiceUpload = await verifyAdminEmergencyVoiceUploadOnExpiredPlan({
-      prisma,
-      uploadVoiceAsset,
-      adminId,
-      creatorId,
-      projectId,
-    });
     const crossCreatorAssetAccessRejected = await verifyCrossCreatorAssetAccessRejected({
       prisma,
       authorizeAuthenticatedAssetAccess,
@@ -532,7 +483,7 @@ async function main() {
 
     const report: E2EReport = {
       ok: true,
-      creatorEmail,
+      creatorUsername,
       auth,
       projectSlug,
       fanCodeId: session.fanAccessCodeId,
@@ -548,8 +499,8 @@ async function main() {
         chatFanCodeQuotaExhaustedRejected: chatQuotaGuards.fanCodeQuotaExhaustedRejected,
         chatAiQuotaRollbackVerified: chatQuotaGuards.aiQuotaRollbackVerified,
         projectQuotaExceededRejected,
-        modelRollbackVersion: modelRollback.version,
-        modelRollbackAuditCount: modelRollback.auditCount,
+        modelOverwriteAssetCount: modelOverwrite.assetCount,
+        modelOverwriteAuditCount: modelOverwrite.auditCount,
         revokedFanCodeCount: fanCodeRevocation.revokedCodeCount,
         revokedFanCodeBatchCount: fanCodeRevocation.revokedBatchCount,
         fanCodeQuotaExceededRejected: fanCodeRevocation.quotaExceededRejected,
@@ -557,10 +508,7 @@ async function main() {
         adminUploadedModelVersion: adminModelUpload.version,
         adminModelUploadAuditCount: adminModelUpload.auditCount,
         invalidModelUploadRecorded,
-        triggeredVoiceAssetCount: triggeredVoices.length,
         triggeredLive2DEffectCount: triggeredLive2DEffects.length,
-        crossProjectVoiceTagBindingRejected,
-        viewerDisabledVoiceAssetRejected,
         expiredPlanNewSessionRejected,
         expiredPlanViewerAssetAccessRejected,
         manualOrderCreatedAuditCount: manualOrder.auditCount,
@@ -572,26 +520,21 @@ async function main() {
         crossCreatorAssetAccessRejected,
         loggedInViewerAssetFallbackAllowed,
         adminEmergencyModelUploadVersion: adminEmergencyUpload.version,
-        adminEmergencyVoiceUploadAuditCount: adminEmergencyVoiceUpload.auditCount,
         supportNoteAuditCount: supportNote.auditCount,
         supportNoteMissingTargetRejected: supportNote.missingTargetRejected,
-        customCreatorPlanStorageLimitMb: customCreatorPlan.storageLimitMb,
         customCreatorPlanAuditCount: customCreatorPlan.auditCount,
-        customCreatorEmailNormalized: customCreatorPlan.emailNormalized,
+        customCreatorUsernameNormalized: customCreatorPlan.usernameNormalized,
         invalidCreatorPlanExpirationRejected,
-        adminEmailCreatorCreationRejected,
+        adminUsernameCreatorCreationRejected,
         quotaGrantLedgerCount: quotaGrant.ledgerCount,
         quotaGrantAuditCount: quotaGrant.auditCount,
-        storageQuotaGrantLedgerCount: quotaGrant.storageLedgerCount,
+        storageQuotaGrantRejected: quotaGrant.storageRejected,
         quotaGrantNonCreatorRejected: quotaGrant.nonCreatorRejected,
         draftPublicProjectHidden: publicProjectVisibility.draftProjectHidden,
         creatorStatusAuditCount: creatorStatus.auditCount,
         suspendedCreatorNewSessionRejected: creatorStatus.newSessionRejected,
         suspendedCreatorViewerAssetRejected: creatorStatus.viewerAssetRejected,
         suspendedCreatorPublicProjectHidden: creatorStatus.publicProjectHidden,
-        voiceCloneMissingAuthorizationRejected: voiceCloneRequest.missingAuthorizationRejected,
-        voiceCloneDisabledRejected: voiceCloneRequest.disabledRejected,
-        voiceCloneRequestCount: voiceCloneRequest.requestCount,
         fanCodePackOrderType: fanCodePackOrder.orderType,
         fanCodePackLedgerCount: fanCodePackOrder.ledgerCount,
         modelSetupAssistanceAuditCount: modelSetupAssistance.auditCount,
@@ -683,19 +626,9 @@ async function verifyAdminQuotaGrant(input: {
   if (grant.plan.fanCodeQuota !== before.fanCodeQuota + 3) {
     throw new Error(`Expected fan-code quota to increase by 3, got ${before.fanCodeQuota} -> ${grant.plan.fanCodeQuota}`);
   }
-  const storageGrant = await input.grantCreatorQuota({
-    admin: { id: input.adminId, role: "ops_admin" },
-    creatorId: input.creatorId,
-    resource: "storage_mb",
-    amount: 128,
-    reason: "E2E storage quota grant",
-  });
+  const storageRejected = await verifyStorageQuotaGrantRejected(input);
 
-  if (storageGrant.plan.storageLimitMb !== before.storageLimitMb + 128) {
-    throw new Error(`Expected storage quota to increase by 128, got ${before.storageLimitMb} -> ${storageGrant.plan.storageLimitMb}`);
-  }
-
-  const [ledgerCount, storageLedgerCount, auditCount] = await Promise.all([
+  const [ledgerCount, auditCount] = await Promise.all([
     input.prisma.quotaLedgerEntry.count({
       where: {
         id: grant.ledgerEntry.id,
@@ -703,16 +636,6 @@ async function verifyAdminQuotaGrant(input: {
         resource: "fan_codes",
         entryType: "grant",
         amount: 3,
-        createdByAdminId: input.adminId,
-      },
-    }),
-    input.prisma.quotaLedgerEntry.count({
-      where: {
-        id: storageGrant.ledgerEntry.id,
-        creatorId: input.creatorId,
-        resource: "storage_mb",
-        entryType: "grant",
-        amount: 128,
         createdByAdminId: input.adminId,
       },
     }),
@@ -725,13 +648,36 @@ async function verifyAdminQuotaGrant(input: {
       },
     }),
   ]);
-  if (ledgerCount < 1 || storageLedgerCount < 1 || auditCount < 2) {
-    throw new Error(`Expected quota grant ledgers and audit logs, got fan=${ledgerCount}, storage=${storageLedgerCount}, audits=${auditCount}`);
+  if (ledgerCount < 1 || auditCount < 1) {
+    throw new Error(`Expected quota grant ledger and audit log, got fan=${ledgerCount}, audits=${auditCount}`);
   }
 
   const nonCreatorRejected = await verifyQuotaGrantNonCreatorRejected(input);
 
-  return { ledgerCount, storageLedgerCount, auditCount, nonCreatorRejected };
+  return { ledgerCount, storageRejected, auditCount, nonCreatorRejected };
+}
+
+async function verifyStorageQuotaGrantRejected(input: {
+  grantCreatorQuota: typeof import("../src/lib/admin").grantCreatorQuota;
+  adminId: string;
+  creatorId: string;
+}) {
+  try {
+    await input.grantCreatorQuota({
+      admin: { id: input.adminId, role: "ops_admin" },
+      creatorId: input.creatorId,
+      resource: "storage_mb",
+      amount: 128,
+      reason: "E2E storage quota grant",
+    });
+  } catch (error) {
+    if (error instanceof Error && /Unsupported quota resource/.test(error.message)) {
+      return true;
+    }
+    throw error;
+  }
+
+  throw new Error("Expected storage quota grants to be rejected");
 }
 
 async function verifyQuotaGrantNonCreatorRejected(input: {
@@ -751,7 +697,7 @@ async function verifyQuotaGrantNonCreatorRejected(input: {
           startsAt: new Date(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           maxProjects: 1,
-          storageLimitMb: 1,
+          storageLimitMb: 0,
           monthlyAiMessageLimit: 1,
           fanCodeQuota: 1,
         },
@@ -787,12 +733,12 @@ async function verifyAdminCreatorCustomPlan(input: {
 }) {
   const creator = await input.createCreatorAccount({
     admin: { id: input.adminId, role: "ops_admin" },
-    email: ` Custom-Plan-${input.suffix}@Example.Test `,
+    username: ` Custom-Plan-${input.suffix} `,
+    password: "ChangeMe123!",
     displayName: "Custom Plan Creator",
     planName: "E2E Custom Plan",
     expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     maxProjects: 3,
-    storageLimitMb: 2048,
     monthlyAiMessageLimit: 777,
     fanCodeQuota: 88,
   });
@@ -801,18 +747,17 @@ async function verifyAdminCreatorCustomPlan(input: {
     const plan = await input.prisma.creatorPlan.findUniqueOrThrow({
       where: { creatorId: creator.id },
     });
-    const expectedEmail = `custom-plan-${input.suffix}@example.test`;
-    if (creator.email !== expectedEmail) {
-      throw new Error(`Expected creator email to be normalized to ${expectedEmail}, got ${creator.email}`);
+    const expectedUsername = `custom-plan-${input.suffix}`;
+    if (creator.username !== expectedUsername) {
+      throw new Error(`Expected creator username to be normalized to ${expectedUsername}, got ${creator.username}`);
     }
     if (
       plan.maxProjects !== 3 ||
-      plan.storageLimitMb !== 2048 ||
       plan.monthlyAiMessageLimit !== 777 ||
       plan.fanCodeQuota !== 88
     ) {
       throw new Error(
-        `Expected custom creator plan quotas, got projects=${plan.maxProjects}, storage=${plan.storageLimitMb}, ai=${plan.monthlyAiMessageLimit}, fan=${plan.fanCodeQuota}`,
+        `Expected custom creator plan quotas, got projects=${plan.maxProjects}, ai=${plan.monthlyAiMessageLimit}, fan=${plan.fanCodeQuota}`,
       );
     }
 
@@ -828,21 +773,22 @@ async function verifyAdminCreatorCustomPlan(input: {
       throw new Error("Expected custom creator plan audit log");
     }
 
-    return { storageLimitMb: plan.storageLimitMb, auditCount, emailNormalized: true };
+    return { auditCount, usernameNormalized: true };
   } finally {
     await input.prisma.user.delete({ where: { id: creator.id } }).catch(() => undefined);
   }
 }
 
-async function verifyAdminEmailCreatorCreationRejected(input: {
+async function verifyAdminUsernameCreatorCreationRejected(input: {
   createCreatorAccount: typeof import("../src/lib/admin").createCreatorAccount;
   adminId: string;
-  adminEmail: string;
+  adminUsername: string;
 }) {
   try {
     await input.createCreatorAccount({
       admin: { id: input.adminId, role: "ops_admin" },
-      email: input.adminEmail,
+      username: input.adminUsername,
+      password: "ChangeMe123!",
       displayName: "Invalid Admin Replacement",
       planName: "Invalid Plan",
     });
@@ -853,7 +799,7 @@ async function verifyAdminEmailCreatorCreationRejected(input: {
     throw error;
   }
 
-  throw new Error("Expected creator creation with an existing admin email to be rejected");
+  throw new Error("Expected creator creation with an existing admin username to be rejected");
 }
 
 async function verifyInvalidCreatorPlanExpirationRejected(input: {
@@ -864,7 +810,8 @@ async function verifyInvalidCreatorPlanExpirationRejected(input: {
   try {
     await input.createCreatorAccount({
       admin: { id: input.adminId, role: "ops_admin" },
-      email: `expired-plan-${input.suffix}@example.test`,
+      username: `exp-${input.suffix}`,
+      password: "ChangeMe123!",
       displayName: "Expired Plan Creator",
       planName: "Expired Plan",
       expiresAt: new Date(Date.now() - 60_000),
@@ -1001,13 +948,17 @@ async function verifySuspendedCreatorBlocksViewerAssetAccess(input: {
   projectId: string;
   viewerSessionId: string;
 }) {
-  const voiceAsset = await input.prisma.voiceAsset.findFirstOrThrow({
-    where: { projectId: input.projectId, status: "active" },
-    select: { audioUrl: true },
+  const project = await input.prisma.project.findUniqueOrThrow({
+    where: { id: input.projectId },
+    include: { currentModelAsset: true },
   });
+  const modelJsonPath = project.currentModelAsset?.modelJsonPath;
+  if (!modelJsonPath) {
+    throw new Error("Expected current model asset for suspended creator asset access check");
+  }
 
   try {
-    await input.authorizeViewerAssetAccess(input.viewerSessionId, voiceAsset.audioUrl);
+    await input.authorizeViewerAssetAccess(input.viewerSessionId, modelJsonPath);
   } catch (error) {
     if (error instanceof Error && /Creator account is not active/.test(error.message)) {
       return true;
@@ -1031,63 +982,6 @@ async function verifySuspendedCreatorHidesPublicProject(input: {
   }
 
   return true;
-}
-
-async function verifyVoiceCloneAuthorization(input: {
-  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
-  createVoiceCloneRequest: typeof import("../src/lib/projects").createVoiceCloneRequest;
-  creatorId: string;
-  projectId: string;
-}) {
-  let missingAuthorizationRejected = false;
-  try {
-    await input.createVoiceCloneRequest({
-      creatorId: input.creatorId,
-      projectId: input.projectId,
-      authorizationConfirmed: false,
-      notes: "E2E should reject missing authorization",
-    });
-  } catch (error) {
-    if (error instanceof Error && /authorization confirmation is required/.test(error.message)) {
-      missingAuthorizationRejected = true;
-    } else {
-      throw error;
-    }
-  }
-  if (!missingAuthorizationRejected) {
-    throw new Error("Expected voice clone request without authorization to be rejected");
-  }
-
-  let disabledRejected = false;
-  try {
-    await input.createVoiceCloneRequest({
-      creatorId: input.creatorId,
-      projectId: input.projectId,
-      authorizationConfirmed: true,
-      notes: "E2E should reject disabled voice clone intake",
-    });
-  } catch (error) {
-    if (error instanceof Error && /Voice cloning is disabled/.test(error.message)) {
-      disabledRejected = true;
-    } else {
-      throw error;
-    }
-  }
-  if (!disabledRejected) {
-    throw new Error("Expected authorized voice clone request to be rejected while intake is disabled");
-  }
-
-  const requestCount = await input.prisma.voiceCloneRequest.count({
-    where: {
-      creatorId: input.creatorId,
-      projectId: input.projectId,
-    },
-  });
-  if (requestCount !== 0) {
-    throw new Error(`Expected disabled voice clone intake to create no requests, got ${requestCount}`);
-  }
-
-  return { missingAuthorizationRejected, disabledRejected, requestCount };
 }
 
 async function verifyModelSetupAssistanceRequest(input: {
@@ -1134,60 +1028,13 @@ async function verifyProjectQuotaExceededRejected(input: {
       theme: "#0f766e",
     });
   } catch (error) {
-    if (error instanceof Error && /Project quota exceeded/.test(error.message)) {
+    if (error instanceof Error && /Creator model slot already exists|Project quota exceeded/.test(error.message)) {
       return true;
     }
     throw error;
   }
 
   throw new Error("Expected project creation above quota to be rejected");
-}
-
-async function verifyCrossProjectVoiceTagBindingRejected(input: {
-  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
-  createTriggerTag: typeof import("../src/lib/projects").createTriggerTag;
-  creatorId: string;
-  projectId: string;
-  suffix: string;
-}) {
-  const otherProject = await input.prisma.project.create({
-    data: {
-      creatorId: input.creatorId,
-      name: "E2E Other Voice Project",
-      slug: `e2e-other-voice-${input.suffix}`,
-      intro: "Holds a voice asset that must not bind to another project.",
-      systemPrompt: "E2E other voice prompt.",
-      welcomeMessage: "Other voice.",
-      status: "draft",
-    },
-  });
-  const otherVoice = await input.prisma.voiceAsset.create({
-    data: {
-      projectId: otherProject.id,
-      name: "E2E cross-project voice",
-      audioUrl: "s3://live2d-creator-platform/projects/e2e-other/voices/cross.mp3",
-      status: "active",
-    },
-  });
-
-  try {
-    await input.createTriggerTag({
-      projectId: input.projectId,
-      creatorId: input.creatorId,
-      name: "E2E rejected cross-project voice",
-      keywords: ["cross"],
-      voiceAssetIds: [otherVoice.id],
-    });
-  } catch (error) {
-    if (error instanceof Error && /Voice assets must belong to the same project/.test(error.message)) {
-      return true;
-    }
-    throw error;
-  } finally {
-    await input.prisma.project.delete({ where: { id: otherProject.id } }).catch(() => undefined);
-  }
-
-  throw new Error("Expected trigger tag creation with a cross-project voice asset to be rejected");
 }
 
 async function verifyPublishingRequiresValidModel(input: {
@@ -1224,50 +1071,6 @@ async function verifyPublishingRequiresValidModel(input: {
   }
 
   throw new Error("Expected publishing without a valid Live2D model to be rejected");
-}
-
-async function verifyAdminEmergencyVoiceUploadOnExpiredPlan(input: {
-  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
-  uploadVoiceAsset: typeof import("../src/lib/voice-assets").uploadVoiceAsset;
-  adminId: string;
-  creatorId: string;
-  projectId: string;
-}) {
-  const plan = await input.prisma.creatorPlan.findUniqueOrThrow({
-    where: { creatorId: input.creatorId },
-  });
-  if (plan.expiresAt > new Date()) {
-    throw new Error("Expected creator plan to be expired before admin emergency voice upload check");
-  }
-
-  const voiceAsset = await input.uploadVoiceAsset({
-    projectId: input.projectId,
-    creatorId: input.creatorId,
-    actorId: input.adminId,
-    actorRole: "ops_admin",
-    name: "E2E assisted voice",
-    fileName: "assisted-voice.mp3",
-    contentType: "audio/mpeg",
-    data: Buffer.from("mp3"),
-    tags: ["脸红"],
-  });
-
-  if (voiceAsset.status !== "active" || !voiceAsset.audioUrl.includes(`/projects/${input.projectId}/voices/`)) {
-    throw new Error(`Expected active admin-uploaded voice in project storage, got ${voiceAsset.status}/${voiceAsset.audioUrl}`);
-  }
-
-  const auditCount = await input.prisma.auditLog.count({
-    where: {
-      actorUserId: input.adminId,
-      targetId: voiceAsset.id,
-      action: "voice_asset.uploaded",
-    },
-  });
-  if (auditCount < 1) {
-    throw new Error("Expected emergency admin voice upload audit log");
-  }
-
-  return { auditCount };
 }
 
 async function verifyAdminEmergencyModelUploadOnExpiredPlan(input: {
@@ -1335,7 +1138,7 @@ async function verifyCrossCreatorAssetAccessRejected(input: {
           startsAt: new Date(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           maxProjects: 1,
-          storageLimitMb: 64,
+          storageLimitMb: 0,
           monthlyAiMessageLimit: 10,
           fanCodeQuota: 1,
         },
@@ -1346,7 +1149,7 @@ async function verifyCrossCreatorAssetAccessRejected(input: {
   try {
     await input.authorizeAuthenticatedAssetAccess(
       { id: otherCreator.id, role: "creator" },
-      `projects/${input.projectId}/voices/private.mp3`,
+      `projects/${input.projectId}/models/v1/private.model3.json`,
     );
   } catch (error) {
     if (error instanceof Error && /Asset is not available/.test(error.message)) {
@@ -1368,10 +1171,10 @@ async function verifyLoggedInViewerAssetFallbackAllowed(input: {
   viewerSessionId: string;
   suffix: string;
 }) {
-  const [voiceAsset, otherCreator] = await Promise.all([
-    input.prisma.voiceAsset.findFirstOrThrow({
-      where: { projectId: input.projectId, status: "active" },
-      select: { audioUrl: true },
+  const [project, otherCreator] = await Promise.all([
+    input.prisma.project.findUniqueOrThrow({
+      where: { id: input.projectId },
+      include: { currentModelAsset: true },
     }),
     input.prisma.user.create({
       data: {
@@ -1382,12 +1185,16 @@ async function verifyLoggedInViewerAssetFallbackAllowed(input: {
       },
     }),
   ]);
+  const modelJsonPath = project.currentModelAsset?.modelJsonPath;
+  if (!modelJsonPath) {
+    throw new Error("Expected current model asset for logged-in viewer asset fallback check");
+  }
 
   try {
     await input.authorizeAssetAccess({
       user: { id: otherCreator.id, role: otherCreator.role, status: otherCreator.status },
       viewerSessionId: input.viewerSessionId,
-      key: voiceAsset.audioUrl,
+      key: modelJsonPath,
     });
     return true;
   } finally {
@@ -1405,13 +1212,12 @@ async function verifyManualOrderCreationAudit(input: {
     admin: { id: input.adminId, role: "ops_admin" },
     creatorId: input.creatorId,
     amount: "199.00",
-    paymentMethod: "wechat",
+    paymentMethod: "alipay",
     planName: "E2E Audit Plan",
     periodStart: new Date(),
     periodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     projectQuotaDelta: 1,
     aiMessageQuotaDelta: 10,
-    storageQuotaDeltaMb: 64,
     fanCodeQuotaDelta: 2,
     notes: "E2E manual order creation audit",
   });
@@ -1440,7 +1246,7 @@ async function verifyInvalidManualOrderAmountRejected(input: {
       admin: { id: input.adminId, role: "ops_admin" },
       creatorId: input.creatorId,
       amount: "-1.001",
-      paymentMethod: "wechat",
+      paymentMethod: "alipay",
       fanCodeQuotaDelta: 1,
     });
   } catch (error) {
@@ -1486,7 +1292,7 @@ async function verifyInvalidManualOrderPeriodRejected(input: {
       admin: { id: input.adminId, role: "ops_admin" },
       creatorId: input.creatorId,
       amount: "19.00",
-      paymentMethod: "wechat",
+      paymentMethod: "alipay",
       planName: "Invalid Period",
       periodStart: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       periodEnd: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -1664,47 +1470,22 @@ async function verifyExpiredPlanBlocksNewFanSession(input: {
   throw new Error("Expected expired creator plan to reject new fan-code validation session");
 }
 
-async function verifyViewerDisabledVoiceAssetRejected(input: {
-  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
-  authorizeViewerAssetAccess: typeof import("../src/lib/asset-access").authorizeViewerAssetAccess;
-  projectId: string;
-  viewerSessionId: string;
-  suffix: string;
-}) {
-  const voiceAsset = await input.prisma.voiceAsset.create({
-    data: {
-      projectId: input.projectId,
-      name: "E2E disabled voice",
-      audioUrl: `s3://live2d-creator-platform/projects/${input.projectId}/voices/disabled-${input.suffix}.mp3`,
-      status: "disabled",
-    },
-  });
-
-  try {
-    await input.authorizeViewerAssetAccess(input.viewerSessionId, voiceAsset.audioUrl);
-  } catch (error) {
-    if (error instanceof Error && /Asset is not available/.test(error.message)) {
-      return true;
-    }
-    throw error;
-  }
-
-  throw new Error("Expected disabled voice asset to be rejected for viewer session access");
-}
-
 async function verifyExpiredPlanBlocksViewerAssetAccess(input: {
   prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
   authorizeViewerAssetAccess: typeof import("../src/lib/asset-access").authorizeViewerAssetAccess;
   projectId: string;
   viewerSessionId: string;
 }) {
-  const voiceAsset = await input.prisma.voiceAsset.findFirstOrThrow({
-    where: { projectId: input.projectId },
-    select: { audioUrl: true },
+  const project = await input.prisma.project.findUniqueOrThrow({
+    where: { id: input.projectId },
+    include: { currentModelAsset: { select: { modelJsonPath: true } } },
   });
+  if (!project.currentModelAsset?.modelJsonPath) {
+    throw new Error("Expected project to have a current model before viewer asset access check");
+  }
 
   try {
-    await input.authorizeViewerAssetAccess(input.viewerSessionId, voiceAsset.audioUrl);
+    await input.authorizeViewerAssetAccess(input.viewerSessionId, project.currentModelAsset.modelJsonPath);
   } catch (error) {
     if (error instanceof Error && /Creator plan is not active/.test(error.message)) {
       return true;
@@ -2026,63 +1807,60 @@ async function verifyFanCodeDeviceBindingRaceRejected(input: {
   return true;
 }
 
-async function verifyModelRollback(input: {
+async function verifyModelUploadOverwrite(input: {
   prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
-  rollbackModelAsset: typeof import("../src/lib/model-assets").rollbackModelAsset;
+  uploadModelAsset: typeof import("../src/lib/model-assets").uploadModelAsset;
   creatorId: string;
   projectId: string;
 }) {
-  const first = await input.prisma.modelAsset.create({
+  const previous = await input.prisma.modelAsset.create({
     data: {
       projectId: input.projectId,
-      sourceZipUrl: "e2e/model-v1.zip",
-      modelJsonPath: "e2e/v1/model.model3.json",
-      assetBasePath: "e2e/v1",
+      sourceZipUrl: "e2e/model-previous.zip",
+      modelJsonPath: "e2e/previous/model.model3.json",
+      assetBasePath: "e2e/previous",
       validationStatus: "valid",
       validationErrors: [],
       uploadedBy: "creator",
       version: 1,
     },
   });
-  const second = await input.prisma.modelAsset.create({
-    data: {
-      projectId: input.projectId,
-      sourceZipUrl: "e2e/model-v2.zip",
-      modelJsonPath: "e2e/v2/model.model3.json",
-      assetBasePath: "e2e/v2",
-      validationStatus: "valid",
-      validationErrors: [],
-      uploadedBy: "creator",
-      version: 2,
-    },
-  });
 
   await input.prisma.project.update({
     where: { id: input.projectId },
-    data: { currentModelAssetId: second.id },
+    data: { currentModelAssetId: previous.id },
   });
 
-  const project = await input.rollbackModelAsset({
-    creatorId: input.creatorId,
+  const modelAsset = await input.uploadModelAsset({
     projectId: input.projectId,
+    creatorId: input.creatorId,
+    fileName: "replacement-live2d.zip",
+    data: await minimalLive2DZip(),
   });
 
-  if (project.currentModelAssetId !== first.id || project.currentModelAsset?.version !== 1) {
-    throw new Error(`Expected model rollback to version 1, got ${project.currentModelAsset?.version ?? "none"}`);
+  const [project, assetCount] = await Promise.all([
+    input.prisma.project.findUniqueOrThrow({
+      where: { id: input.projectId },
+      include: { currentModelAsset: true },
+    }),
+    input.prisma.modelAsset.count({ where: { projectId: input.projectId } }),
+  ]);
+  if (project.currentModelAssetId !== modelAsset.id || assetCount !== 1) {
+    throw new Error(`Expected model upload to overwrite previous asset, got current=${project.currentModelAssetId} count=${assetCount}`);
   }
 
   const auditCount = await input.prisma.auditLog.count({
     where: {
       actorUserId: input.creatorId,
-      targetId: input.projectId,
-      action: "model_asset.rollback",
+      targetId: modelAsset.id,
+      action: "model_asset.uploaded",
     },
   });
   if (auditCount < 1) {
-    throw new Error("Expected model rollback audit log");
+    throw new Error("Expected model overwrite upload audit log");
   }
 
-  return { version: project.currentModelAsset.version, auditCount };
+  return { assetCount, auditCount };
 }
 
 async function verifyInvalidModelUploadRecorded(input: {
@@ -2091,12 +1869,19 @@ async function verifyInvalidModelUploadRecorded(input: {
   creatorId: string;
   projectId: string;
 }) {
-  const before = await input.prisma.project.findUniqueOrThrow({
-    where: { id: input.projectId },
-    select: { currentModelAssetId: true },
+  const invalidProject = await input.prisma.project.create({
+    data: {
+      creatorId: input.creatorId,
+      name: "E2E Invalid Model Project",
+      slug: `e2e-invalid-model-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      intro: "Invalid upload should replace previous model state.",
+      systemPrompt: "Invalid upload prompt.",
+      welcomeMessage: "Invalid upload.",
+      status: "draft",
+    },
   });
   const modelAsset = await input.uploadModelAsset({
-    projectId: input.projectId,
+    projectId: invalidProject.id,
     creatorId: input.creatorId,
     fileName: "invalid-live2d.zip",
     data: Buffer.from("not a readable zip"),
@@ -2110,9 +1895,9 @@ async function verifyInvalidModelUploadRecorded(input: {
     throw new Error(`Expected invalid model upload to record unreadable zip error, got ${errors}`);
   }
 
-  const [project, auditCount] = await Promise.all([
+  const [projectState, auditCount] = await Promise.all([
     input.prisma.project.findUniqueOrThrow({
-      where: { id: input.projectId },
+      where: { id: invalidProject.id },
       select: { currentModelAssetId: true },
     }),
     input.prisma.auditLog.count({
@@ -2123,8 +1908,8 @@ async function verifyInvalidModelUploadRecorded(input: {
       },
     }),
   ]);
-  if (project.currentModelAssetId !== before.currentModelAssetId) {
-    throw new Error("Expected invalid model upload not to replace the current valid model");
+  if (projectState.currentModelAssetId) {
+    throw new Error("Expected invalid model upload to leave the project without a current model");
   }
   if (auditCount < 1) {
     throw new Error("Expected invalid model upload audit log");
@@ -2145,7 +1930,6 @@ async function cleanup(prisma: Awaited<typeof import("../src/lib/prisma")>["pris
     },
   });
   await prisma.manualOrder.deleteMany({ where: { OR: [{ creatorId }, { createdByAdminId: adminId || undefined }] } });
-  await prisma.verificationToken.deleteMany({ where: { identifier: { contains: "e2e-" } } });
   await prisma.user.deleteMany({
     where: { id: { in: [creatorId, adminId, supportAdminId].filter(Boolean) } },
   });
@@ -2178,7 +1962,7 @@ async function verifyAdminAssistedModelUpload(input: {
     include: { currentModelAsset: true },
   });
   if (project.currentModelAssetId !== modelAsset.id || project.currentModelAsset?.version !== modelAsset.version) {
-    throw new Error(`Expected admin model upload to become current version ${modelAsset.version}`);
+    throw new Error("Expected admin model upload to become the current model");
   }
 
   const auditCount = await input.prisma.auditLog.count({
@@ -2212,22 +1996,22 @@ async function minimalLive2DZip() {
   return zip.generateAsync({ type: "nodebuffer" });
 }
 
-async function verifyMagicLinkAuth(input: {
-  creatorEmail: string;
-  requestMagicLink: typeof import("../src/auth").requestMagicLink;
-  consumeMagicLink: typeof import("../src/auth").consumeMagicLink;
+async function verifyPasswordAuth(input: {
+  creatorUsername: string;
+  creatorPassword: string;
+  signInWithPassword: typeof import("../src/auth").signInWithPassword;
   prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"];
 }) {
-  await input.requestMagicLink(input.creatorEmail, process.env.AUTH_URL || "http://localhost:3000");
-  const callbackUrl = await waitForMagicLink(input.creatorEmail);
-  const url = new URL(callbackUrl);
   const response = NextResponse.redirect(new URL("/", process.env.AUTH_URL || "http://localhost:3000"));
-  await input.consumeMagicLink(url.searchParams.get("email") || "", url.searchParams.get("token") || "", response);
+  const redirectPath = await input.signInWithPassword(input.creatorUsername, input.creatorPassword, response);
+  if (redirectPath !== "/creator") {
+    throw new Error(`Expected password auth to redirect creator to /creator, got ${redirectPath}`);
+  }
 
   const sessionCount = await input.prisma.session.count({
     where: {
       user: {
-        email: input.creatorEmail,
+        username: input.creatorUsername,
       },
       expires: {
         gt: new Date(),
@@ -2237,83 +2021,17 @@ async function verifyMagicLinkAuth(input: {
 
   const setCookie = response.headers.get("set-cookie") || "";
   if (sessionCount < 1) {
-    throw new Error("Expected magic-link auth to create a database session");
+    throw new Error("Expected password auth to create a database session");
   }
   if (!setCookie.includes("live2d_session=")) {
-    throw new Error("Expected magic-link auth to set the session cookie");
+    throw new Error("Expected password auth to set the session cookie");
   }
 
   return {
-    magicLinkEmailSent: true,
+    passwordAccepted: true,
     sessionCreated: true,
     cookieSet: true,
   };
-}
-
-async function waitForMagicLink(email: string) {
-  const deadline = Date.now() + 15_000;
-  let lastError = "";
-  while (Date.now() < deadline) {
-    try {
-      const message = await latestMailpitMessage(email);
-      const link = extractMagicLink(message);
-      if (link) return link;
-    } catch (error) {
-      lastError = formatError(error);
-    }
-    await sleep(500);
-  }
-  throw new Error(`Timed out waiting for Mailpit magic link${lastError ? `: ${lastError}` : ""}`);
-}
-
-async function latestMailpitMessage(email: string) {
-  const baseUrl = (process.env.MAILPIT_API_URL || "http://localhost:8025").replace(/\/$/, "");
-  const inbox = await fetchJson(`${baseUrl}/api/v1/messages?limit=50`);
-  const messages = arrayValue(inbox.messages ?? inbox.Messages);
-  const message = messages.find((item) => JSON.stringify(item).includes(email));
-  if (!message) {
-    throw new Error(`No Mailpit message found for ${email}`);
-  }
-
-  const id = stringValue(message.ID ?? message.Id ?? message.id ?? message.MessageID);
-  if (!id) {
-    throw new Error("Mailpit message ID missing");
-  }
-  return fetchJson(`${baseUrl}/api/v1/message/${encodeURIComponent(id)}`);
-}
-
-async function fetchJson(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  return response.json() as Promise<Record<string, unknown>>;
-}
-
-function extractMagicLink(message: Record<string, unknown>) {
-  const body = [
-    stringValue(message.Text),
-    stringValue(message.text),
-    stringValue(message.HTML),
-    stringValue(message.html),
-    stringValue(message.Raw),
-    stringValue(message.raw),
-    JSON.stringify(message),
-  ].join("\n");
-  const match = body.match(/https?:\/\/[^\s"'<>]+\/api\/auth\/callback\?[^\s"'<>]+/);
-  return match?.[0]?.replaceAll("&amp;", "&");
-}
-
-function arrayValue(value: unknown) {
-  return Array.isArray(value) ? value : [];
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" ? value : undefined;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function valueAfter(flag: string) {
@@ -2324,7 +2042,6 @@ function valueAfter(flag: string) {
 function integrationEnvKeys() {
   return [
     ...Object.keys(loadEnvFileForScript(".env.example").env),
-    "MAILPIT_API_URL",
     "E2E_KEEP_DATA",
   ];
 }
@@ -2338,7 +2055,7 @@ Usage:
 
 Checks:
   - creator/project/tag creation
-  - first-party magic-link email delivery and database session creation
+  - first-party password login and database session creation
   - fan-code generation
   - browser-device fan-code binding allows only one device under concurrent validation
   - fan-code validation and viewer session creation
@@ -2348,14 +2065,11 @@ Checks:
   - chat usage and quota ledger writes
   - rejected chat quota deductions do not exceed fan-code or AI quota
   - creator project quota-exceeded rejection
-  - Live2D model version rollback and audit log write
+  - Live2D model upload overwrites the previous model record and writes an audit log
   - fan-code single and batch revocation with audit logs, plus quota-exceeded rejection
   - admin-assisted Live2D model upload with audit log write
-  - invalid Live2D model uploads are recorded with validation errors and do not replace the current model
-  - triggered tag voice proxy URL generation
+  - invalid Live2D model uploads are recorded with validation errors and leave no current model
   - triggered tag Live2D parameter effect generation
-  - trigger tag creation rejects cross-project voice asset bindings
-  - disabled voice assets reject direct viewer access
   - expired creator plans reject new fan-code validation sessions
   - expired creator plans reject existing viewer asset access
   - manual order creation audit log write
@@ -2367,16 +2081,14 @@ Checks:
   - cross-creator authenticated asset access rejection
   - logged-in unrelated users can still access viewer-authorized assets with a valid viewer session
   - admin emergency model upload on expired creator plan
-  - admin-assisted voice upload on expired creator plan
   - support admin support note audit log write
   - support admin notes require an existing target when scoped
-  - ops admin creator creation normalizes email and writes custom initial plan quotas and audit logs
+  - ops admin creator creation normalizes username and writes custom initial plan quotas and audit logs
   - ops admin creator creation rejects expired initial plan periods
   - ops admin creator creation cannot replace admin accounts
   - ops admin fan-code and storage quota grants with ledger and audit log writes, limited to creator accounts
   - public companion listings hide draft projects
   - ops admin creator suspend and restore with audit log writes, and suspended creators reject public viewer access
-  - voice clone requests require authorization confirmation and write audit logs
   - creator model setup assistance request writes an admin-visible audit log
   - publishing a project without a valid Live2D model is rejected
 `);

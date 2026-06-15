@@ -4,7 +4,7 @@ import { AssetUploader, Prisma, UserRole } from "@prisma/client";
 
 import { extractLive2DZipFiles, validateLive2DZip } from "@/lib/live2d-validation";
 import { parseModelCapabilities } from "@/lib/model-capabilities";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, isAdminRole } from "@/lib/permissions";
 import { assertCreatorPlanActive } from "@/lib/plan-rules";
 import { prisma } from "@/lib/prisma";
 import { modelAssetBaseKey, putObject } from "@/lib/storage";
@@ -24,7 +24,6 @@ export async function uploadModelAsset(input: {
 
   const validation = await validateLive2DZip(input.data);
   const extractedFiles = validation.ok ? await extractLive2DZipFiles(input.data) : [];
-  const uploadedBytes = input.data.byteLength + extractedFiles.reduce((sum, file) => sum + file.data.byteLength, 0);
 
   const modelJsonFile = validation.ok
     ? extractedFiles.find((file) => file.path === validation.modelJsonPath)
@@ -36,12 +35,6 @@ export async function uploadModelAsset(input: {
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.findFirstOrThrow({
       where: { id: input.projectId, creatorId: input.creatorId },
-      include: {
-        modelAssets: {
-          orderBy: { version: "desc" },
-          take: 1,
-        },
-      },
     });
 
     const plan = await tx.creatorPlan.findUniqueOrThrow({
@@ -50,19 +43,8 @@ export async function uploadModelAsset(input: {
     if (!isAdminEmergencyModelUpload(input)) {
       assertCreatorPlanActive(plan);
     }
-    const uploadedMb = Math.ceil(uploadedBytes / 1024 / 1024);
-    const quota = await tx.creatorPlan.updateMany({
-      where: {
-        creatorId: input.creatorId,
-        usedStorageMb: { lte: plan.storageLimitMb - uploadedMb },
-      },
-      data: { usedStorageMb: { increment: uploadedMb } },
-    });
-    if (quota.count !== 1) {
-      throw new Error("Storage quota exceeded");
-    }
 
-    const version = (project.modelAssets[0]?.version ?? 0) + 1;
+    const version = 1;
     const baseKey = modelAssetBaseKey(project.id, version);
     const sourceZip = await putObject({
       key: `${baseKey}/source/${sanitizeFileName(input.fileName)}`,
@@ -83,6 +65,14 @@ export async function uploadModelAsset(input: {
         ),
       );
     }
+
+    await tx.project.update({
+      where: { id: project.id },
+      data: { currentModelAssetId: null },
+    });
+    await tx.modelAsset.deleteMany({
+      where: { projectId: project.id },
+    });
 
     const modelAsset = await tx.modelAsset.create({
       data: {
@@ -105,16 +95,6 @@ export async function uploadModelAsset(input: {
       });
     }
 
-    await tx.quotaLedgerEntry.create({
-      data: {
-        creatorId: input.creatorId,
-        entryType: "consume",
-        resource: "storage_mb",
-        amount: -uploadedMb,
-        reason: `Live2D model upload for project ${project.id}`,
-      },
-    });
-
     await tx.auditLog.create({
       data: {
         actorUserId: input.actorId ?? input.creatorId,
@@ -130,62 +110,57 @@ export async function uploadModelAsset(input: {
   });
 }
 
-export async function rollbackModelAsset(input: {
+export async function deleteModelAsset(input: {
   projectId: string;
-  creatorId: string;
-  modelAssetId?: string;
+  modelAssetId: string;
+  actorId: string;
+  actorRole: UserRole;
+  creatorId?: string;
 }) {
   return prisma.$transaction(async (tx) => {
-    const before = await tx.project.findFirstOrThrow({
-      where: { id: input.projectId, creatorId: input.creatorId },
-      include: { currentModelAsset: true },
+    const project = await tx.project.findFirstOrThrow({
+      where: {
+        id: input.projectId,
+        creatorId: input.actorRole === "creator" ? input.actorId : input.creatorId,
+      },
+      include: {
+        currentModelAsset: true,
+      },
     });
-
-    const target = input.modelAssetId
-      ? await tx.modelAsset.findFirstOrThrow({
-          where: {
-            id: input.modelAssetId,
-            projectId: input.projectId,
-            validationStatus: "valid",
-          },
-        })
-      : await tx.modelAsset.findFirstOrThrow({
-          where: {
-            projectId: input.projectId,
-            validationStatus: "valid",
-            id: before.currentModelAssetId ? { not: before.currentModelAssetId } : undefined,
-            version: before.currentModelAsset?.version ? { lt: before.currentModelAsset.version } : undefined,
-          },
-          orderBy: { version: "desc" },
-        });
-
-    if (target.id === before.currentModelAssetId) {
-      throw new Error("Model asset is already current");
+    if (input.actorRole !== "creator" && !isAdminRole(input.actorRole) && !hasPermission(input.actorRole, "assets.assist")) {
+      throw new Error("Only asset assistants can delete model assets");
     }
 
-    const project = await tx.project.update({
-      where: { id: input.projectId },
-      data: { currentModelAssetId: target.id },
-      include: { currentModelAsset: true },
+    const asset = await tx.modelAsset.findFirstOrThrow({
+      where: {
+        id: input.modelAssetId,
+        projectId: project.id,
+      },
+    });
+
+    if (project.currentModelAssetId === asset.id) {
+      await tx.project.update({
+        where: { id: project.id },
+        data: { currentModelAssetId: null },
+      });
+    }
+
+    const deleted = await tx.modelAsset.delete({
+      where: { id: asset.id },
     });
 
     await tx.auditLog.create({
       data: {
-        actorUserId: input.creatorId,
-        actorRole: "creator",
-        action: "model_asset.rollback",
-        targetType: "Project",
-        targetId: project.id,
-        before: before as unknown as Prisma.InputJsonValue,
-        after: {
-          projectId: project.id,
-          currentModelAssetId: project.currentModelAssetId,
-          currentModelAssetVersion: project.currentModelAsset?.version,
-        },
+        actorUserId: input.actorId,
+        actorRole: input.actorRole,
+        action: "model_asset.deleted",
+        targetType: "ModelAsset",
+        targetId: asset.id,
+        before: asset as unknown as Prisma.InputJsonValue,
       },
     });
 
-    return project;
+    return deleted;
   });
 }
 
@@ -197,5 +172,5 @@ function isAdminEmergencyModelUpload(input: {
   actorRole?: UserRole;
   uploadedBy?: AssetUploader;
 }) {
-  return input.uploadedBy === "admin" && Boolean(input.actorRole && hasPermission(input.actorRole, "assets.assist"));
+  return input.uploadedBy === "admin" && Boolean(input.actorRole && (isAdminRole(input.actorRole) || hasPermission(input.actorRole, "assets.assist")));
 }

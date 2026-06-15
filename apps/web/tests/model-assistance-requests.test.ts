@@ -8,7 +8,7 @@ test("modelAssistanceRequestFromAuditLog extracts display fields", () => {
   const request = modelAssistanceRequestFromAuditLog({
     id: "log_1",
     targetId: "project_1",
-    actor: { email: "creator@example.com" },
+    actor: { username: "creator" },
     createdAt,
     after: {
       projectId: "project_1",
@@ -21,7 +21,7 @@ test("modelAssistanceRequestFromAuditLog extracts display fields", () => {
     id: "log_1",
     projectId: "project_1",
     projectName: "Yuri",
-    creatorEmail: "creator@example.com",
+    creatorUsername: "creator",
     notes: "Please check model3.json",
     createdAt,
     status: "pending",
@@ -42,7 +42,7 @@ test("modelAssistanceRequestFromAuditLog falls back for partial audit payloads",
 
   assert.equal(request.projectId, "project_2");
   assert.equal(request.projectName, "Unknown project");
-  assert.equal(request.creatorEmail, "Unknown creator");
+  assert.equal(request.creatorUsername, "Unknown creator");
   assert.equal(request.notes, "");
 });
 
@@ -59,7 +59,7 @@ test("resolveModelAssistanceRequests marks requests fulfilled by later admin mod
       {
         id: "log_1",
         targetId: "project_1",
-        actor: { email: "creator@example.com" },
+        actor: { username: "creator" },
         createdAt: new Date("2026-06-10T10:00:00.000Z"),
         after: {
           projectId: "project_1",
@@ -69,7 +69,7 @@ test("resolveModelAssistanceRequests marks requests fulfilled by later admin mod
       {
         id: "log_2",
         targetId: "project_2",
-        actor: { email: "creator@example.com" },
+        actor: { username: "creator" },
         createdAt: new Date("2026-06-10T10:00:00.000Z"),
         after: {
           projectId: "project_2",
@@ -107,6 +107,6 @@ test("modelAssistanceStatusText explains fulfilled admin setup", () => {
       fulfilledAt: new Date("2026-06-10T11:00:00.000Z"),
       fulfilledModelVersion: 2,
     }),
-    /Fulfilled with model version 2/,
+    /Fulfilled on/,
   );
 });

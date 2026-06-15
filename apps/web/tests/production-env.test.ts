@@ -13,13 +13,6 @@ const validEnv: NodeJS.ProcessEnv = {
   DEPLOY_BASE_URL: "https://app.live2d-prod.com",
   AUTH_SECRET: "a".repeat(40),
   AUTH_URL: "https://app.live2d-prod.com",
-  EMAIL_SERVER_HOST: "smtp.provider.test",
-  EMAIL_SERVER_PORT: "587",
-  EMAIL_SERVER_SECURE: "false",
-  EMAIL_SERVER_STARTTLS: "true",
-  EMAIL_SERVER_USER: "apikey",
-  EMAIL_SERVER_PASSWORD: "mail-password-with-enough-length",
-  EMAIL_FROM: "Live2D <no-reply@live2d-prod.com>",
   FAN_CODE_HASH_SECRET: "b".repeat(40),
   PAYMENT_WEBHOOK_SECRET: "p".repeat(40),
   PAYMENT_CHECKOUT_URL_TEMPLATE: "https://pay.provider.test/checkout?order={orderId}",
@@ -51,22 +44,9 @@ test("validateProductionEnv accepts production-safe values", () => {
   assert.equal(report.envFile, ".env.production");
 });
 
-test("validateProductionEnv accepts implicit TLS SMTP without STARTTLS", () => {
-  const report = validateProductionEnv({
-    ...validEnv,
-    EMAIL_SERVER_PORT: "465",
-    EMAIL_SERVER_SECURE: "true",
-    EMAIL_SERVER_STARTTLS: "false",
-  });
-
-  assert.equal(report.ok, true);
-  assert.equal(report.checks.some((check) => check.name === "email_transport_security" && check.ok), true);
-});
-
 test("validateProductionEnv accepts common provider credential lengths", () => {
   const report = validateProductionEnv({
     ...validEnv,
-    EMAIL_SERVER_PASSWORD: "app-pass-123",
     OPENAI_COMPATIBLE_API_KEY: "sk-prod1",
     OBJECT_STORAGE_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE".replace("EXAMPLE", "PROD"),
     OBJECT_STORAGE_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYPRODKEY",
@@ -85,7 +65,6 @@ test("validateProductionEnv rejects placeholders and unsafe production modes", (
     RATE_LIMIT_BACKEND: "memory",
     CSP_REPORT_ONLY: "true",
     ENABLE_HSTS: "false",
-    EMAIL_SERVER_STARTTLS: "false",
   });
 
   assert.equal(report.ok, false);
@@ -94,7 +73,6 @@ test("validateProductionEnv rejects placeholders and unsafe production modes", (
   assert.equal(report.checks.some((check) => check.name === "rate_limit_backend_value" && !check.ok), true);
   assert.equal(report.checks.some((check) => check.name === "csp_report_only_value" && !check.ok), true);
   assert.equal(report.checks.some((check) => check.name === "enable_hsts_value" && !check.ok), true);
-  assert.equal(report.checks.some((check) => check.name === "email_transport_security" && !check.ok), true);
 });
 
 test("validateProductionEnv rejects unsafe production CSP source overrides", () => {

@@ -36,7 +36,7 @@ export default async function Home() {
             一座随时<em>开演</em>的舞台。
           </h1>
           <p className={styles.heroSub}>
-            上传 Live2D 模型,配置语音与触发标签,发放粉丝访问码——观众凭码走进你的专属角色页,和 TA 实时聊天互动。
+            上传 Live2D 模型,配置触发标签,发放粉丝访问码——观众凭码走进你的专属角色页,和 TA 实时聊天互动。
           </p>
           <div className={styles.actions}>
             <Link className={styles.primaryAction} href="/creator">
@@ -59,7 +59,7 @@ export default async function Home() {
             </div>
             <div>
               <dt>标签驱动</dt>
-              <dd>表情 · 语音 · 人设片段</dd>
+              <dd>表情 · 参数 · 人设片段</dd>
             </div>
             <div>
               <dt>后端代理</dt>

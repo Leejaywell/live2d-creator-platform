@@ -1,9 +1,8 @@
-import { Prisma, ProjectStatus, UserRole, VoiceStatus } from "@prisma/client";
+import { Prisma, ProjectStatus, UserRole } from "@prisma/client";
 
-import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
+import { assertPermission } from "@/lib/permissions";
 import { assertProjectPublishReadiness } from "@/lib/project-readiness";
 import { prisma } from "@/lib/prisma";
-import { initialVoiceCloneStatusForFulfillment } from "@/lib/voice-clone-status";
 
 export async function createProject(input: {
   creatorId: string;
@@ -30,8 +29,8 @@ export async function createProject(input: {
           const projectCount = await tx.project.count({
             where: { creatorId: input.creatorId },
           });
-          if (projectCount >= plan.maxProjects) {
-            throw new Error("Project quota exceeded");
+          if (projectCount >= 1) {
+            throw new Error("Creator model slot already exists");
           }
 
           const project = await tx.project.create({
@@ -143,9 +142,6 @@ export async function setProjectStatus(input: {
         triggerTags: {
           select: { enabled: true },
         },
-        voiceAssets: {
-          select: { status: true },
-        },
         fanAccessCodes: {
           select: { status: true, expiresAt: true },
         },
@@ -182,6 +178,61 @@ export async function setProjectStatus(input: {
     });
 
     return updated;
+  });
+}
+
+export async function deleteProject(input: {
+  projectId: string;
+  actorId: string;
+  actorRole: UserRole;
+  creatorId?: string;
+}) {
+  if (input.actorRole === "creator") {
+    if (input.creatorId !== input.actorId) {
+      throw new Error("Creators can only delete their own projects");
+    }
+  } else {
+    assertPermission(input.actorRole, "projects.pause");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const project = await tx.project.findFirstOrThrow({
+      where: {
+        id: input.projectId,
+        creatorId: input.creatorId,
+      },
+      include: {
+        currentModelAsset: true,
+        _count: {
+          select: {
+            modelAssets: true,
+            triggerTags: true,
+            fanAccessCodes: true,
+            viewerSessions: true,
+          },
+        },
+      },
+    });
+
+    await tx.project.update({
+      where: { id: project.id },
+      data: { currentModelAssetId: null },
+    });
+    const deleted = await tx.project.delete({
+      where: { id: project.id },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorId,
+        actorRole: input.actorRole,
+        action: "project.deleted",
+        targetType: "Project",
+        targetId: project.id,
+        before: project as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return deleted;
   });
 }
 
@@ -223,14 +274,11 @@ export async function createTriggerTag(input: {
   live2dParams?: Prisma.InputJsonValue;
   priority?: number;
   enabled?: boolean;
-  voiceAssetIds?: string[];
 }) {
   return prisma.$transaction(async (tx) => {
     await tx.project.findFirstOrThrow({
       where: { id: input.projectId, creatorId: input.creatorId },
     });
-
-    await assertVoiceAssetsBelongToProject(tx, input.projectId, input.voiceAssetIds);
 
     const tag = await tx.triggerTag.create({
       data: {
@@ -243,11 +291,6 @@ export async function createTriggerTag(input: {
         live2dParams: input.live2dParams,
         priority: input.priority ?? 0,
         enabled: input.enabled ?? true,
-        voiceAssets: input.voiceAssetIds?.length
-          ? {
-              connect: input.voiceAssetIds.map((id) => ({ id })),
-            }
-          : undefined,
       },
     });
 
@@ -278,7 +321,6 @@ export async function updateTriggerTag(input: {
   live2dParams?: Prisma.InputJsonValue;
   priority?: number;
   enabled?: boolean;
-  voiceAssetIds?: string[];
 }) {
   return prisma.$transaction(async (tx) => {
     const before = await tx.triggerTag.findFirstOrThrow({
@@ -287,10 +329,7 @@ export async function updateTriggerTag(input: {
         projectId: input.projectId,
         project: { creatorId: input.creatorId },
       },
-      include: { voiceAssets: true },
     });
-
-    await assertVoiceAssetsBelongToProject(tx, input.projectId, input.voiceAssetIds);
 
     const tag = await tx.triggerTag.update({
       where: { id: input.tagId },
@@ -303,13 +342,7 @@ export async function updateTriggerTag(input: {
         live2dParams: input.live2dParams,
         priority: input.priority,
         enabled: input.enabled,
-        voiceAssets: input.voiceAssetIds
-          ? {
-              set: input.voiceAssetIds.map((id) => ({ id })),
-            }
-          : undefined,
       },
-      include: { voiceAssets: true },
     });
 
     await tx.auditLog.create({
@@ -340,7 +373,6 @@ export async function deleteTriggerTag(input: {
         projectId: input.projectId,
         project: { creatorId: input.creatorId },
       },
-      include: { voiceAssets: true },
     });
 
     await tx.triggerTag.delete({
@@ -359,119 +391,5 @@ export async function deleteTriggerTag(input: {
     });
 
     return before;
-  });
-}
-
-async function assertVoiceAssetsBelongToProject(tx: Prisma.TransactionClient, projectId: string, voiceAssetIds?: string[]) {
-  if (!voiceAssetIds?.length) return;
-
-  const count = await tx.voiceAsset.count({
-    where: {
-      id: { in: voiceAssetIds },
-      projectId,
-    },
-  });
-  if (count !== voiceAssetIds.length) {
-    throw new Error("Voice assets must belong to the same project");
-  }
-}
-
-export async function updateVoiceAsset(input: {
-  voiceAssetId: string;
-  projectId: string;
-  creatorId: string;
-  name?: string;
-  durationMs?: number;
-  tags?: string[];
-  status?: VoiceStatus;
-}) {
-  return prisma.$transaction(async (tx) => {
-    const before = await tx.voiceAsset.findFirstOrThrow({
-      where: {
-        id: input.voiceAssetId,
-        projectId: input.projectId,
-        project: { creatorId: input.creatorId },
-      },
-    });
-
-    const voice = await tx.voiceAsset.update({
-      where: { id: input.voiceAssetId },
-      data: {
-        name: input.name,
-        durationMs: input.durationMs,
-        status: input.status,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: input.creatorId,
-        actorRole: "creator",
-        action: "voice_asset.updated",
-        targetType: "VoiceAsset",
-        targetId: voice.id,
-        before: before as unknown as Prisma.InputJsonValue,
-        after: voice as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    return voice;
-  });
-}
-
-export async function disableVoiceAsset(input: {
-  voiceAssetId: string;
-  projectId: string;
-  creatorId: string;
-}) {
-  return updateVoiceAsset({
-    ...input,
-    status: "disabled",
-  });
-}
-
-export async function createVoiceCloneRequest(input: {
-  projectId: string;
-  creatorId: string;
-  authorizationConfirmed: boolean;
-  notes?: string;
-}) {
-  if (!input.authorizationConfirmed) {
-    throw new Error("Voice clone authorization confirmation is required");
-  }
-
-  const settings = await getPlatformRuntimeSettings();
-  const initialStatus = initialVoiceCloneStatusForFulfillment(settings.voiceCloningFulfillment);
-
-  return prisma.$transaction(async (tx) => {
-    await tx.project.findFirstOrThrow({
-      where: { id: input.projectId, creatorId: input.creatorId },
-    });
-
-    const request = await tx.voiceCloneRequest.create({
-      data: {
-        projectId: input.projectId,
-        creatorId: input.creatorId,
-        status: initialStatus,
-        authorizationConfirmed: true,
-        notes: input.notes,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: input.creatorId,
-        actorRole: "creator",
-        action: "voice_clone_request.created",
-        targetType: "VoiceCloneRequest",
-        targetId: request.id,
-        after: {
-          ...request,
-          fulfillmentMode: settings.voiceCloningFulfillment,
-        } as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    return request;
   });
 }

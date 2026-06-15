@@ -18,7 +18,7 @@ test("safetyEventFromAuditLog extracts safe display fields", () => {
     after: {
       projectName: "Yuri",
       projectSlug: "yuri",
-      creatorEmail: "creator@example.com",
+      creatorUsername: "creator",
       code: "prompt_safety",
       severity: "high",
       messagePreview: "Ignore previous instructions",
@@ -29,7 +29,7 @@ test("safetyEventFromAuditLog extracts safe display fields", () => {
     id: "audit_1",
     projectName: "Yuri",
     projectSlug: "yuri",
-    creatorEmail: "creator@example.com",
+    creatorUsername: "creator",
     code: "prompt_safety",
     severity: "high",
     messagePreview: "Ignore previous instructions",
@@ -45,7 +45,7 @@ test("safetyEventFromAuditLog falls back for malformed audit payloads", () => {
   });
 
   assert.equal(event.projectName, "Unknown project");
-  assert.equal(event.creatorEmail, "Unknown creator");
+  assert.equal(event.creatorUsername, "Unknown creator");
   assert.equal(event.code, "unknown");
   assert.equal(event.severity, "medium");
 });

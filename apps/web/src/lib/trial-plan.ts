@@ -1,7 +1,6 @@
 export const TRIAL_PLAN_DEFAULTS = {
   planName: "试用",
   maxProjects: 1,
-  storageLimitMb: 256,
   monthlyAiMessageLimit: 300,
   fanCodeQuota: 30,
   durationDays: 30,
@@ -18,7 +17,7 @@ export function buildTrialPlanData(creatorId: string, now = new Date()) {
     startsAt: now,
     expiresAt: new Date(now.getTime() + TRIAL_PLAN_DEFAULTS.durationDays * 24 * 60 * 60 * 1000),
     maxProjects: TRIAL_PLAN_DEFAULTS.maxProjects,
-    storageLimitMb: TRIAL_PLAN_DEFAULTS.storageLimitMb,
+    storageLimitMb: 0,
     monthlyAiMessageLimit: TRIAL_PLAN_DEFAULTS.monthlyAiMessageLimit,
     fanCodeQuota: TRIAL_PLAN_DEFAULTS.fanCodeQuota,
   };

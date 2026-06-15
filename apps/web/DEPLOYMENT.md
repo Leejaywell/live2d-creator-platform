@@ -5,7 +5,6 @@ This app is the production foundation for the Live2D Creator Platform MVP. It is
 ## Required Services
 
 - PostgreSQL database.
-- SMTP-compatible email provider for first-party magic links.
 - OpenAI-compatible chat completions provider.
 - Object storage for Live2D model zips, extracted model assets, audio, avatars, and generated signed URLs.
 
@@ -18,13 +17,6 @@ DATABASE_URL=
 DEPLOY_BASE_URL=
 AUTH_SECRET=
 AUTH_URL=
-EMAIL_SERVER_HOST=
-EMAIL_SERVER_PORT=
-EMAIL_SERVER_SECURE=
-EMAIL_SERVER_STARTTLS=
-EMAIL_SERVER_USER=
-EMAIL_SERVER_PASSWORD=
-EMAIL_FROM=
 FAN_CODE_HASH_SECRET=
 PAYMENT_WEBHOOK_SECRET=
 PAYMENT_CHECKOUT_URL_TEMPLATE=
@@ -61,7 +53,7 @@ Validate the production environment file before running migrations or provider r
 npm run env:validate:production
 ```
 
-This static check rejects missing variables, placeholder/example values, weak secrets, unsafe URL schemes, and non-production modes for rate limiting, CSP, HSTS, and SMTP STARTTLS. It does not contact databases or external providers; full readiness below performs those network checks.
+This static check rejects missing variables, placeholder/example values, weak secrets, unsafe URL schemes, and non-production modes for rate limiting, CSP, and HSTS. It does not contact databases or external providers; full readiness below performs those network checks.
 
 ## Database
 
@@ -72,16 +64,18 @@ npm run db:migrate:production
 npm run db:seed
 ```
 
-`db:seed` creates a first Super Admin, Creator, active plan, published demo project, starter trigger tags, and an audit log.
+`db:seed` creates a first Super Admin, Creator, active plan, published demo project, and starter trigger tags.
 
 Set these values before seeding production:
 
 ```bash
-SEED_SUPER_ADMIN_EMAIL=
-SEED_CREATOR_EMAIL=
+SEED_SUPER_ADMIN_USERNAME=
+SEED_SUPER_ADMIN_PASSWORD=
+SEED_CREATOR_USERNAME=
+SEED_CREATOR_PASSWORD=
 ```
 
-When `NODE_ENV=production`, `db:seed` refuses to run unless both emails are explicitly set to non-example domains. Local development keeps the `admin@example.com` and `creator@example.com` defaults for convenience.
+When `NODE_ENV=production`, `db:seed` refuses to run unless both usernames and passwords are explicitly set. Local development keeps `admin` and `creator` defaults for convenience.
 
 `db:migrate:production` refuses `SKIP_DB_BACKUP=true`, creates a `pg_dump --format=custom` backup under `artifacts/db-backups/`, writes `artifacts/db-backups/latest.json` with size and SHA-256 evidence, runs `prisma migrate deploy`, then writes `artifacts/db-migrations/latest.json`. Keep the dump in a restricted backup store; the release record only needs the manifests. To restore a backup into a replacement database, use:
 
@@ -138,7 +132,7 @@ npm run release:verify
 - Docker compose integration config is parseable.
 - Integration shell script syntax is valid.
 - Integration E2E script entrypoint is loadable.
-- Production seed refuses to run with default/example admin and creator emails.
+- Production seed refuses to run with default/example admin and creator credentials.
 
 Basic readiness checks are also available through `npm run readiness` and `/api/health`.
 
@@ -249,7 +243,7 @@ This provisions a published QA project without a model and verifies the audience
 `integration:e2e` verifies:
 
 - Creator, plan, project, and trigger tag creation.
-- First-party magic-link email delivery through Mailpit and database session creation.
+- First-party password login and database session creation.
 - Fan-code generation.
 - Fan-code validation and viewer session creation.
 - AI proxy call.
@@ -326,13 +320,10 @@ Security headers:
 - `CSP_CONNECT_SRC` and `CSP_SCRIPT_SRC` can append comma-separated source expressions if a deployment adds trusted providers.
 - HSTS is emitted automatically in production. `ENABLE_HSTS=true` can force it in staging.
 
-Authentication email:
+Authentication:
 
-- Magic-link sessions are stored in the Prisma `Session` table with hashed session tokens.
-- Magic-link verification tokens are stored hashed in the Prisma `VerificationToken` table and expire after 15 minutes.
-- `EMAIL_SERVER_SECURE=true` uses implicit TLS, normally on port 465.
-- `EMAIL_SERVER_STARTTLS=true` upgrades plain SMTP connections when the server advertises STARTTLS, normally on port 587.
-- Production readiness rejects `EMAIL_SERVER_STARTTLS=false` unless implicit TLS is used.
+- Password-login sessions are stored in the Prisma `Session` table with hashed session tokens.
+- Creator accounts are created by admins and can change their own password after signing in.
 
 ## Implemented API Surface
 
@@ -351,17 +342,15 @@ Authentication email:
 - `POST /api/admin/orders`
   - Admin manual order creation.
 - `POST /api/admin/orders/[orderId]/confirm`
-  - Admin order confirmation with plan/quota ledger and audit log writes.
+  - Admin order confirmation with plan/quota ledger writes.
 - `POST /api/admin/orders/[orderId]/void`
-  - Admin pending-order voiding with audit logging.
+  - Admin pending-order voiding.
 - `POST /api/admin/orders/[orderId]/refund`
-  - Admin confirmed-order refund marking. Reverses unused quota, writes negative ledger entries, and records audit logs.
+  - Admin confirmed-order refund marking. Reverses unused quota and writes negative ledger entries.
 - `POST /api/admin/projects/[projectId]/status`
   - Admin project pause/restore/status control.
 - `POST /api/admin/projects/[projectId]/model-assets`
-  - Admin-assisted Live2D zip upload, validation, storage, current model update, and audit logging.
-- `POST /api/admin/clone-requests/[requestId]/status`
-  - Admin voice clone request review/status updates for historical or explicitly re-enabled intake.
+  - Admin-assisted Live2D zip upload, validation, storage, and current model update.
 - `POST /api/creator/projects`
   - Authenticated creator project creation.
 - `PATCH /api/creator/projects/[projectId]`
@@ -381,9 +370,7 @@ Authentication email:
 - `POST /api/creator/projects/[projectId]/model-assets`
   - Authenticated Live2D zip upload, validation, extraction, protected object storage write, ModelAsset persistence, and current model update.
 - `POST /api/creator/projects/[projectId]/model-assets/rollback`
-  - Authenticated rollback to a previous valid Live2D model version with audit logging.
-- `POST /api/creator/projects/[projectId]/clone-requests`
-  - Authenticated voice-clone request submission with authorization confirmation when `voiceCloning.fulfillment` is explicitly enabled. The default mode is disabled.
+  - Authenticated rollback to a previous valid Live2D model version.
 - `POST /api/creator/checkout`
   - Authenticated creator self-service checkout order creation in provider checkout modes. Creates a pending order from a supported SKU and returns an optional checkout URL when `PAYMENT_CHECKOUT_URL_TEMPLATE` is configured.
 - `DELETE /api/creator/checkout/[orderId]`
@@ -399,9 +386,7 @@ Authentication email:
 - `POST /api/chat`
   - Rate-limited public viewer-session chat proxy with quota deduction after successful AI response. Returns triggered tags, configured Live2D parameter effects, and protected voice asset proxy URLs for active voice assets bound to those tags.
 - `POST /api/auth/signin`
-  - Sends a first-party email magic link for active users without exposing account existence.
-- `GET /api/auth/callback`
-  - Consumes a magic-link token, creates a database session, and sets the HTTP-only session cookie.
+  - Verifies username/password credentials for active users, creates a database session, and sets the HTTP-only session cookie.
 - `GET|POST /api/auth/signout`
   - Deletes the current database session and clears the session cookie.
 - `GET /api/health`
@@ -432,8 +417,8 @@ Authentication email:
 - `/creator`
   - Creator plan/project dashboard plus project creation, self-service checkout entry, billing history, usage analytics, and links to each project management page.
 - `/creator/projects/[projectId]`
-  - Per-project management page for settings, status, model upload/version rollback, trigger tag create/edit/delete/binding/testing, voice upload/update/replacement/disable, fan-code CSV generation/export/status/revocation, and disabled-by-default clone request history.
+  - Per-project management page for settings, status, model upload/version rollback, trigger tag create/edit/delete/binding/testing, voice upload/update/replacement/disable, and fan-code CSV generation/export/status/revocation.
 - `/admin`
-  - Admin dashboard with admin-user, creator, order, project, clone request, and audit visibility plus forms for admin user upsert, creator creation, manual orders, order confirmation, project status, admin-assisted model upload, and clone request status for historical or explicitly re-enabled intake.
+  - Admin dashboard with admin-user, creator, order, project, diagnostics, and forms for admin user upsert, creator creation, manual orders, order confirmation, project status, and admin-assisted model upload.
 - `/c/[slug]`
   - Public audience page with fan-code validation, backend chat proxy integration, configured tag-driven Live2D parameter effects, triggered voice playback, and PixiJS/pixi-live2d-display rendering after access is granted.

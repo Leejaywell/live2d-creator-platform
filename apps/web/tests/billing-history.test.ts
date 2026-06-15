@@ -23,7 +23,7 @@ test("billing labels describe manual order states", () => {
 
 test("quota ledger labels describe resource and entry type", () => {
   assert.equal(quotaResourceLabel("ai_messages"), "AI messages");
-  assert.equal(quotaResourceLabel("storage_mb"), "Storage MB");
+  assert.equal(quotaResourceLabel("storage_mb"), "storage_mb");
   assert.equal(ledgerEntryTypeLabel("consume"), "Consume");
   assert.equal(ledgerEntryTypeLabel("expiration_reset"), "Expiration reset");
 });

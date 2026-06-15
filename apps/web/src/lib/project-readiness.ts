@@ -6,7 +6,6 @@ export type ProjectPublishReadinessInput = {
   welcomeMessage?: string | null;
   currentModelAsset?: { validationStatus: string } | null;
   triggerTags: Array<{ enabled: boolean }>;
-  voiceAssets: Array<{ status: string }>;
   fanAccessCodes: Array<{ status: string; expiresAt: Date }>;
 };
 
@@ -17,7 +16,6 @@ export type ProjectReadinessItem = {
 };
 
 export function projectPublishReadiness(input: ProjectPublishReadinessInput, now = new Date()): ProjectReadinessItem[] {
-  const activeVoiceAssets = input.voiceAssets.filter((voice) => voice.status === "active").length;
   const activeFanCodes = input.fanAccessCodes.filter((code) => code.status === "active" && code.expiresAt > now).length;
   const enabledTags = input.triggerTags.filter((tag) => tag.enabled).length;
 
@@ -34,13 +32,8 @@ export function projectPublishReadiness(input: ProjectPublishReadinessInput, now
     },
     {
       title: "Trigger tags",
-      detail: enabledTags ? `${enabledTags} enabled tag(s) can drive expressions, parameters, voices, and prompt fragments.` : "Create at least one enabled tag to make responses feel characterful.",
+      detail: enabledTags ? `${enabledTags} enabled tag(s) can drive expressions, parameters, and prompt fragments.` : "Create at least one enabled tag to make responses feel characterful.",
       done: enabledTags > 0,
-    },
-    {
-      title: "Voice playback",
-      detail: activeVoiceAssets ? `${activeVoiceAssets} active voice clip(s) are available.` : "Upload at least one active preset voice clip for richer tag responses.",
-      done: activeVoiceAssets > 0,
     },
     {
       title: "Fan access",

@@ -1,7 +1,6 @@
 import { PaymentMethod, Prisma, UserRole } from "@prisma/client";
 
-import { assertCheckoutRequestAllowed, buildCheckoutUrl, checkoutOrderPeriod, checkoutProductForSku } from "@/lib/checkout-products";
-import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
+import { adminOrderProductForSku, checkoutOrderPeriod } from "@/lib/checkout-products";
 import { prisma } from "@/lib/prisma";
 
 export async function createCreatorCheckoutOrder(input: {
@@ -13,12 +12,9 @@ export async function createCreatorCheckoutOrder(input: {
   if (input.creator.role !== "creator") {
     throw new Error("Checkout orders can only be created by creator accounts");
   }
-  const settings = await getPlatformRuntimeSettings();
-  assertCheckoutRequestAllowed(settings.checkoutMode);
-
-  const product = checkoutProductForSku(input.sku);
+  const product = adminOrderProductForSku(input.sku);
   if (!product) {
-    throw new Error("Unsupported checkout product");
+    throw new Error("Unsupported checkout package");
   }
   if (!product.paymentMethods.includes(input.paymentMethod)) {
     throw new Error("Unsupported payment method for this checkout product");
@@ -40,7 +36,7 @@ export async function createCreatorCheckoutOrder(input: {
         aiMessageQuotaDelta: product.aiMessageQuotaDelta,
         storageQuotaDeltaMb: product.storageQuotaDeltaMb,
         fanCodeQuotaDelta: product.fanCodeQuotaDelta,
-        notes: `Checkout request: ${product.sku}`,
+        notes: `Creator package request: ${product.sku}`,
       },
     });
 
@@ -54,7 +50,6 @@ export async function createCreatorCheckoutOrder(input: {
         after: {
           order: created,
           sku: product.sku,
-          checkoutMode: settings.checkoutMode,
           checkoutUrlConfigured: Boolean(process.env.PAYMENT_CHECKOUT_URL_TEMPLATE),
         } as unknown as Prisma.InputJsonValue,
         ipAddress: input.ipAddress,
@@ -67,6 +62,6 @@ export async function createCreatorCheckoutOrder(input: {
   return {
     order,
     product,
-    checkoutUrl: buildCheckoutUrl(order.id),
+    checkoutUrl: undefined,
   };
 }

@@ -43,6 +43,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:production": "sh scripts/production-migrate.sh",
     "db:dev": "prisma migrate dev",
+    "demo:models": "tsx scripts/seed-demo-models.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {

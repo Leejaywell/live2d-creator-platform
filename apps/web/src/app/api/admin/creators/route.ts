@@ -10,12 +10,12 @@ const optionalPositiveInt = z.preprocess((value) => (value === "" ? undefined : 
 const optionalNonEmptyString = z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional());
 
 const creatorSchema = z.object({
-  email: z.string().trim().email(),
+  username: z.string().trim().min(1),
+  password: z.string().min(8),
   displayName: z.string().min(1),
   planName: optionalNonEmptyString,
   expiresAt: optionalDateTime,
   maxProjects: optionalPositiveInt,
-  storageLimitMb: optionalPositiveInt,
   monthlyAiMessageLimit: optionalPositiveInt,
   fanCodeQuota: optionalPositiveInt,
 });
@@ -26,12 +26,12 @@ export async function POST(request: NextRequest) {
     const body = await parseBody(request, creatorSchema);
     const creator = await createCreatorAccount({
       admin: { id: session.user.id, role: session.user.role },
-      email: body.email,
+      username: body.username,
+      password: body.password,
       displayName: body.displayName,
       planName: body.planName,
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
       maxProjects: body.maxProjects,
-      storageLimitMb: body.storageLimitMb,
       monthlyAiMessageLimit: body.monthlyAiMessageLimit,
       fanCodeQuota: body.fanCodeQuota,
     });

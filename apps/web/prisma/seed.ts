@@ -1,6 +1,8 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
+import { internalEmailForUsername } from "../src/lib/account-identity";
+import { hashPassword } from "../src/lib/password-auth";
 import { resolveSeedConfig } from "../src/lib/seed-config";
 
 const connectionString = process.env.DATABASE_URL;
@@ -13,33 +15,41 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  const { superAdminEmail: adminEmail, creatorEmail } = resolveSeedConfig();
+  const { superAdminUsername, superAdminPassword, creatorUsername, creatorPassword } = resolveSeedConfig();
+  const adminPasswordHash = await hashPassword(superAdminPassword);
+  const creatorPasswordHash = await hashPassword(creatorPassword);
 
   const superAdmin = await prisma.user.upsert({
-    where: { email: adminEmail },
+    where: { username: superAdminUsername },
     update: {
       role: "super_admin",
       status: "active",
+      passwordHash: adminPasswordHash,
     },
     create: {
-      email: adminEmail,
+      username: superAdminUsername,
+      email: internalEmailForUsername(superAdminUsername),
       role: "super_admin",
       status: "active",
       emailVerified: new Date(),
+      passwordHash: adminPasswordHash,
     },
   });
 
   const creator = await prisma.user.upsert({
-    where: { email: creatorEmail },
+    where: { username: creatorUsername },
     update: {
       role: "creator",
       status: "active",
+      passwordHash: creatorPasswordHash,
     },
     create: {
-      email: creatorEmail,
+      username: creatorUsername,
+      email: internalEmailForUsername(creatorUsername),
       role: "creator",
       status: "active",
       emailVerified: new Date(),
+      passwordHash: creatorPasswordHash,
       creatorProfile: {
         create: {
           displayName: "尤里 Urzis",
@@ -53,7 +63,7 @@ async function main() {
           startsAt: new Date(),
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           maxProjects: 3,
-          storageLimitMb: 1024,
+          storageLimitMb: 0,
           monthlyAiMessageLimit: 5000,
           fanCodeQuota: 100,
         },
@@ -87,7 +97,7 @@ async function main() {
       startsAt: new Date(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       maxProjects: 3,
-      storageLimitMb: 1024,
+      storageLimitMb: 0,
       monthlyAiMessageLimit: 5000,
       fanCodeQuota: 100,
     },
@@ -142,14 +152,14 @@ async function main() {
       targetType: "Project",
       targetId: project.id,
       after: {
-        adminEmail,
-        creatorEmail,
+        superAdminUsername,
+        creatorUsername,
         projectSlug: project.slug,
       },
     },
   });
 
-  console.log(`Seeded super admin ${adminEmail}, creator ${creatorEmail}, project ${project.slug}`);
+  console.log(`Seeded super admin ${superAdminUsername}, creator ${creatorUsername}, project ${project.slug}`);
 }
 
 main()

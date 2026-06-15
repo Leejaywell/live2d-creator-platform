@@ -21,7 +21,7 @@ export function ProjectCreateForm() {
   }
 
   return (
-    <ApiForm action="/api/creator/projects" submitLabel="创建项目">
+    <ApiForm action="/api/creator/projects" submitLabel="创建角色模型">
       <label>
         名称
         <input name="name" onChange={updateName} required />

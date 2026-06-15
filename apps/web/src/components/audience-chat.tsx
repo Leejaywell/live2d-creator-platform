@@ -11,13 +11,7 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   tags?: string[];
-};
-
-type TriggeredVoiceAsset = {
-  id: string;
-  name: string;
-  url: string;
-  tag: string;
+  failed?: boolean;
 };
 
 type AudienceNotice = {
@@ -36,6 +30,7 @@ export function AudienceChat({
   welcomeMessage,
   hasLive2DModel,
   tagNames,
+  initialViewerSessionId,
 }: {
   projectSlug: string;
   projectName: string;
@@ -46,21 +41,40 @@ export function AudienceChat({
   welcomeMessage: string;
   hasLive2DModel: boolean;
   tagNames: string[];
+  initialViewerSessionId?: string;
 }) {
   const [code, setCode] = useState("");
-  const [viewerSessionId, setViewerSessionId] = useState("");
+  const [viewerSessionId, setViewerSessionId] = useState(initialViewerSessionId ?? "");
   const [message, setMessage] = useState("");
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [notice, setNotice] = useState<AudienceNotice>({
-    tone: "warn",
-    title: "需要粉丝码",
-    detail: "输入主播分享给你的访问码,解锁这位角色。",
-  });
+  const [remaining, setRemaining] = useState<number | null>(initialViewerSessionId ? 9999 : null);
+  const [notice, setNotice] = useState<AudienceNotice>(
+    initialViewerSessionId
+      ? { tone: "good", title: "调试预览模式", detail: "调试模式已启动，你可以无需粉丝码直接测试聊天与动作效果。" }
+      : {
+          tone: "warn",
+          title: "需要粉丝码",
+          detail: "输入主播分享给你的访问码,解锁这位角色。",
+        }
+  );
   const [pending, setPending] = useState(false);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeEffects, setActiveEffects] = useState<Live2DEffect[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage, tags: [] }]);
   const transcriptRef = useRef<HTMLOListElement>(null);
+
+  const [isOffline, setIsOffline] = useState(typeof window !== "undefined" ? !window.navigator.onLine : false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const transcript = transcriptRef.current;
@@ -87,22 +101,52 @@ export function AudienceChat({
       }
       setViewerSessionId(data.viewerSessionId);
       setRemaining(data.remainingMessages);
-      setNotice({ tone: "good", title: "进场成功", detail: "在剩余配额内畅聊,命中的标签会触发表情与语音。" });
+      setNotice({ tone: "good", title: "进场成功", detail: "在剩余配额内畅聊,命中的标签会触发表情。" });
     } finally {
       setPending(false);
     }
   }
 
-  async function sendMessage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pending || !viewerSessionId || !message.trim()) return;
+  async function submitMessage(content: string, isRetry = false) {
+    if (pending) return;
 
-    const userMessage: ChatMessage = { role: "user", content: message.trim() };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
-    setMessage("");
+    if (isOffline) {
+      let nextMessages = [...messages];
+      if (!isRetry) {
+        nextMessages = [...messages, { role: "user", content }];
+      }
+      setMessages(
+        nextMessages.map((msg) =>
+          msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
+        )
+      );
+      if (!isRetry) setMessage("");
+      setPending(false);
+      setNotice({
+        tone: "bad",
+        title: "已离线",
+        detail: "当前处于离线状态，发送的消息将缓存并允许点击重试。",
+      });
+      return;
+    }
+
     setPending(true);
+    let nextMessages = [...messages];
+    if (isRetry) {
+      nextMessages = nextMessages.map((msg) =>
+        msg.role === "user" && msg.content === content ? { ...msg, failed: false } : msg
+      );
+      setMessages(nextMessages);
+    } else {
+      nextMessages = [...messages, { role: "user", content }];
+      setMessages(nextMessages);
+      setMessage("");
+    }
+
     setNotice({ tone: "neutral", title: "对方正在输入…", detail: "角色正在准备回应。" });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch("/api/chat", {
@@ -110,42 +154,137 @@ export function AudienceChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           viewerSessionId,
-          message: userMessage.content,
-          recentMessages: nextMessages.slice(-10).map(({ role, content }) => ({ role, content })),
+          message: content,
+          recentMessages: nextMessages.slice(-10).map(({ role, content: c }) => ({ role, content: c })),
         }),
+        signal: controller.signal,
       });
-      const data = await response.json();
+
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
         const nextNotice = accessNotice(data.error ?? "Chat failed");
         setNotice(nextNotice);
         if (nextNotice.tone === "bad" || /expired|revoked/i.test(nextNotice.detail)) {
           setViewerSessionId("");
         }
+
+        setMessages((current) =>
+          current.map((msg) =>
+            msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
+          )
+        );
         return;
       }
 
-      setMessages((current) => [...current, { role: "assistant", content: data.reply, tags: data.tags }]);
-      setActiveTags(data.tags ?? []);
-      setActiveEffects((data.live2dEffects ?? []) as Live2DEffect[]);
-      if (typeof data.remainingMessages === "number") {
-        setRemaining(data.remainingMessages);
-      } else {
-        setRemaining((current) => (typeof current === "number" ? Math.max(0, current - 1) : current));
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body reader");
       }
-      const voiceAssets = (data.voiceAssets ?? []) as TriggeredVoiceAsset[];
-      playTriggeredVoices(voiceAssets);
+
+      const decoder = new TextDecoder("utf-8");
+      let replyText = "";
+
+      // Pre-insert an empty assistant message which we'll update in-place
+      setMessages((current) => [...current, { role: "assistant", content: "" }]);
+
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed.startsWith("data: ")) {
+            const dataStr = trimmed.slice(6);
+            if (dataStr === "[DONE]") {
+              break;
+            }
+            try {
+              const payload = JSON.parse(dataStr);
+              if (payload.type === "content") {
+                replyText += payload.content;
+                setMessages((current) => {
+                  const next = [...current];
+                  if (next.length > 0 && next[next.length - 1].role === "assistant") {
+                    next[next.length - 1] = {
+                      ...next[next.length - 1],
+                      content: replyText,
+                    };
+                  }
+                  return next;
+                });
+              } else if (payload.type === "done") {
+                const tags = payload.tags ?? [];
+                const live2dEffects = (payload.live2dEffects ?? []) as Live2DEffect[];
+
+                setMessages((current) => {
+                  const next = [...current];
+                  if (next.length > 0 && next[next.length - 1].role === "assistant") {
+                    next[next.length - 1] = {
+                      ...next[next.length - 1],
+                      content: replyText,
+                      tags,
+                    };
+                  }
+                  return next;
+                });
+
+                setActiveTags(tags);
+                setActiveEffects(live2dEffects);
+                if (typeof payload.remainingMessages === "number") {
+                  setRemaining(payload.remainingMessages);
+                }
+                setNotice({
+                  tone: "good",
+                  title: "已收到回复",
+                  detail: tags.length
+                      ? `触发了 ${tags.join("、")}。`
+                      : "本次回复没有命中触发标签。",
+                });
+              }
+            } catch (err) {
+              console.error("Error parsing stream payload", err);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error(err);
+
+      const isTimeout = err instanceof Error && err.name === "AbortError";
       setNotice({
-        tone: "good",
-        title: "已收到回复",
-        detail: voiceAssets.length
-          ? `触发了 ${data.tags.join("、")},正在播放 ${voiceAssets.length} 段语音。`
-          : data.tags?.length
-            ? `触发了 ${data.tags.join("、")}。`
-            : "本次回复没有命中触发标签。",
+        tone: "bad",
+        title: isTimeout ? "请求超时" : "发送失败",
+        detail: isTimeout ? "AI 响应超时(15秒),请重试。" : "网络连接失败,请检查网络后重试。",
+      });
+
+      setMessages((current) => {
+        const next = [...current];
+        if (next.length > 0 && next[next.length - 1].role === "assistant" && next[next.length - 1].content === "") {
+          next.pop();
+        }
+        return next.map((msg) =>
+          msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
+        );
       });
     } finally {
       setPending(false);
     }
+  }
+
+  const handleComposerSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = message.trim();
+    if (!content) return;
+    submitMessage(content);
   }
 
   const unlocked = Boolean(viewerSessionId);
@@ -181,7 +320,13 @@ export function AudienceChat({
           <div className={styles.floor} aria-hidden />
           {unlocked && hasLive2DModel ? (
             <div className={styles.viewerHost}>
-              <Live2DViewer projectSlug={projectSlug} viewerSessionId={viewerSessionId} activeTags={activeTags} activeEffects={activeEffects} />
+              <Live2DViewer
+                projectSlug={projectSlug}
+                viewerSessionId={viewerSessionId}
+                activeTags={activeTags}
+                activeEffects={activeEffects}
+                isSpeaking={pending}
+              />
             </div>
           ) : (
             <div className={styles.placeholder}>
@@ -227,7 +372,13 @@ export function AudienceChat({
 
         <aside className={styles.dock}>
           <div className={styles.dockHead}>
-            <AudienceStatusNotice notice={notice} />
+            <AudienceStatusNotice
+              notice={
+                isOffline
+                  ? { tone: "warn", title: "网络连接已断开", detail: "当前处于离线状态，发送的消息将尝试缓存或重试。" }
+                  : notice
+              }
+            />
             {tagNames.length ? (
               <div className={styles.tagChips} aria-label="可触发的标签">
                 {tagNames.map((name) => (
@@ -250,6 +401,16 @@ export function AudienceChat({
                       ))}
                     </span>
                   ) : null}
+                  {item.failed ? (
+                    <button
+                      type="button"
+                      className={styles.retryBtn}
+                      onClick={() => submitMessage(item.content, true)}
+                      disabled={pending}
+                    >
+                      ⚠️ 发送失败，点击重试
+                    </button>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -265,7 +426,7 @@ export function AudienceChat({
           </ol>
 
           {unlocked ? (
-            <form className={styles.composer} onSubmit={sendMessage} data-testid="chat-form">
+            <form className={styles.composer} onSubmit={handleComposerSubmit} data-testid="chat-form">
               <input
                 data-testid="chat-message-input"
                 value={message}
@@ -339,16 +500,6 @@ function accessNotice(message: string): AudienceNotice {
     title: "进场失败",
     detail: message,
   };
-}
-
-function playTriggeredVoices(voiceAssets: TriggeredVoiceAsset[]) {
-  voiceAssets.slice(0, 3).forEach((voice, index) => {
-    window.setTimeout(() => {
-      const audio = new Audio(voice.url);
-      audio.preload = "auto";
-      audio.play().catch(() => undefined);
-    }, index * 180);
-  });
 }
 
 function getOrCreateDeviceId() {

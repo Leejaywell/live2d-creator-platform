@@ -6,7 +6,7 @@ import { loadQaModelZip } from "../src/lib/qa-model-source";
 type ProvisionReport = {
   ok: boolean;
   projectSlug: string;
-  creatorEmail: string;
+  creatorUsername: string;
   fanCode: string;
   modelUploaded: boolean;
   envFile?: string;
@@ -23,14 +23,17 @@ async function main() {
   const loadedEnv = loadEnvFileForScript(inputEnvFile);
   applyScriptEnvToProcess(loadedEnv, appEnvKeys());
 
-  const [{ generateFanCodeBatch }, { uploadModelAsset }, { prisma }] = await Promise.all([
+  const [{ generateFanCodeBatch }, { uploadModelAsset }, { prisma }, { internalEmailForUsername, normalizeUsername }, { hashPassword }] = await Promise.all([
     import("../src/lib/fan-code-service"),
     import("../src/lib/model-assets"),
     import("../src/lib/prisma"),
+    import("../src/lib/account-identity"),
+    import("../src/lib/password-auth"),
   ]);
 
   try {
-    const creatorEmail = env("QA_CREATOR_EMAIL", "qa-creator@example.test");
+    const creatorUsername = normalizeUsername(env("QA_CREATOR_USERNAME", "qa-creator"));
+    const creatorPassword = env("QA_CREATOR_PASSWORD", "ChangeMe123!");
     const projectSlug = env("QA_PROJECT_SLUG", "qa-live2d");
     const projectName = env("QA_PROJECT_NAME", "QA Live2D Project");
     const baseUrl = env("QA_BASE_URL", "http://localhost:3000");
@@ -38,7 +41,11 @@ async function main() {
     const qaEnvFile = valueAfter("--write-env") ?? ".env.qa";
     const warnings: string[] = [];
 
-    const creator = await upsertQaCreator(prisma, creatorEmail);
+    const creator = await upsertQaCreator(prisma, {
+      username: creatorUsername,
+      email: internalEmailForUsername(creatorUsername),
+      passwordHash: await hashPassword(creatorPassword),
+    });
     const project = await upsertQaProject(prisma, {
       creatorId: creator.id,
       slug: projectSlug,
@@ -77,7 +84,7 @@ async function main() {
     const report: ProvisionReport = {
       ok: true,
       projectSlug,
-      creatorEmail,
+      creatorUsername,
       fanCode: code.code,
       modelUploaded,
       envFile: qaEnvFile,
@@ -90,16 +97,22 @@ async function main() {
   }
 }
 
-async function upsertQaCreator(prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"], email: string) {
+async function upsertQaCreator(
+  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"],
+  account: { username: string; email: string; passwordHash: string },
+) {
   return prisma.$transaction(async (tx) => {
     const creator = await tx.user.upsert({
-      where: { email },
+      where: { username: account.username },
       update: {
         role: "creator",
         status: "active",
+        passwordHash: account.passwordHash,
       },
       create: {
-        email,
+        username: account.username,
+        email: account.email,
+        passwordHash: account.passwordHash,
         role: "creator",
         status: "active",
         emailVerified: new Date(),
@@ -241,7 +254,8 @@ Usage:
 
 Environment:
   QA_BASE_URL                 Public app URL for generated .env.qa
-  QA_CREATOR_EMAIL            Creator email to upsert
+  QA_CREATOR_USERNAME         Creator username to upsert
+  QA_CREATOR_PASSWORD         Creator password to set
   QA_PROJECT_SLUG             Project slug to upsert
   QA_PROJECT_NAME             Project display name
   QA_MODEL_ZIP_PATH           Optional real Live2D zip to upload

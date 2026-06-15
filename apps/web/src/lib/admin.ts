@@ -1,40 +1,49 @@
-import { OrderType, PaymentMethod, Prisma, QuotaResource, UserRole, UserStatus, VoiceCloneStatus } from "@prisma/client";
+import { OrderType, PaymentMethod, Prisma, QuotaResource, UserRole, UserStatus } from "@prisma/client";
 
+import { internalEmailForUsername, normalizeUsername } from "@/lib/account-identity";
 import { assertManualOrderAllowedForCheckout } from "@/lib/checkout-modes";
+import { hashPassword } from "@/lib/password-auth";
 import { assertPermission } from "@/lib/permissions";
 import { assertFuturePlanExpiration, defaultPlanExpiresAt, resolveManualOrderPlanPeriod } from "@/lib/plan-periods";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
-import { normalizeWechatOpenId } from "@/lib/wechat-auth";
 
 export async function upsertAdminUser(input: {
   admin: { id: string; role: UserRole };
-  email: string;
+  username: string;
+  password?: string;
   role: Exclude<UserRole, "creator">;
   status: UserStatus;
 }) {
   assertPermission(input.admin.role, "admin.users.manage");
-  const email = normalizeEmail(input.email);
+  const username = normalizeUsername(input.username);
 
   return prisma.$transaction(async (tx) => {
     const before = await tx.user.findUnique({
-      where: { email },
+      where: { username },
     });
+    if (!before && !input.password) {
+      throw new Error("Password is required for new admin users");
+    }
 
     if (before?.id === input.admin.id && (input.role !== "super_admin" || input.status !== "active")) {
       throw new Error("Super admins cannot demote or suspend their own account");
     }
 
+    const passwordHash = input.password ? await hashPassword(input.password) : undefined;
     const user = await tx.user.upsert({
-      where: { email },
+      where: { username },
       update: {
         role: input.role,
         status: input.status,
+        passwordHash,
       },
       create: {
-        email,
+        username,
+        email: internalEmailForUsername(username),
         role: input.role,
         status: input.status,
+        passwordHash,
       },
     });
 
@@ -56,37 +65,44 @@ export async function upsertAdminUser(input: {
 
 export async function createCreatorAccount(input: {
   admin: { id: string; role: UserRole };
-  email: string;
+  username: string;
+  password?: string;
   displayName: string;
   planName?: string;
   expiresAt?: Date;
   maxProjects?: number;
-  storageLimitMb?: number;
   monthlyAiMessageLimit?: number;
   fanCodeQuota?: number;
 }) {
   assertPermission(input.admin.role, "creators.manage");
-  const email = normalizeEmail(input.email);
+  const username = normalizeUsername(input.username);
 
   return prisma.$transaction(async (tx) => {
     const existingUser = await tx.user.findUnique({
-      where: { email },
+      where: { username },
       select: { role: true },
     });
+    if (!existingUser && !input.password) {
+      throw new Error("Password is required for new creator users");
+    }
     if (existingUser && existingUser.role !== "creator") {
       throw new Error("Creator accounts cannot replace admin accounts");
     }
 
+    const passwordHash = input.password ? await hashPassword(input.password) : undefined;
     const creator = await tx.user.upsert({
-      where: { email },
+      where: { username },
       update: {
         role: "creator",
         status: "active",
+        passwordHash,
       },
       create: {
-        email,
+        username,
+        email: internalEmailForUsername(username),
         role: "creator",
         status: "active",
+        passwordHash,
       },
     });
 
@@ -111,7 +127,6 @@ export async function createCreatorAccount(input: {
           planName: input.planName,
           expiresAt: planExpiresAt,
           maxProjects: input.maxProjects,
-          storageLimitMb: input.storageLimitMb,
           monthlyAiMessageLimit: input.monthlyAiMessageLimit,
           fanCodeQuota: input.fanCodeQuota,
           status: "active",
@@ -122,7 +137,7 @@ export async function createCreatorAccount(input: {
           startsAt: new Date(),
           expiresAt: planExpiresAt,
           maxProjects: input.maxProjects ?? 1,
-          storageLimitMb: input.storageLimitMb ?? 512,
+          storageLimitMb: 0,
           monthlyAiMessageLimit: input.monthlyAiMessageLimit ?? 1000,
           fanCodeQuota: input.fanCodeQuota ?? 20,
         },
@@ -137,11 +152,10 @@ export async function createCreatorAccount(input: {
         targetType: "User",
         targetId: creator.id,
         after: {
-          email,
+          username,
           displayName: input.displayName,
           planName: input.planName,
           maxProjects: input.maxProjects,
-          storageLimitMb: input.storageLimitMb,
           monthlyAiMessageLimit: input.monthlyAiMessageLimit,
           fanCodeQuota: input.fanCodeQuota,
         },
@@ -150,10 +164,6 @@ export async function createCreatorAccount(input: {
 
     return creator;
   });
-}
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
 }
 
 export async function updateCreatorStatus(input: {
@@ -192,80 +202,84 @@ export async function updateCreatorStatus(input: {
   });
 }
 
-export async function updateUserWechatBinding(input: {
+export async function deleteAdminUser(input: {
   admin: { id: string; role: UserRole };
   userId: string;
-  openId?: string;
 }) {
-  const normalizedOpenId = input.openId?.trim() ? normalizeWechatOpenId(input.openId) : null;
+  assertPermission(input.admin.role, "admin.users.manage");
+  if (input.admin.id === input.userId) {
+    throw new Error("Admins cannot delete their own account");
+  }
 
   return prisma.$transaction(async (tx) => {
     const before = await tx.user.findUniqueOrThrow({
       where: { id: input.userId },
-      include: { accounts: { where: { provider: "wechat" } } },
     });
-
     if (before.role === "creator") {
-      assertPermission(input.admin.role, "creators.manage");
-    } else {
-      assertPermission(input.admin.role, "admin.users.manage");
+      throw new Error("Use creator deletion for creator accounts");
     }
-
-    if (normalizedOpenId) {
-      const existing = await tx.user.findFirst({
-        where: {
-          id: { not: before.id },
-          OR: [
-            { wechatOpenId: normalizedOpenId },
-            { accounts: { some: { provider: "wechat", providerAccountId: normalizedOpenId } } },
-          ],
-        },
-        select: { id: true },
+    if (before.role === "super_admin") {
+      const activeSuperAdmins = await tx.user.count({
+        where: { role: "super_admin", status: "active", id: { not: input.userId } },
       });
-      if (existing) {
-        throw new Error("WeChat OpenID is already linked to another account");
+      if (activeSuperAdmins < 1) {
+        throw new Error("At least one active super admin must remain");
       }
     }
 
-    await tx.account.deleteMany({
-      where: {
-        userId: before.id,
-        provider: "wechat",
-      },
+    await detachUserReferences(tx, input.userId);
+    const deleted = await tx.user.delete({
+      where: { id: input.userId },
     });
-
-    const user = await tx.user.update({
-      where: { id: before.id },
-      data: { wechatOpenId: normalizedOpenId },
-    });
-
-    if (normalizedOpenId) {
-      await tx.account.create({
-        data: {
-          userId: before.id,
-          type: "oauth",
-          provider: "wechat",
-          providerAccountId: normalizedOpenId,
-        },
-      });
-    }
-
     await tx.auditLog.create({
       data: {
         actorUserId: input.admin.id,
         actorRole: input.admin.role,
-        action: normalizedOpenId ? "user.wechat_linked" : "user.wechat_unlinked",
+        action: "admin_user.deleted",
         targetType: "User",
-        targetId: user.id,
-        before: {
-          wechatOpenId: before.wechatOpenId,
-          accounts: before.accounts.map((account) => account.providerAccountId),
-        },
-        after: { wechatOpenId: user.wechatOpenId },
+        targetId: deleted.id,
+        before: before as unknown as Prisma.InputJsonValue,
       },
     });
 
-    return user;
+    return deleted;
+  });
+}
+
+export async function deleteCreatorAccount(input: {
+  admin: { id: string; role: UserRole };
+  creatorId: string;
+}) {
+  assertPermission(input.admin.role, "creators.manage");
+
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUniqueOrThrow({
+      where: { id: input.creatorId },
+    });
+    if (before.role !== "creator") {
+      throw new Error("Only creator accounts can be deleted with this action");
+    }
+
+    await tx.project.updateMany({
+      where: { creatorId: input.creatorId },
+      data: { currentModelAssetId: null },
+    });
+    await detachUserReferences(tx, input.creatorId);
+    const deleted = await tx.user.delete({
+      where: { id: input.creatorId },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.admin.id,
+        actorRole: input.admin.role,
+        action: "creator_account.deleted",
+        targetType: "User",
+        targetId: deleted.id,
+        before: before as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return deleted;
   });
 }
 
@@ -415,8 +429,6 @@ function supportNoteTargetCount(tx: Prisma.TransactionClient, targetType: string
       return tx.fanAccessCode.count({ where: { id: targetId } });
     case "ManualOrder":
       return tx.manualOrder.count({ where: { id: targetId } });
-    case "VoiceCloneRequest":
-      return tx.voiceCloneRequest.count({ where: { id: targetId } });
     default:
       throw new Error("Unsupported support note target type");
   }
@@ -491,42 +503,18 @@ function quotaGrantPlanUpdate(resource: QuotaResource, amount: number) {
       return { maxProjects: { increment: amount } };
     case "ai_messages":
       return { monthlyAiMessageLimit: { increment: amount } };
-    case "storage_mb":
-      return { storageLimitMb: { increment: amount } };
     case "fan_codes":
       return { fanCodeQuota: { increment: amount } };
+    default:
+      throw new Error("Unsupported quota resource");
   }
 }
 
-export async function updateVoiceCloneRequestStatus(input: {
-  admin: { id: string; role: UserRole };
-  requestId: string;
-  status: VoiceCloneStatus;
-}) {
-  assertPermission(input.admin.role, "clone_requests.review");
-
-  return prisma.$transaction(async (tx) => {
-    const before = await tx.voiceCloneRequest.findUniqueOrThrow({
-      where: { id: input.requestId },
-    });
-
-    const request = await tx.voiceCloneRequest.update({
-      where: { id: input.requestId },
-      data: { status: input.status },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: input.admin.id,
-        actorRole: input.admin.role,
-        action: `voice_clone_request.${input.status}`,
-        targetType: "VoiceCloneRequest",
-        targetId: request.id,
-        before: before as unknown as Prisma.InputJsonValue,
-        after: request as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    return request;
-  });
+async function detachUserReferences(tx: Prisma.TransactionClient, userId: string) {
+  await Promise.all([
+    tx.auditLog.updateMany({ where: { actorUserId: userId }, data: { actorUserId: null } }),
+    tx.manualOrder.updateMany({ where: { createdByAdminId: userId }, data: { createdByAdminId: null } }),
+    tx.manualOrder.updateMany({ where: { confirmedByAdminId: userId }, data: { confirmedByAdminId: null } }),
+    tx.quotaLedgerEntry.updateMany({ where: { createdByAdminId: userId }, data: { createdByAdminId: null } }),
+  ]);
 }

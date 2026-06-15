@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/authz";
 import { jsonError, parseBody } from "@/lib/request";
 
 const supportNoteSchema = z.object({
-  targetType: z.enum(["General", "User", "Project", "FanAccessCode", "ManualOrder", "VoiceCloneRequest"]),
+  targetType: z.enum(["General", "User", "Project", "FanAccessCode", "ManualOrder"]),
   targetId: z.string().optional(),
   note: z.string().trim().min(1).max(4000),
 });

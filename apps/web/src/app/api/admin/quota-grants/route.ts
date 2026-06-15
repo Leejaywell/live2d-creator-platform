@@ -7,7 +7,7 @@ import { jsonError, parseBody } from "@/lib/request";
 
 const quotaGrantSchema = z.object({
   creatorId: z.string().min(1),
-  resource: z.enum(["projects", "ai_messages", "storage_mb", "fan_codes"]),
+  resource: z.enum(["projects", "ai_messages", "fan_codes"]),
   amount: z.number().int().positive(),
   reason: z.string().trim().max(500).optional(),
 });

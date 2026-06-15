@@ -75,7 +75,6 @@ export async function createTagAction(projectId: string, formData: FormData) {
     live2dExpression: text(formData.get("live2dExpression")),
     live2dParams: live2dParamsRaw ? JSON.parse(live2dParamsRaw) : undefined,
     priority: Number(text(formData.get("priority")) ?? "0") || 0,
-    voiceAssetIds: formData.getAll("voiceAssetIds").map(String).filter(Boolean),
   });
   revalidate(projectId);
 }

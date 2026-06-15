@@ -15,7 +15,6 @@ const readyProject = {
   welcomeMessage: "Hi.",
   currentModelAsset: { validationStatus: "valid" },
   triggerTags: [{ enabled: true }],
-  voiceAssets: [{ status: "active" }],
   fanAccessCodes: [{ status: "active", expiresAt: new Date("2026-07-01T00:00:00.000Z") }],
 };
 
@@ -33,12 +32,11 @@ test("project publish readiness reports missing launch requirements", () => {
       intro: "",
       currentModelAsset: { validationStatus: "invalid" },
       triggerTags: [{ enabled: false }],
-      voiceAssets: [{ status: "disabled" }],
       fanAccessCodes: [{ status: "active", expiresAt: new Date("2026-06-01T00:00:00.000Z") }],
     },
     new Date("2026-06-10T00:00:00.000Z"),
   );
 
-  assert.deepEqual(missing, ["Project profile", "Live2D model", "Trigger tags", "Voice playback", "Fan access"]);
+  assert.deepEqual(missing, ["Project profile", "Live2D model", "Trigger tags", "Fan access"]);
   assert.throws(() => assertProjectPublishReadiness({ ...readyProject, fanAccessCodes: [] }), /Fan access/);
 });

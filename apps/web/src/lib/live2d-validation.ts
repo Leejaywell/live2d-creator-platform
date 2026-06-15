@@ -15,6 +15,9 @@ const allowedExtensions = new Set([
   ".physics3.json",
   ".pose3.json",
   ".userdata3.json",
+  ".mp3",
+  ".ogg",
+  ".wav",
 ]);
 
 const model3Schema = z.object({
@@ -27,7 +30,7 @@ const model3Schema = z.object({
       Pose: z.string().optional(),
       DisplayInfo: z.string().optional(),
       Expressions: z.array(z.object({ File: z.string() })).optional(),
-      Motions: z.record(z.string(), z.array(z.object({ File: z.string() }))).optional(),
+      Motions: z.record(z.string(), z.array(z.object({ File: z.string(), Sound: z.string().optional() }))).optional(),
     })
     .optional(),
 });
@@ -159,7 +162,7 @@ function collectModelReferences(fileReferences: z.infer<typeof model3Schema>["Fi
     fileReferences.DisplayInfo,
     ...(fileReferences.Textures ?? []),
     ...(fileReferences.Expressions ?? []).map((expression) => expression.File),
-    ...Object.values(fileReferences.Motions ?? {}).flatMap((motions) => motions.map((motion) => motion.File)),
+    ...Object.values(fileReferences.Motions ?? {}).flatMap((motions) => motions.flatMap((motion) => [motion.File, motion.Sound])),
   ];
 
   return refs.filter(Boolean) as string[];
@@ -199,6 +202,9 @@ function contentTypeForPath(value: string) {
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".mp3")) return "audio/mpeg";
+  if (lower.endsWith(".ogg")) return "audio/ogg";
+  if (lower.endsWith(".wav")) return "audio/wav";
   if (lower.endsWith(".moc3")) return "application/octet-stream";
   return "application/octet-stream";
 }

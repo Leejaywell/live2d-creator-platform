@@ -96,14 +96,6 @@ enum FanCodeStatus {
   expired
 }
 
-enum VoiceCloneStatus {
-  submitted
-  reviewing
-  approved
-  rejected
-  fulfilled
-}
-
 enum PlatformSettingCategory {
   ai
   tts
@@ -111,13 +103,14 @@ enum PlatformSettingCategory {
   security
   integrations
   payments
-  voice_cloning
 }
 
 model User {
   id                   String              @id @default(cuid())
+  username             String?             @unique
   email                String              @unique
   emailVerified        DateTime?
+  passwordHash         String?
   wechatOpenId         String?             @unique
   role                 UserRole            @default(creator)
   status               UserStatus          @default(active)
@@ -135,7 +128,6 @@ model User {
   createdLedgerEntries QuotaLedgerEntry[]  @relation("LedgerCreatedBy")
   auditLogs            AuditLog[]          @relation("AuditActor")
   projects             Project[]
-  voiceCloneRequests   VoiceCloneRequest[]
 }
 
 model Account {
@@ -266,7 +258,6 @@ model Project {
   fanAccessCodes      FanAccessCode[]
   viewerSessions      ViewerSession[]
   chatUsages          ChatUsage[]
-  voiceCloneRequests  VoiceCloneRequest[]
 }
 
 model ModelAsset {
@@ -365,19 +356,6 @@ model ChatUsage {
   creator         User          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fanAccessCode   FanAccessCode @relation(fields: [fanAccessCodeId], references: [id], onDelete: Cascade)
-}
-
-model VoiceCloneRequest {
-  id                     String           @id @default(cuid())
-  creatorId              String
-  projectId              String
-  status                 VoiceCloneStatus @default(submitted)
-  authorizationConfirmed Boolean
-  notes                  String?
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
-  creator                User             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  project                Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

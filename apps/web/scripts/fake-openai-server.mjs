@@ -9,10 +9,37 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "POST" && request.url === "/v1/chat/completions") {
+    let bodyStr = "";
     for await (const chunk of request) {
-      void chunk;
-      // Drain request body.
+      bodyStr += chunk;
+    }
+    let bodyObj = {};
+    try {
+      bodyObj = JSON.parse(bodyStr);
+    } catch {
+      // Ignored
+    }
+
+    if (bodyObj.stream) {
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        "connection": "keep-alive",
+      });
+      response.write(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              delta: {
+                content: JSON.stringify({ reply: "OK", tags: [] }),
+              },
+            },
+          ],
+        })}\n\n`,
+      );
+      response.write("data: [DONE]\n\n");
+      response.end();
+      return;
     }
 
     response.writeHead(200, { "content-type": "application/json" });
@@ -33,7 +60,6 @@ const server = http.createServer(async (request, response) => {
       }),
     );
     return;
-  }
 
   response.writeHead(404, { "content-type": "application/json" });
   response.end(JSON.stringify({ error: "Not found" }));

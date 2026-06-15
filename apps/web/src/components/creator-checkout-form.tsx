@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import styles from "@/app/dashboard.module.css";
-import { checkoutProducts, type CheckoutProduct } from "@/lib/checkout-products";
+import { adminOrderProducts, paymentMethodLabel, type CheckoutProduct } from "@/lib/checkout-products";
 
 type CheckoutResult = {
   orderId: string;
@@ -18,7 +18,7 @@ type CreatorCheckoutFormProps = {
   products?: readonly CheckoutProduct[];
 };
 
-export function CreatorCheckoutForm({ products = checkoutProducts }: CreatorCheckoutFormProps) {
+export function CreatorCheckoutForm({ products = adminOrderProducts }: CreatorCheckoutFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
@@ -52,7 +52,7 @@ export function CreatorCheckoutForm({ products = checkoutProducts }: CreatorChec
       }
 
       const checkout = parseCheckoutResponse(data);
-      setStatus(checkout.checkoutUrl ? "订单已创建,随时可以继续支付。" : "订单已创建,支付链接尚未配置。");
+      setStatus(checkout.checkoutUrl ? "订单已创建,支付后仍需管理员确认才会生效。" : "订单已创建,等待管理员确认后生效。");
       setResult({
         orderId: checkout.order.id,
         label: checkout.product.label,
@@ -75,18 +75,8 @@ export function CreatorCheckoutForm({ products = checkoutProducts }: CreatorChec
   return (
     <form onSubmit={submit} aria-busy={pending}>
       <label>
-        商品
-        <select name="sku" defaultValue={defaultSku} required>
-          {products.map((product) => (
-            <option key={product.sku} value={product.sku}>
-              {product.label} · {product.amount} {product.currency}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
         支付方式
-        <select name="paymentMethod" defaultValue={paymentMethods[0] ?? "wechat"} required>
+        <select name="paymentMethod" defaultValue={paymentMethods[0] ?? "alipay"} required>
           {paymentMethods.map((method) => (
             <option key={method} value={method}>
               {paymentMethodLabel(method)}
@@ -94,16 +84,25 @@ export function CreatorCheckoutForm({ products = checkoutProducts }: CreatorChec
           ))}
         </select>
       </label>
-      <ul className={styles.productList}>
-        {products.map((product) => (
-          <li key={product.sku}>
-            <strong>{product.label}</strong>
-            <span>{product.description}</span>
-          </li>
+      <fieldset className={styles.optionGrid}>
+        <legend>套餐</legend>
+        {products.map((product, index) => (
+          <label className={styles.optionCard} key={product.sku}>
+            <input name="sku" type="radio" value={product.sku} defaultChecked={product.sku === defaultSku || index === 0} />
+            <span>
+              <strong>{product.label}</strong>
+              <small>
+                ¥{product.amount} · {product.periodDays ?? 0} 天 · {product.projectQuotaDelta} 项目
+              </small>
+              <small>
+                AI {product.aiMessageQuotaDelta} · 粉丝码 {product.fanCodeQuotaDelta}
+              </small>
+            </span>
+          </label>
         ))}
-      </ul>
+      </fieldset>
       <button type="submit" disabled={pending}>
-        {pending ? "创建中…" : "创建购买订单"}
+        {pending ? "创建中…" : "提交订单"}
       </button>
       {status ? <p aria-live="polite">{status}</p> : null}
       {result ? (
@@ -153,17 +152,4 @@ function parseCheckoutResponse(data: unknown) {
     },
     checkoutUrl: typeof value.checkoutUrl === "string" ? value.checkoutUrl : undefined,
   };
-}
-
-function paymentMethodLabel(method: string) {
-  switch (method) {
-    case "wechat":
-      return "微信支付";
-    case "alipay":
-      return "支付宝";
-    case "bank_transfer":
-      return "银行转账";
-    default:
-      return "其他";
-  }
 }

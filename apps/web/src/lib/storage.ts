@@ -158,7 +158,3 @@ export function parseStorageKey(value: string) {
 export function modelAssetBaseKey(projectId: string, version: number) {
   return `projects/${projectId}/models/v${version}`;
 }
-
-export function voiceAssetKey(projectId: string, id: string, extension: string) {
-  return `projects/${projectId}/voices/${id}${extension}`;
-}

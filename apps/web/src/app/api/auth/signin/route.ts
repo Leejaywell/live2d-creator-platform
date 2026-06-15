@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requestMagicLink } from "@/auth";
+import { signInWithPassword } from "@/auth";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -12,12 +12,14 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   const form = await request.formData();
-  const email = String(form.get("email") || "");
+  const username = String(form.get("username") || "");
+  const password = String(form.get("password") || "");
   try {
-    await requestMagicLink(email, request.nextUrl.origin);
+    const response = NextResponse.redirect(new URL("/", request.url));
+    const redirectPath = await signInWithPassword(username, password, response);
+    response.headers.set("Location", new URL(redirectPath, request.url).toString());
+    return response;
   } catch {
-    return NextResponse.redirect(new URL("/sign-in?error=invalid-email", request.url));
+    return NextResponse.redirect(new URL("/sign-in?error=invalid-credentials", request.url));
   }
-
-  return NextResponse.redirect(new URL("/sign-in?sent=1", request.url));
 }
