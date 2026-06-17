@@ -1,0 +1,188 @@
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 28px;
+  align-items: start;
+}
+.stepLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  margin: 0 0 13px;
+}
+.planGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.planCard {
+  position: relative;
+  padding: 18px;
+  border-radius: 15px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color var(--dur), background var(--dur), transform var(--dur) var(--ease);
+}
+.planCard:hover {
+  transform: translateY(-2px);
+}
+.planCardActive {
+  background: rgba(255, 108, 158, 0.1);
+  border: 1.5px solid var(--pink-line);
+}
+.planBadge {
+  position: absolute;
+  top: -9px;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--pink-deep);
+  color: #1a0a12;
+}
+.planName {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.planPrice {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.planPrice span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.planCardActive .planPrice {
+  color: var(--pink-bright);
+}
+.planDesc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.payRow {
+  display: flex;
+  gap: 12px;
+}
+.payOption {
+  flex: 1;
+  padding: 15px;
+  border-radius: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--dur), background var(--dur);
+}
+.payOptionActive {
+  background: var(--teal-fill);
+  border: 1.5px solid rgba(111, 231, 218, 0.4);
+  color: var(--text);
+}
+.summary {
+  padding: 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border-soft);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 24px;
+}
+.summary h2 {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 18px;
+}
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  margin-bottom: 11px;
+}
+.summaryRow span:last-child {
+  font-family: var(--font-mono);
+}
+.summaryTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 16px 0 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.summaryTotal .amount {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+}
+.payBtn {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--r-md);
+  border: none;
+  background: var(--grad-pink);
+  color: #1a0a12;
+  font-weight: 600;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-pink-soft);
+  transition: transform var(--dur) var(--ease), opacity var(--dur);
+  margin-bottom: 12px;
+}
+.payBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.payBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.payHint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.payHint span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: dotpulse 1.2s infinite;
+}
+.done {
+  color: var(--green);
+}
+.done span {
+  background: var(--green);
+}
+
+@media (max-width: 880px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .planGrid {
+    grid-template-columns: 1fr;
+  }
+  .summary {
+    position: static;
+  }
+}

@@ -1,7 +1,6 @@
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
-import { CreatorCheckoutForm } from "@/components/creator-checkout-form";
-import { Pill, type Tone } from "@/components/ui";
+import { LinkButton, Pill, type Tone } from "@/components/ui";
 import {
   formatOrderAmount,
   ledgerEntryTypeLabel,
@@ -12,8 +11,7 @@ import {
   quotaResourceLabel,
   signedAmount,
 } from "@/lib/billing-history";
-import { adminOrderProducts } from "@/lib/checkout-products";
-import { checkoutModeLabel, manualOrderCheckoutHint } from "@/lib/checkout-modes";
+import { checkoutModeLabel } from "@/lib/checkout-modes";
 import { ensureCreatorPlan } from "@/lib/creator-onboarding";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
@@ -66,6 +64,9 @@ export default async function CreatorBillingPage() {
               <div className={styles.pageHeadSub}>当前套餐</div>
               <div className={styles.planName}>{plan?.planName ?? "未开通"}</div>
             </div>
+            <LinkButton href="/creator/checkout" variant="ghost" size="sm">
+              升级套餐
+            </LinkButton>
           </div>
           <div className={styles.planMetaRow}>
             <span>AI 消息用量</span>
@@ -96,16 +97,6 @@ export default async function CreatorBillingPage() {
           </ul>
         </div>
       </div>
-
-      <details className={`${styles.panel} ${styles.disclosure}`}>
-        <summary>+ 创建订单</summary>
-        <div>
-          <p className={styles.pageHeadSub} style={{ marginBottom: 14 }}>
-            {manualOrderCheckoutHint(runtimeSettings.checkoutMode)}
-          </p>
-          <CreatorCheckoutForm products={adminOrderProducts} />
-        </div>
-      </details>
 
       <section className={styles.panel}>
         <div className={styles.panelHead}>

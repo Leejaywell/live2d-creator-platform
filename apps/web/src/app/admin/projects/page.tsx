@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getCurrentSession } from "@/auth";
+import { AdminReviewActions } from "@/components/admin-review-actions";
 import { ApiForm } from "@/components/api-form";
 import { Pill } from "@/components/ui";
 import { modelAssistanceStatusText, resolveModelAssistanceRequests } from "@/lib/model-assistance-requests";
@@ -11,14 +12,14 @@ import { AdminAuthRequired, AdminShell, dash } from "../_components";
 
 export const dynamic = "force-dynamic";
 
-const SLOT_COLS = "1.3fr 1.3fr 1fr 0.9fr auto";
+const REVIEW_COLS = "2.2fr 1.4fr 1fr 1fr auto";
 
-function modelCapabilitySummary(value: unknown) {
-  if (!value || typeof value !== "object") return "无能力信息";
-  const record = value as { expressions?: unknown; motions?: unknown };
-  const expressions = Array.isArray(record.expressions) ? record.expressions.length : 0;
-  const motions = Array.isArray(record.motions) ? record.motions.length : 0;
-  return `${expressions} 表情 · ${motions} 动作`;
+function relativeTime(date: Date) {
+  const diff = Date.now() - date.getTime();
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours < 1) return "刚刚";
+  if (hours < 24) return `${hours}h 前`;
+  return `${Math.floor(hours / 24)} 天前`;
 }
 
 export default async function AdminProjectsPage() {
@@ -28,19 +29,10 @@ export default async function AdminProjectsPage() {
   }
 
   const role = session.user.role;
-  const [creators, modelSetupRequests, adminModelFulfillments] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: "creator" },
-      include: {
-        creatorProfile: true,
-        creatorPlan: true,
-        projects: {
-          include: { currentModelAsset: true, _count: { select: { triggerTags: true, fanAccessCodes: true } } },
-          orderBy: { updatedAt: "desc" },
-          take: 1,
-        },
-      },
-      orderBy: { updatedAt: "desc" },
+  const [projects, modelSetupRequests, adminModelFulfillments] = await Promise.all([
+    prisma.project.findMany({
+      include: { creator: { include: { creatorProfile: true } }, currentModelAsset: true },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
       take: 100,
     }),
     prisma.auditLog.findMany({
@@ -58,86 +50,83 @@ export default async function AdminProjectsPage() {
   ]);
 
   const requests = resolveModelAssistanceRequests(modelSetupRequests, adminModelFulfillments);
-  const slots = creators.map((creator) => ({ creator, project: creator.projects[0] ?? null }));
-  const validModels = slots.filter((s) => s.project?.currentModelAsset?.validationStatus === "valid").length;
+  const pendingCount = projects.filter((p) => p.status === "draft").length;
+  const liveCount = projects.filter((p) => p.status === "published").length;
+  const pausedCount = projects.filter((p) => p.status === "paused").length;
+
+  const statusPill = (status: string) =>
+    status === "published" ? (
+      <Pill tone="live" dot>
+        在演
+      </Pill>
+    ) : status === "paused" ? (
+      <Pill tone="danger">已下架</Pill>
+    ) : (
+      <Pill tone="amber">待审</Pill>
+    );
 
   return (
     <AdminShell active="projects" user={session.user}>
       <div className={dash.pageHead}>
         <div>
-          <h1>项目交付与审核</h1>
-          <p className={dash.pageHeadSub}>
-            {slots.length} 个创作者 · {validModels} 个有效模型 · {requests.filter((r) => r.status !== "fulfilled").length} 个待协助
-          </p>
+          <h1>项目审核</h1>
+        </div>
+        <div className={dash.toolbar} style={{ flexWrap: "wrap" }}>
+          <Pill tone="amber">待审 {pendingCount}</Pill>
+          <Pill tone="neutral">在演 {liveCount}</Pill>
+          <Pill tone="neutral">已下架 {pausedCount}</Pill>
         </div>
       </div>
 
       <section className={dash.panel}>
-        <div className={dash.panelHead}>
-          <h2>创作者模型槽位</h2>
-        </div>
         <div className={dash.tableWrap}>
-          <div className={`${dash.tableRow} ${dash.tableHead}`} style={{ gridTemplateColumns: SLOT_COLS }}>
+          <div className={`${dash.tableRow} ${dash.tableHead}`} style={{ gridTemplateColumns: REVIEW_COLS }}>
+            <span>角色</span>
             <span>创作者</span>
-            <span>角色 / 模型</span>
             <span>状态</span>
-            <span>能力</span>
-            <span />
+            <span>提交时间</span>
+            <span>操作</span>
           </div>
-          {slots.map(({ creator, project }) => {
-            const model = project?.currentModelAsset ?? null;
-            const validation = model?.validationStatus;
-            return (
-              <div key={creator.id} className={dash.tableRow} style={{ gridTemplateColumns: SLOT_COLS }}>
+          {projects.map((project) => (
+            <div key={project.id} className={dash.tableRow} style={{ gridTemplateColumns: REVIEW_COLS }}>
+              <div className={dash.projectCell}>
+                <div className={dash.projectAvatar} aria-hidden />
                 <div className={dash.cellMain}>
-                  <strong>{creator.creatorProfile?.displayName ?? creator.username ?? creator.id}</strong>
-                  <small>{creator.username ?? creator.id}</small>
-                </div>
-                <div className={dash.cellMain}>
-                  <strong>{project?.name ?? "未创建角色"}</strong>
-                  <small>{project ? `/c/${project.slug}` : "每个创作者一个模型位"}</small>
-                </div>
-                <Pill tone={validation === "valid" ? "live" : validation ? "danger" : "amber"}>
-                  {validation ?? "未上传"}
-                </Pill>
-                <span className={dash.mono}>{modelCapabilitySummary(model?.capabilities)}</span>
-                <div className={dash.rowActions}>
-                  {project && <Link href={`/c/${project.slug}`}>观众页</Link>}
-                  {project && (
-                    <details className={dash.disclosure}>
-                      <summary>管理</summary>
-                      <div className={dash.formCard} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        {hasPermission(role, "projects.pause") && (
-                          <ApiForm action={`/api/admin/projects/${project.id}/status`} submitLabel="设置状态">
-                            <label>
-                              状态
-                              <select name="status" defaultValue={project.status}>
-                                <option value="published">上演中</option>
-                                <option value="paused">暂停</option>
-                                <option value="draft">草稿</option>
-                              </select>
-                            </label>
-                          </ApiForm>
-                        )}
-                        <ApiForm action={`/api/admin/projects/${project.id}/model-assets`} submitLabel="上传协助模型">
-                          <label>
-                            Live2D zip（覆盖当前模型）
-                            <input name="file" type="file" accept=".zip" required />
-                          </label>
-                        </ApiForm>
-                        {hasPermission(role, "projects.pause") && (
-                          <ApiForm action={`/api/admin/projects/${project.id}`} method="DELETE" submitLabel="删除项目">
-                            <span className={dash.pageHeadSub}>删除项目及其模型、标签、粉丝码与用量记录。</span>
-                          </ApiForm>
-                        )}
-                      </div>
-                    </details>
-                  )}
+                  <strong>{project.name}</strong>
+                  <Link href={`/c/${project.slug}`} className={dash.monoTeal}>
+                    /c/{project.slug}
+                  </Link>
                 </div>
               </div>
-            );
-          })}
-          {slots.length === 0 && <div className={dash.empty}>还没有创作者账号。</div>}
+              <span>{project.creator.creatorProfile?.displayName ?? project.creator.username ?? "—"}</span>
+              {statusPill(project.status)}
+              <span className={dash.mono}>{relativeTime(project.updatedAt)}</span>
+              <div className={dash.rowActions}>
+                {hasPermission(role, "projects.pause") ? (
+                  <AdminReviewActions projectId={project.id} status={project.status} />
+                ) : (
+                  <span className={dash.pageHeadSub}>只读</span>
+                )}
+                {hasPermission(role, "assets.assist") ? (
+                  <details className={dash.disclosure}>
+                    <summary>模型</summary>
+                    <div className={dash.formCard}>
+                      <p className={dash.pageHeadSub} style={{ margin: "0 0 10px" }}>
+                        当前模型：{project.currentModelAsset?.validationStatus ?? "未上传"}
+                      </p>
+                      <ApiForm action={`/api/admin/projects/${project.id}/model-assets`} submitLabel="上传协助模型">
+                        <label>
+                          Live2D zip（覆盖当前模型）
+                          <input name="file" type="file" accept=".zip" required />
+                        </label>
+                      </ApiForm>
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            </div>
+          ))}
+          {projects.length === 0 && <div className={dash.empty}>还没有项目。</div>}
         </div>
       </section>
 
