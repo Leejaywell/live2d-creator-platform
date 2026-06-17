@@ -1,0 +1,160 @@
+.shell {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(50% 60% at 50% 0%, rgba(255, 108, 158, 0.2), transparent 60%),
+    radial-gradient(46% 50% at 8% 100%, rgba(111, 231, 218, 0.14), transparent 64%), var(--bg-raised);
+}
+
+.brand {
+  position: absolute;
+  top: 24px;
+  left: 32px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  border-radius: var(--r-xl);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border-soft);
+  backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 40px 90px -40px rgba(0, 0, 0, 0.7);
+}
+
+.title {
+  font-weight: 600;
+  font-size: 30px;
+  margin: 0 0 6px;
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 26px;
+}
+
+.tabs {
+  display: flex;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--r-md);
+  margin-bottom: 24px;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 9px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+.tabActive {
+  background: rgba(255, 108, 158, 0.18);
+  border-color: rgba(255, 108, 158, 0.35);
+  color: #fff;
+  font-weight: 500;
+}
+.tabDisabled {
+  cursor: not-allowed;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+.label {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.input {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 18px;
+  transition: border-color var(--dur), box-shadow var(--dur);
+}
+.input:focus {
+  outline: none;
+  border-color: rgba(111, 231, 218, 0.55);
+  box-shadow: 0 0 0 3px rgba(111, 231, 218, 0.12);
+}
+.forgot {
+  text-align: right;
+  margin: -8px 0 22px;
+}
+.forgot a {
+  font-size: 12.5px;
+  color: var(--teal);
+}
+.forgot a:hover {
+  color: #fff;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #f2607a;
+  margin: -6px 0 18px;
+}
+.errorMark {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid #f2607a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex: none;
+}
+.inputError {
+  border-color: #f2607a;
+  background: rgba(242, 96, 122, 0.08);
+  box-shadow: 0 0 0 3px rgba(242, 96, 122, 0.14);
+}
+
+.foot {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 22px 0 0;
+}
+.foot a {
+  color: var(--pink-bright);
+}
+.foot a:hover {
+  color: #fff;
+}
+
+.devBox {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border-soft);
+}
+.devLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+.devButtons {
+  display: flex;
+  gap: 10px;
+}
+.devButtons form {
+  flex: 1;
+}

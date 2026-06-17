@@ -61,6 +61,7 @@ export function AudienceChat({
   const [activeEffects, setActiveEffects] = useState<Live2DEffect[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage, tags: [] }]);
   const transcriptRef = useRef<HTMLOListElement>(null);
+  const replyTextRef = useRef("");
 
   const [isOffline, setIsOffline] = useState(typeof window !== "undefined" ? !window.navigator.onLine : false);
 
@@ -184,7 +185,7 @@ export function AudienceChat({
       }
 
       const decoder = new TextDecoder("utf-8");
-      let replyText = "";
+      replyTextRef.current = "";
 
       // Pre-insert an empty assistant message which we'll update in-place
       setMessages((current) => [...current, { role: "assistant", content: "" }]);
@@ -209,13 +210,13 @@ export function AudienceChat({
             try {
               const payload = JSON.parse(dataStr);
               if (payload.type === "content") {
-                replyText += payload.content;
+                replyTextRef.current += payload.content;
                 setMessages((current) => {
                   const next = [...current];
                   if (next.length > 0 && next[next.length - 1].role === "assistant") {
                     next[next.length - 1] = {
                       ...next[next.length - 1],
-                      content: replyText,
+                      content: replyTextRef.current,
                     };
                   }
                   return next;
@@ -229,7 +230,7 @@ export function AudienceChat({
                   if (next.length > 0 && next[next.length - 1].role === "assistant") {
                     next[next.length - 1] = {
                       ...next[next.length - 1],
-                      content: replyText,
+                      content: replyTextRef.current,
                       tags,
                     };
                   }

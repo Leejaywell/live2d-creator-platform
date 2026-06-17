@@ -1,0 +1,40 @@
+.curtain {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(50% 44% at 50% 24%, rgba(255, 108, 158, 0.18), transparent 62%), var(--bg-raised);
+}
+.curtainCard {
+  max-width: 380px;
+  text-align: center;
+  padding: 44px 32px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  backdrop-filter: blur(18px);
+}
+.curtainIcon {
+  font-size: 34px;
+  margin-bottom: 16px;
+}
+.curtainCard h1 {
+  font-weight: 600;
+  font-size: 24px;
+  margin: 0 0 10px;
+}
+.curtainCard p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.curtainLink {
+  font-size: 13px;
+  color: var(--teal);
+  transition: color var(--dur);
+}
+.curtainLink:hover {
+  color: #fff;
+}

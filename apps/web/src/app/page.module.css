@@ -1,0 +1,291 @@
+.page {
+  min-height: 100vh;
+  padding: 28px 24px 80px;
+  display: flex;
+  justify-content: center;
+}
+
+.shell {
+  width: 100%;
+  max-width: var(--shell-max);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  background: radial-gradient(62% 52% at 86% 6%, rgba(255, 108, 158, 0.18), transparent 64%),
+    radial-gradient(54% 46% at 6% 96%, rgba(111, 231, 218, 0.13), transparent 66%), var(--bg-raised);
+}
+
+/* top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--hairline);
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.nav a {
+  transition: color var(--dur);
+}
+.nav a:hover {
+  color: #fff;
+}
+
+/* hero */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 524px;
+  gap: 48px;
+  padding: 72px 40px 64px;
+  align-items: center;
+}
+.title {
+  font-size: 62px;
+  line-height: 1.12;
+  margin: 22px 0;
+}
+.title em {
+  font-style: normal;
+  color: var(--pink);
+  text-shadow: 0 0 36px rgba(255, 108, 158, 0.55);
+}
+.lede {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  max-width: 480px;
+  margin: 0 0 36px;
+}
+.heroCtas {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+.stats {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+.statDivider {
+  width: 1px;
+  background: var(--border-soft);
+}
+
+/* stage preview */
+.stageCard {
+  position: relative;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 40px 90px -40px rgba(255, 108, 158, 0.4);
+  height: 520px;
+}
+.stageGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(48% 42% at 50% 22%, rgba(255, 108, 158, 0.4), transparent 70%);
+  animation: spotbreath 6s infinite ease-in-out;
+}
+.stageFloor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62%;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 10px, transparent 10px 20px);
+}
+.stageBadge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+.modelSlot {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 240px;
+  border-radius: 18px;
+  border: 1px dashed var(--border-strong);
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 8px, transparent 8px 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.stageMeta {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  padding: 16px 20px;
+  border-radius: var(--r-lg);
+  background: rgba(9, 7, 17, 0.55);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stageName {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+}
+.stageSub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* live grid */
+.grid {
+  padding: 8px 40px 56px;
+}
+.gridHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.gridHead h2 {
+  font-weight: 600;
+  font-size: 26px;
+}
+.gridLink {
+  font-size: 13px;
+  color: var(--teal);
+  transition: color var(--dur);
+}
+.gridLink:hover {
+  color: #fff;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.card {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: transform var(--dur) var(--ease), border-color var(--dur);
+  display: block;
+}
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--pink-line);
+}
+.cardArt {
+  height: 148px;
+  position: relative;
+}
+.cardArtBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+.cardBody {
+  padding: 14px 16px;
+}
+.cardName {
+  font-weight: 600;
+  font-size: 15px;
+}
+.cardTags {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cardTag {
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  background: var(--surface);
+}
+.empty {
+  grid-column: 1 / -1;
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-soft);
+  border-radius: 18px;
+}
+
+/* footer */
+.footer {
+  border-top: 1px solid var(--hairline);
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.footerLinks {
+  display: flex;
+  gap: 24px;
+}
+.footerLinks a:hover {
+  color: #fff;
+}
+
+@media (max-width: 1080px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+  .stageCard {
+    height: 420px;
+  }
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .shell {
+    border-radius: var(--r-lg);
+  }
+  .topbar,
+  .hero,
+  .grid,
+  .footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .nav {
+    display: none;
+  }
+  .title {
+    font-size: 40px;
+  }
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
