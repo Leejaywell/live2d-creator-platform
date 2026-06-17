@@ -6,11 +6,11 @@ import { jsonError } from "@/lib/request";
 
 export async function POST(request: NextRequest, context: RouteContext<"/api/admin/orders/[orderId]/void">) {
   try {
-    const session = await requirePermission("orders.confirm");
+    const session = await requirePermission("plans.manage");
     const { orderId } = await context.params;
     const order = await voidManualOrder(orderId, { id: session.user.id, role: session.user.role }, request.headers.get("x-forwarded-for") ?? undefined);
     return NextResponse.json({ order });
   } catch (error) {
-    return jsonError(error, "Manual order void failed");
+    return jsonError(error, "Order void failed");
   }
 }

@@ -8,12 +8,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext<"/api/
   try {
     const session = await requirePermission("projects.pause");
     const { projectId } = await context.params;
-    const project = await deleteProject({
-      projectId,
-      actorId: session.user.id,
-      actorRole: session.user.role,
-    });
-    return NextResponse.json({ project });
+    await deleteProject({ projectId, actorId: session.user.id, actorRole: session.user.role });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error, "Project deletion failed");
   }

@@ -1,50 +1,50 @@
 "use client";
 
-import { FormEvent, ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
+import { type FormEvent, type ReactNode, useState } from "react";
 
 type ApiFormProps = {
   action: string;
   method?: "POST" | "PATCH" | "DELETE";
-  children: ReactNode;
   submitLabel: string;
+  children?: ReactNode;
 };
 
-export function ApiForm({ action, method = "POST", children, submitLabel }: ApiFormProps) {
-  const [status, setStatus] = useState<string>("");
-  const [pending, setPending] = useState(false);
+// Generic progressive form: serializes fields to JSON (or multipart when a file
+// input is present), surfaces status text, and refreshes server data on success.
+export function ApiForm({ action, method = "POST", submitLabel, children }: ApiFormProps) {
   const router = useRouter();
+  const [status, setStatus] = useState("");
+  const [pending, setPending] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
     setPending(true);
     setStatus("提交中…");
 
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    form.querySelectorAll<HTMLInputElement>('input[type="datetime-local"][name]').forEach((input) => {
+      if (input.value) formData.set(input.name, new Date(input.value).toISOString());
+    });
+    const hasFile = Array.from(form.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(
+      (input) => input.files && input.files.length > 0,
+    );
+
     try {
-      const form = event.currentTarget;
-      const formData = new FormData(form);
-      normalizeDateTimeLocalFields(form, formData);
-      const hasFile = Array.from(form.querySelectorAll('input[type="file"]')).some((input) => input instanceof HTMLInputElement && input.files && input.files.length > 0);
       const response = hasFile
-        ? await fetch(action, {
-            method,
-            body: formData,
-          })
+        ? await fetch(action, { method, body: formData })
         : await fetch(action, {
             method,
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(formDataToJson(formData)),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(toJson(formData)),
           });
-
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setStatus(data.error ?? "请求失败");
         return;
       }
-
       setStatus("已保存");
       router.refresh();
     } catch (error) {
@@ -55,30 +55,22 @@ export function ApiForm({ action, method = "POST", children, submitLabel }: ApiF
   }
 
   return (
-    <form onSubmit={submit} aria-busy={pending}>
+    <form onSubmit={onSubmit} aria-busy={pending}>
       {children}
-      <button type="submit" disabled={pending}>{pending ? "提交中…" : submitLabel}</button>
+      <button type="submit" disabled={pending}>
+        {pending ? "提交中…" : submitLabel}
+      </button>
       {status ? <p aria-live="polite">{status}</p> : null}
     </form>
   );
 }
 
-function normalizeDateTimeLocalFields(form: HTMLFormElement, formData: FormData) {
-  form.querySelectorAll('input[type="datetime-local"][name]').forEach((input) => {
-    if (!(input instanceof HTMLInputElement) || !input.value) return;
-    formData.set(input.name, new Date(input.value).toISOString());
-  });
-}
-
-function formDataToJson(formData: FormData) {
-  const body: Record<string, FormDataEntryValue | FormDataEntryValue[]> = {};
+function toJson(formData: FormData) {
+  const out: Record<string, FormDataEntryValue | FormDataEntryValue[]> = {};
   formData.forEach((value, key) => {
-    const existing = body[key];
-    if (existing === undefined) {
-      body[key] = value;
-      return;
-    }
-    body[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+    const existing = out[key];
+    if (existing === undefined) out[key] = value;
+    else out[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
   });
-  return body;
+  return out;
 }

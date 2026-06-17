@@ -12,8 +12,9 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   const form = await request.formData();
-  const username = String(form.get("username") || "");
-  const password = String(form.get("password") || "");
+  const username = String(form.get("username") ?? "");
+  const password = String(form.get("password") ?? "");
+
   try {
     const response = NextResponse.redirect(new URL("/", request.url));
     const redirectPath = await signInWithPassword(username, password, response);

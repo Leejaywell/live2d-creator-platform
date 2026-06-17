@@ -11,6 +11,6 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/adm
     const order = await confirmManualOrder(orderId, { id: session.user.id, role: session.user.role }, request.headers.get("x-forwarded-for") ?? undefined);
     return NextResponse.json({ order });
   } catch (error) {
-    return jsonError(error, "Manual order confirmation failed");
+    return jsonError(error, "Order confirmation failed");
   }
 }

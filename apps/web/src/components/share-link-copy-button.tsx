@@ -5,18 +5,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui";
 
 export function ShareLinkCopyButton({ path, label = "复制链接" }: { path: string; label?: string }) {
-  const [status, setStatus] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  async function copyLink() {
+  async function copy() {
     const url = new URL(path, window.location.origin).toString();
     await navigator.clipboard.writeText(url);
-    setStatus("已复制");
-    window.setTimeout(() => setStatus(""), 1800);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
   }
 
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={copyLink}>
-      {status || label}
+    <Button type="button" variant="ghost" size="sm" onClick={copy}>
+      {copied ? "已复制" : label}
     </Button>
   );
 }

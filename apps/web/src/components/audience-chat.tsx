@@ -1,37 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
 import { type Live2DEffect, Live2DViewer } from "@/components/live2d-viewer";
 
-import styles from "./stage.module.css";
+import styles from "./audience-chat.module.css";
 
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-  tags?: string[];
-  failed?: boolean;
-};
+type ChatMessage = { role: "user" | "assistant"; content: string; tags?: string[]; failed?: boolean };
+type AccessNotice = { tone: "warn" | "bad"; title: string; detail: string };
+type Notice = AccessNotice | null;
 
-type AudienceNotice = {
-  tone: "neutral" | "good" | "warn" | "bad";
-  title: string;
-  detail: string;
-};
-
-export function AudienceChat({
-  projectSlug,
-  projectName,
-  intro,
-  theme,
-  avatarUrl,
-  backgroundUrl,
-  welcomeMessage,
-  hasLive2DModel,
-  tagNames,
-  initialViewerSessionId,
-}: {
+type Props = {
   projectSlug: string;
   projectName: string;
   intro: string;
@@ -42,283 +22,206 @@ export function AudienceChat({
   hasLive2DModel: boolean;
   tagNames: string[];
   initialViewerSessionId?: string;
-}) {
+};
+
+function deviceId() {
+  if (typeof window === "undefined") return "";
+  let saved = window.localStorage.getItem("backstage-device-id");
+  if (!saved) {
+    saved = crypto.randomUUID();
+    window.localStorage.setItem("backstage-device-id", saved);
+  }
+  return saved;
+}
+
+function describeAccessError(message: string): AccessNotice {
+  const lower = message.toLowerCase();
+  if (lower.includes("another device") || lower.includes("bound"))
+    return { tone: "bad", title: "粉丝码已绑定其他设备", detail: "请向主播申请重置设备绑定或换发新码。" };
+  if (lower.includes("expired") || lower.includes("revoked"))
+    return { tone: "bad", title: "粉丝码已过期或被撤销", detail: "向主播要一个新的访问码吧。" };
+  if (lower.includes("quota") || lower.includes("exhausted"))
+    return { tone: "warn", title: "消息配额已用完", detail: "这个码的聊天次数已用完。" };
+  if (lower.includes("not published") || lower.includes("project"))
+    return { tone: "warn", title: "角色暂未开放", detail: "主播还没有发布这位角色，或暂停了访问。" };
+  return { tone: "bad", title: "进场失败", detail: message };
+}
+
+export function AudienceChat({
+  projectSlug,
+  projectName,
+  theme,
+  avatarUrl,
+  backgroundUrl,
+  welcomeMessage,
+  hasLive2DModel,
+  initialViewerSessionId,
+}: Props) {
   const [code, setCode] = useState("");
   const [viewerSessionId, setViewerSessionId] = useState(initialViewerSessionId ?? "");
   const [message, setMessage] = useState("");
   const [remaining, setRemaining] = useState<number | null>(initialViewerSessionId ? 9999 : null);
-  const [notice, setNotice] = useState<AudienceNotice>(
-    initialViewerSessionId
-      ? { tone: "good", title: "调试预览模式", detail: "调试模式已启动，你可以无需粉丝码直接测试聊天与动作效果。" }
-      : {
-          tone: "warn",
-          title: "需要粉丝码",
-          detail: "输入主播分享给你的访问码,解锁这位角色。",
-        }
-  );
   const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeEffects, setActiveEffects] = useState<Live2DEffect[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage, tags: [] }]);
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage }]);
   const transcriptRef = useRef<HTMLOListElement>(null);
-  const replyTextRef = useRef("");
+  const replyRef = useRef("");
 
-  const [isOffline, setIsOffline] = useState(typeof window !== "undefined" ? !window.navigator.onLine : false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+  const unlocked = Boolean(viewerSessionId);
+  const quotaExhausted = unlocked && remaining === 0;
+  const exprReadout = activeEffects[0];
 
   useEffect(() => {
-    const transcript = transcriptRef.current;
-    if (transcript) {
-      transcript.scrollTop = transcript.scrollHeight;
-    }
+    const node = transcriptRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
   }, [messages, pending]);
 
-  async function validateCode(event: FormEvent<HTMLFormElement>) {
+  async function onValidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || !code.trim()) return;
     setPending(true);
-    setNotice({ tone: "neutral", title: "正在检票", detail: "校验粉丝码与当前浏览器设备。" });
+    setNotice(null);
     try {
       const response = await fetch("/api/fan-codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectSlug, code: code.trim(), browserDeviceId: getOrCreateDeviceId() }),
+        body: JSON.stringify({ projectSlug, code: code.trim(), browserDeviceId: deviceId() }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setNotice(accessNotice(data.error ?? "Access denied"));
+        setNotice(describeAccessError(data.error ?? "Access denied"));
         return;
       }
       setViewerSessionId(data.viewerSessionId);
       setRemaining(data.remainingMessages);
-      setNotice({ tone: "good", title: "进场成功", detail: "在剩余配额内畅聊,命中的标签会触发表情。" });
     } finally {
       setPending(false);
     }
   }
 
-  async function submitMessage(content: string, isRetry = false) {
+  async function send(content: string, isRetry = false) {
     if (pending) return;
-
-    if (isOffline) {
-      let nextMessages = [...messages];
-      if (!isRetry) {
-        nextMessages = [...messages, { role: "user", content }];
-      }
-      setMessages(
-        nextMessages.map((msg) =>
-          msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
-        )
-      );
-      if (!isRetry) setMessage("");
-      setPending(false);
-      setNotice({
-        tone: "bad",
-        title: "已离线",
-        detail: "当前处于离线状态，发送的消息将缓存并允许点击重试。",
-      });
-      return;
-    }
-
     setPending(true);
-    let nextMessages = [...messages];
-    if (isRetry) {
-      nextMessages = nextMessages.map((msg) =>
-        msg.role === "user" && msg.content === content ? { ...msg, failed: false } : msg
-      );
-      setMessages(nextMessages);
-    } else {
-      nextMessages = [...messages, { role: "user", content }];
-      setMessages(nextMessages);
-      setMessage("");
-    }
+    setNotice(null);
 
-    setNotice({ tone: "neutral", title: "对方正在输入…", detail: "角色正在准备回应。" });
+    setMessages((current) => {
+      if (isRetry) {
+        return current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: false } : m));
+      }
+      return [...current, { role: "user", content }];
+    });
+    if (!isRetry) setMessage("");
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const recent = [...messages, { role: "user" as const, content }].slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    replyRef.current = "";
+    let assistantInserted = false;
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          viewerSessionId,
-          message: content,
-          recentMessages: nextMessages.slice(-10).map(({ role, content: c }) => ({ role, content: c })),
-        }),
-        signal: controller.signal,
+        body: JSON.stringify({ viewerSessionId, message: content, recentMessages: recent }),
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         const data = await response.json().catch(() => ({}));
-        const nextNotice = accessNotice(data.error ?? "Chat failed");
-        setNotice(nextNotice);
-        if (nextNotice.tone === "bad" || /expired|revoked/i.test(nextNotice.detail)) {
-          setViewerSessionId("");
-        }
-
-        setMessages((current) =>
-          current.map((msg) =>
-            msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
-          )
-        );
+        const next = describeAccessError(data.error ?? "Chat failed");
+        setNotice(next);
+        if (next.tone === "bad") setViewerSessionId("");
+        setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
         return;
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("No response body reader");
-      }
-
+      const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
-      replyTextRef.current = "";
-
-      // Pre-insert an empty assistant message which we'll update in-place
-      setMessages((current) => [...current, { role: "assistant", content: "" }]);
-
       let buffer = "";
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed) continue;
-          if (trimmed.startsWith("data: ")) {
-            const dataStr = trimmed.slice(6);
-            if (dataStr === "[DONE]") {
-              break;
-            }
-            try {
-              const payload = JSON.parse(dataStr);
-              if (payload.type === "content") {
-                replyTextRef.current += payload.content;
-                setMessages((current) => {
-                  const next = [...current];
-                  if (next.length > 0 && next[next.length - 1].role === "assistant") {
-                    next[next.length - 1] = {
-                      ...next[next.length - 1],
-                      content: replyTextRef.current,
-                    };
-                  }
-                  return next;
-                });
-              } else if (payload.type === "done") {
-                const tags = payload.tags ?? [];
-                const live2dEffects = (payload.live2dEffects ?? []) as Live2DEffect[];
-
-                setMessages((current) => {
-                  const next = [...current];
-                  if (next.length > 0 && next[next.length - 1].role === "assistant") {
-                    next[next.length - 1] = {
-                      ...next[next.length - 1],
-                      content: replyTextRef.current,
-                      tags,
-                    };
-                  }
-                  return next;
-                });
-
-                setActiveTags(tags);
-                setActiveEffects(live2dEffects);
-                if (typeof payload.remainingMessages === "number") {
-                  setRemaining(payload.remainingMessages);
-                }
-                setNotice({
-                  tone: "good",
-                  title: "已收到回复",
-                  detail: tags.length
-                      ? `触发了 ${tags.join("、")}。`
-                      : "本次回复没有命中触发标签。",
-                });
+          if (!trimmed.startsWith("data: ")) continue;
+          const payloadStr = trimmed.slice(6);
+          if (payloadStr === "[DONE]") continue;
+          const payload = JSON.parse(payloadStr);
+          if (payload.type === "content") {
+            replyRef.current += payload.content;
+            setMessages((current) => {
+              const next = [...current];
+              if (assistantInserted && next[next.length - 1]?.role === "assistant") {
+                next[next.length - 1] = { ...next[next.length - 1], content: replyRef.current };
+              } else {
+                next.push({ role: "assistant", content: replyRef.current });
+                assistantInserted = true;
               }
-            } catch (err) {
-              console.error("Error parsing stream payload", err);
-            }
+              return next;
+            });
+          } else if (payload.type === "done") {
+            const tags: string[] = payload.tags ?? [];
+            setMessages((current) => {
+              const next = [...current];
+              if (next[next.length - 1]?.role === "assistant") {
+                next[next.length - 1] = { ...next[next.length - 1], content: payload.reply ?? replyRef.current, tags };
+              } else {
+                next.push({ role: "assistant", content: payload.reply ?? replyRef.current, tags });
+              }
+              return next;
+            });
+            setActiveTags(tags);
+            setActiveEffects((payload.live2dEffects ?? []) as Live2DEffect[]);
+            if (typeof payload.remainingMessages === "number") setRemaining(payload.remainingMessages);
           }
         }
       }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error(err);
-
-      const isTimeout = err instanceof Error && err.name === "AbortError";
-      setNotice({
-        tone: "bad",
-        title: isTimeout ? "请求超时" : "发送失败",
-        detail: isTimeout ? "AI 响应超时(15秒),请重试。" : "网络连接失败,请检查网络后重试。",
-      });
-
-      setMessages((current) => {
-        const next = [...current];
-        if (next.length > 0 && next[next.length - 1].role === "assistant" && next[next.length - 1].content === "") {
-          next.pop();
-        }
-        return next.map((msg) =>
-          msg.role === "user" && msg.content === content ? { ...msg, failed: true } : msg
-        );
-      });
+    } catch {
+      setNotice({ tone: "bad", title: "发送失败", detail: "网络异常，请稍后重试。" });
+      setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
     } finally {
       setPending(false);
     }
   }
 
-  const handleComposerSubmit = (event: FormEvent<HTMLFormElement>) => {
+  function onCompose(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = message.trim();
-    if (!content) return;
-    submitMessage(content);
+    if (content) send(content);
   }
-
-  const unlocked = Boolean(viewerSessionId);
 
   return (
     <section className={styles.stage} style={{ "--theme": theme } as CSSProperties} data-testid="audience-chat">
-      <header className={styles.topbar}>
-        <Link className={styles.brand} href="/">
-          ← Live2D Creator
-        </Link>
-        <div className={styles.title}>
-          <h1>{projectName}</h1>
-          {intro ? <p>{intro}</p> : null}
-        </div>
-        <div className={styles.access}>
-          <strong className={styles.remaining} data-testid="remaining-messages">
-            {remaining === null ? "未检票" : `剩余 ${remaining} 条 · ${remaining} messages remaining`}
-          </strong>
-          <span className={unlocked ? `${styles.pill} ${styles.pillOn}` : `${styles.pill} ${styles.pillWait}`}>
-            {unlocked ? "进场中" : "待检票"}
-          </span>
-        </div>
-      </header>
-
       <div className={styles.arena}>
-        <div className={backgroundUrl ? `${styles.canvasZone} ${styles.canvasZoneCustom}` : styles.canvasZone}>
+        <div className={styles.canvas}>
           {backgroundUrl ? (
             <>
-              <div className={styles.customBackdrop} style={{ backgroundImage: `url(${backgroundUrl})` }} aria-hidden />
+              <div className={styles.backdrop} style={{ backgroundImage: `url(${backgroundUrl})` }} aria-hidden />
               <div className={styles.backdropVeil} aria-hidden />
             </>
           ) : null}
           <div className={styles.floor} aria-hidden />
+
+          <div className={styles.nameTag}>
+            <Link
+              href="/"
+              className={styles.nameAvatar}
+              aria-label="返回首页"
+              style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}
+            />
+            <div>
+              <div className={styles.nameTitle}>{projectName}</div>
+              {unlocked ? (
+                <div className={styles.liveLabel}>
+                  <span aria-hidden />
+                  在演中
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           {unlocked && hasLive2DModel ? (
             <div className={styles.viewerHost}>
               <Live2DViewer
@@ -329,32 +232,50 @@ export function AudienceChat({
                 isSpeaking={pending}
               />
             </div>
+          ) : avatarUrl ? (
+            <div className={styles.placeholder}>
+              <div className={styles.portrait} style={{ backgroundImage: `url(${avatarUrl})` }} role="img" aria-label={projectName} />
+            </div>
           ) : (
             <div className={styles.placeholder}>
-              {avatarUrl ? (
-                <div className={styles.portrait} style={{ backgroundImage: `url(${avatarUrl})` }} role="img" aria-label={`${projectName} 头像`} />
-              ) : (
-                <div className={styles.silhouette} aria-hidden />
-              )}
-              <strong>{projectName}</strong>
-              <span>{hasLive2DModel ? "检票后,角色会在聚光灯下登场。" : "模型还在准备中,聊天不受影响。"}</span>
+              <div className={styles.silhouette} aria-hidden>
+                LIVE2D
+                <br />
+                模型渲染区
+              </div>
             </div>
           )}
-          {activeTags.length ? (
-            <div className={styles.activeTagRibbon} aria-label="已触发的标签">
-              {activeTags.map((tag) => (
-                <span key={tag}>{tag}</span>
-              ))}
+
+          {unlocked && (activeTags.length > 0 || pending) ? (
+            <div className={styles.readouts} aria-label="实时动作">
+              {activeTags.length > 0 ? (
+                <div className={styles.readoutExpr}>
+                  触发 #{activeTags[0]}
+                  {exprReadout?.params?.[0] ? ` → ${exprReadout.params[0].id} ${exprReadout.params[0].value}` : ""}
+                </div>
+              ) : null}
+              {pending ? (
+                <div className={styles.readoutVoice}>
+                  <span className={styles.voiceBars} aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  语音播放中
+                </div>
+              ) : null}
             </div>
           ) : null}
 
           {!unlocked ? (
             <div className={styles.gate}>
               <div className={styles.gateCard}>
-                <p className={styles.gateKicker}>STAGE PASS</p>
+                <div className={styles.gateIcon} aria-hidden>
+                  🔒
+                </div>
                 <h2>凭粉丝码进场</h2>
-                <p>访问码由主播发放,可能绑定首个使用的浏览器设备。</p>
-                <form onSubmit={validateCode} data-testid="fan-code-form">
+                <p>输入{projectName}发放的访问码，即可实时对话。</p>
+                <form onSubmit={onValidate} data-testid="fan-code-form">
                   <input
                     data-testid="fan-code-input"
                     value={code}
@@ -362,53 +283,63 @@ export function AudienceChat({
                     placeholder="L2D-XXXX-XXXX-XX"
                     aria-label="粉丝访问码"
                   />
+                  <div className={styles.gateHints} aria-hidden>
+                    <span>📱 绑定到此设备</span>
+                    <span>⚡ 配额内畅聊</span>
+                  </div>
+                  {notice ? <p className={styles.gateError}>{notice.detail}</p> : null}
                   <button data-testid="fan-code-submit" type="submit" disabled={pending || !code.trim()}>
-                    {pending ? "检票中…" : "进场"}
+                    {pending ? "检票中…" : "进场 →"}
                   </button>
                 </form>
               </div>
+            </div>
+          ) : null}
+
+          {quotaExhausted ? (
+            <div className={styles.boundary}>
+              <div className={styles.boundaryIcon} aria-hidden>
+                ⌛
+              </div>
+              <h2>额度已用完</h2>
+              <p>这个访问码的聊天次数已经用完，向{projectName}申请新码或补充配额。</p>
+              <Link href="/" className={styles.boundaryLink}>
+                返回角色广场
+              </Link>
             </div>
           ) : null}
         </div>
 
         <aside className={styles.dock}>
           <div className={styles.dockHead}>
-            <AudienceStatusNotice
-              notice={
-                isOffline
-                  ? { tone: "warn", title: "网络连接已断开", detail: "当前处于离线状态，发送的消息将尝试缓存或重试。" }
-                  : notice
-              }
-            />
-            {tagNames.length ? (
-              <div className={styles.tagChips} aria-label="可触发的标签">
-                {tagNames.map((name) => (
-                  <span key={name}>{name}</span>
-                ))}
-              </div>
-            ) : null}
+            <span className={styles.dockTitle}>对话</span>
+            <span className={styles.dockRemaining} data-testid="remaining-messages">
+              {remaining === null ? "待检票" : `剩余 ${remaining} 条`}
+            </span>
           </div>
+
+          {notice && unlocked ? (
+            <div className={`${styles.notice} ${notice.tone === "bad" ? styles.noticeBad : styles.noticeWarn}`} aria-live="polite">
+              <strong>{notice.title}</strong>
+              <p>{notice.detail}</p>
+            </div>
+          ) : null}
 
           <ol className={styles.transcript} ref={transcriptRef} data-testid="chat-transcript">
             {messages.map((item, index) => (
               <li className={item.role === "user" ? styles.msgUser : styles.msgAssistant} data-role={item.role} key={`${item.role}-${index}`}>
                 <div className={styles.bubble}>
-                  <strong>{item.role === "user" ? "你" : projectName}</strong>
                   <p>{item.content}</p>
                   {item.tags?.length ? (
                     <span className={styles.bubbleTags}>
                       {item.tags.map((tag) => (
-                        <small key={tag}>{tag}</small>
+                        <span key={tag}>#{tag}</span>
                       ))}
+                      🔊 已朗读
                     </span>
                   ) : null}
                   {item.failed ? (
-                    <button
-                      type="button"
-                      className={styles.retryBtn}
-                      onClick={() => submitMessage(item.content, true)}
-                      disabled={pending}
-                    >
+                    <button type="button" className={styles.retry} onClick={() => send(item.content, true)} disabled={pending}>
                       ⚠️ 发送失败，点击重试
                     </button>
                   ) : null}
@@ -416,27 +347,31 @@ export function AudienceChat({
               </li>
             ))}
             {pending && unlocked ? (
-              <li className={styles.msgAssistant} aria-hidden>
-                <span className={styles.typing}>
-                  <i />
-                  <i />
-                  <i />
-                </span>
+              <li className={styles.typing} aria-hidden>
+                <i />
+                <i />
+                <i />
               </li>
             ) : null}
           </ol>
 
           {unlocked ? (
-            <form className={styles.composer} onSubmit={handleComposerSubmit} data-testid="chat-form">
+            <form className={styles.composer} onSubmit={onCompose} data-testid="chat-form">
               <input
                 data-testid="chat-message-input"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="说点什么…"
+                placeholder={`对${projectName}说点什么…`}
                 aria-label="聊天消息"
               />
-              <button data-testid="chat-submit" type="submit" disabled={pending || !message.trim() || remaining === 0}>
-                {remaining === 0 ? "配额用尽" : pending ? "发送中…" : "发送"}
+              <button
+                className={styles.sendBtn}
+                data-testid="chat-submit"
+                type="submit"
+                disabled={pending || !message.trim() || remaining === 0}
+                aria-label="发送"
+              >
+                {remaining === 0 ? "用尽" : pending ? "…" : "→"}
               </button>
             </form>
           ) : (
@@ -446,69 +381,4 @@ export function AudienceChat({
       </div>
     </section>
   );
-}
-
-function AudienceStatusNotice({ notice }: { notice: AudienceNotice }) {
-  const toneClass =
-    notice.tone === "good"
-      ? styles.noticeGood
-      : notice.tone === "bad"
-        ? styles.noticeBad
-        : notice.tone === "warn"
-          ? styles.noticeWarn
-          : "";
-
-  return (
-    <div className={`${styles.notice} ${toneClass}`} data-testid="audience-status" aria-live="polite">
-      <strong>{notice.title}</strong>
-      <p>{notice.detail}</p>
-    </div>
-  );
-}
-
-function accessNotice(message: string): AudienceNotice {
-  const normalized = message.toLowerCase();
-  if (normalized.includes("another device") || normalized.includes("bound")) {
-    return {
-      tone: "bad",
-      title: "粉丝码已绑定其他设备",
-      detail: "这个访问码已经绑定在另一台浏览器上。请主播重置设备绑定,或为你发新码。",
-    };
-  }
-  if (normalized.includes("expired") || normalized.includes("revoked")) {
-    return {
-      tone: "bad",
-      title: "粉丝码已过期或被撤销",
-      detail: "这个码已经无法进场了,向主播要一个新的访问码吧。(expired/revoked)",
-    };
-  }
-  if (normalized.includes("quota") || normalized.includes("exhausted")) {
-    return {
-      tone: "warn",
-      title: "消息配额已用完",
-      detail: "这个码的聊天次数已经用完。向主播申请新码或补充配额。",
-    };
-  }
-  if (normalized.includes("not published") || normalized.includes("project")) {
-    return {
-      tone: "warn",
-      title: "角色暂未开放",
-      detail: "主播还没有发布这位角色,或暂停了访问。",
-    };
-  }
-  return {
-    tone: "bad",
-    title: "进场失败",
-    detail: message,
-  };
-}
-
-function getOrCreateDeviceId() {
-  if (typeof window === "undefined") return "";
-  let saved = window.localStorage.getItem("live2d-device-id");
-  if (!saved) {
-    saved = crypto.randomUUID();
-    window.localStorage.setItem("live2d-device-id", saved);
-  }
-  return saved;
 }

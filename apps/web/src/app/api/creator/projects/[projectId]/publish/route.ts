@@ -5,9 +5,7 @@ import { requireSession } from "@/lib/authz";
 import { setProjectStatus } from "@/lib/projects";
 import { jsonError, parseBody } from "@/lib/request";
 
-const statusSchema = z.object({
-  status: z.enum(["draft", "published", "paused"]),
-});
+const schema = z.object({ status: z.enum(["draft", "published", "paused"]) });
 
 export async function POST(request: NextRequest, context: RouteContext<"/api/creator/projects/[projectId]/publish">) {
   try {
@@ -15,9 +13,8 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
     if (session.user.role !== "creator") {
       return NextResponse.json({ error: "Only creators can change project status" }, { status: 403 });
     }
-
     const { projectId } = await context.params;
-    const body = await parseBody(request, statusSchema);
+    const body = await parseBody(request, schema);
     const project = await setProjectStatus({
       projectId,
       creatorId: session.user.id,

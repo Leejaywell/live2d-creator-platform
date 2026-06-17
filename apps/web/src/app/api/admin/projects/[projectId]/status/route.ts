@@ -6,15 +6,13 @@ import { requirePermission } from "@/lib/authz";
 import { setProjectStatus } from "@/lib/projects";
 import { jsonError, parseBody } from "@/lib/request";
 
-const statusSchema = z.object({
-  status: z.nativeEnum(ProjectStatus),
-});
+const schema = z.object({ status: z.nativeEnum(ProjectStatus) });
 
 export async function POST(request: NextRequest, context: RouteContext<"/api/admin/projects/[projectId]/status">) {
   try {
     const session = await requirePermission("projects.pause");
     const { projectId } = await context.params;
-    const body = await parseBody(request, statusSchema);
+    const body = await parseBody(request, schema);
     const project = await setProjectStatus({
       projectId,
       actorId: session.user.id,

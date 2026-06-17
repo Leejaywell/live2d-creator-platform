@@ -4,13 +4,16 @@ import { requireSession } from "@/lib/authz";
 import { voidCreatorCheckoutOrder } from "@/lib/orders";
 import { jsonError } from "@/lib/request";
 
-export async function DELETE(request: NextRequest, context: RouteContext<"/api/creator/checkout/[orderId]">) {
+export async function DELETE(_request: NextRequest, context: RouteContext<"/api/creator/checkout/[orderId]">) {
   try {
     const session = await requireSession();
+    if (session.user.role !== "creator") {
+      return NextResponse.json({ error: "Only creators can cancel their orders" }, { status: 403 });
+    }
     const { orderId } = await context.params;
-    const order = await voidCreatorCheckoutOrder(orderId, { id: session.user.id, role: session.user.role }, request.headers.get("x-forwarded-for") ?? undefined);
-    return NextResponse.json({ order });
+    await voidCreatorCheckoutOrder(orderId, { id: session.user.id, role: session.user.role });
+    return NextResponse.json({ ok: true });
   } catch (error) {
-    return jsonError(error, "Checkout order cancellation failed");
+    return jsonError(error, "Order cancellation failed");
   }
 }

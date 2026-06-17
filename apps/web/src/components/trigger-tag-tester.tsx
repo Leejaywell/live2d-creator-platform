@@ -1,59 +1,69 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 
-type TriggerTagTestResult = {
+type TestResult = {
   reply: string;
   tags: string[];
   tokenEstimate: number;
-  live2dEffects: Array<{
-    tag: string;
-    params: Array<{ id: string; value: number }>;
-  }>;
+  live2dEffects: Array<{ tag: string; params: Array<{ id: string; value: number }> }>;
 };
 
 export function TriggerTagTester({ projectId }: { projectId: string }) {
-  const [status, setStatus] = useState("");
-  const [result, setResult] = useState<TriggerTagTestResult | null>(null);
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<TestResult | null>(null);
+  const [error, setError] = useState("");
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("测试中…");
+    if (pending || !message.trim()) return;
+    setPending(true);
+    setError("");
     setResult(null);
-
-    const formData = new FormData(event.currentTarget);
-    const response = await fetch(`/api/creator/projects/${projectId}/tags/test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(formData)),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setStatus(data.error ?? "标签测试失败");
-      return;
+    try {
+      const response = await fetch(`/api/creator/projects/${projectId}/tags/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error ?? "测试失败");
+        return;
+      }
+      setResult(data as TestResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "测试失败");
+    } finally {
+      setPending(false);
     }
-
-    setResult(data as TriggerTagTestResult);
-    setStatus("测试完成");
   }
 
+  const effectText = result?.live2dEffects
+    .flatMap((effect) => effect.params.map((param) => `${param.id} ${param.value}`))
+    .join(" · ");
+
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={onSubmit}>
       <label>
         示例消息
-        <textarea name="message" required />
+        <input
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder="你今天好可爱呀，我好喜欢你"
+          required
+        />
       </label>
-      <button type="submit">测试触发标签</button>
-      {status ? <p aria-live="polite">{status}</p> : null}
+      <button type="submit" disabled={pending || !message.trim()}>
+        {pending ? "测试中…" : "测试"}
+      </button>
+      {error ? <p aria-live="polite">{error}</p> : null}
       {result ? (
-        <div>
-          <strong>回复</strong>
-          <p>{result.reply}</p>
-          <strong>命中标签</strong>
-          <p>{result.tags.join("、") || "无"}</p>
-          <strong>Live2D 效果</strong>
-          <p>{result.live2dEffects.flatMap((effect) => effect.params.map((param) => `${effect.tag}:${param.id}=${param.value}`)).join(", ") || "无"}</p>
-        </div>
+        <p aria-live="polite">
+          命中：{result.tags.length ? result.tags.map((tag) => `#${tag}`).join(" ") : "无"}
+          {effectText ? ` → ${effectText}` : ""}
+        </p>
       ) : null}
     </form>
   );

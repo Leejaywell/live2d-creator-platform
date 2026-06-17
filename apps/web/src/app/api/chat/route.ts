@@ -3,37 +3,36 @@ import { z } from "zod";
 
 import { callAiProxyStream, estimateTokens } from "@/lib/ai-proxy";
 import { buildTriggeredLive2DEffects } from "@/lib/chat-effects";
-import { enforceChatSafety, enforceChatOutputSafety, isChatSafetyError } from "@/lib/chat-safety";
+import { enforceChatOutputSafety, enforceChatSafety, isChatSafetyError } from "@/lib/chat-safety";
 import { deductSuccessfulChatQuota } from "@/lib/fan-code-service";
-import { logEvent, recordApiRequest } from "@/lib/metrics";
 import { getPlatformRuntimeSettings } from "@/lib/platform-settings";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { jsonError, parseBody } from "@/lib/request";
 import { recordChatSafetyEvent } from "@/lib/safety-events";
 
-const requestSchema = z.object({
+const schema = z.object({
   viewerSessionId: z.string().min(1),
   message: z.string().min(1).max(10000),
-  recentMessages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) })).max(20).default([]),
+  recentMessages: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) }))
+    .max(20)
+    .default([]),
 });
 
 export async function POST(request: NextRequest) {
-  const startedAt = performance.now();
   const limited = await rateLimit(request, { key: "chat", limit: 20, windowMs: 60_000 });
-  if (limited) {
-    recordApiRequest({ route: "/api/chat", method: "POST", status: 429, durationMs: performance.now() - startedAt });
-    return limited;
-  }
+  if (limited) return limited;
 
   try {
-    const body = await parseBody(request, requestSchema);
-    const runtimeSettings = await getPlatformRuntimeSettings();
+    const body = await parseBody(request, schema);
+    const runtime = await getPlatformRuntimeSettings();
+
     let userMessage: string;
     try {
       userMessage = enforceChatSafety(body.message, {
-        contentModeration: runtimeSettings.contentModeration,
-        maxFanMessageLength: runtimeSettings.maxFanMessageLength,
+        contentModeration: runtime.contentModeration,
+        maxFanMessageLength: runtime.maxFanMessageLength,
       });
     } catch (error) {
       if (isChatSafetyError(error)) {
@@ -46,129 +45,121 @@ export async function POST(request: NextRequest) {
       }
       throw error;
     }
-    // Step 1: Validate session, access code, and plan — plain read, no transaction needed.
-    // This releases the DB connection immediately instead of holding it during the AI call.
+
     const viewerSession = await prisma.viewerSession.findUniqueOrThrow({
       where: { id: body.viewerSessionId },
       include: {
         fanAccessCode: true,
         project: {
           include: {
-            creator: {
-              select: { status: true },
-            },
-            triggerTags: {
-              where: { enabled: true },
-              orderBy: { priority: "desc" },
-            },
+            creator: { select: { id: true, status: true } },
+            triggerTags: { where: { enabled: true }, orderBy: { priority: "desc" } },
           },
         },
       },
     });
 
-    if (viewerSession.project.status !== "published" && viewerSession.fanAccessCode.batchId !== "preview") {
-      throw new Error("Project is not published");
+    const project = viewerSession.project;
+    const code = viewerSession.fanAccessCode;
+    const now = new Date();
+
+    if (project.status !== "published") {
+      return NextResponse.json({ error: "Project is not published" }, { status: 403 });
     }
-    if (viewerSession.project.creator.status !== "active") {
-      throw new Error("Creator account is not active");
+    if (project.creator.status !== "active") {
+      return NextResponse.json({ error: "Creator account is not active" }, { status: 403 });
     }
-    if (viewerSession.fanAccessCode.status !== "active" || viewerSession.fanAccessCode.expiresAt <= new Date()) {
-      throw new Error("Access code is expired or revoked");
+    if (code.status !== "active" || code.expiresAt <= now) {
+      return NextResponse.json({ error: "Access code is expired or revoked" }, { status: 403 });
     }
-    if (viewerSession.fanAccessCode.usedMessages >= viewerSession.fanAccessCode.maxMessages) {
-      throw new Error("Access code message quota is exhausted");
+    if (code.usedMessages >= code.maxMessages) {
+      return NextResponse.json({ error: "Access code quota is exhausted" }, { status: 403 });
     }
 
-    const plan = await prisma.creatorPlan.findUniqueOrThrow({
-      where: { creatorId: viewerSession.project.creatorId },
-    });
-    if (plan.status !== "active" || plan.expiresAt <= new Date() || plan.usedAiMessages >= plan.monthlyAiMessageLimit) {
-      throw new Error("Creator AI quota is not available");
-    }
+    const enabledTags = project.triggerTags.map((tag) => ({
+      name: tag.name,
+      description: tag.description,
+      keywords: tag.keywords,
+      promptFragment: tag.promptFragment,
+    }));
 
-    // Step 2: Call AI proxy stream — no DB connection held during the AI response.
     const aiStream = await callAiProxyStream({
-      systemPrompt: viewerSession.project.systemPrompt,
-      enabledTags: viewerSession.project.triggerTags.map((tag) => ({
-        name: tag.name,
-        description: tag.description,
-        keywords: tag.keywords,
-        promptFragment: tag.promptFragment,
-      })),
+      systemPrompt: project.systemPrompt,
+      enabledTags,
       recentMessages: body.recentMessages,
       userMessage,
-      aiProvider: runtimeSettings.aiProvider,
-      chatModel: runtimeSettings.aiChatModel,
+      aiProvider: runtime.aiProvider,
+      chatModel: runtime.aiChatModel,
     });
 
-    const responseStream = new ReadableStream({
+    const encoder = new TextEncoder();
+    const sse = new ReadableStream<Uint8Array>({
       async start(controller) {
         const reader = aiStream.getReader();
-        let replyText = "";
-        let tags: string[] = [];
-
+        const send = (payload: unknown) =>
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         try {
           while (true) {
             const { value, done } = await reader.read();
             if (done) break;
+            const payload = JSON.parse(value) as
+              | { type: "content"; content: string }
+              | { type: "done"; reply: string; tags: string[] };
 
-            const payload = JSON.parse(value);
             if (payload.type === "content") {
-              replyText += payload.content;
-              controller.enqueue(`data: ${JSON.stringify({ type: "content", content: payload.content })}\n\n`);
-            } else if (payload.type === "done") {
-              tags = payload.tags;
+              send({ type: "content", content: payload.content });
+              continue;
             }
+
+            // finalise: output safety, effects, quota deduction
+            let safeReply = payload.reply;
+            try {
+              safeReply = enforceChatOutputSafety(payload.reply, { contentModeration: runtime.contentModeration });
+            } catch {
+              safeReply = "我先不回答这个，我们聊点别的好吗？";
+            }
+            const tags = payload.tags ?? [];
+            const live2dEffects = buildTriggeredLive2DEffects({ tags, triggerTags: project.triggerTags });
+
+            let remainingMessages = code.maxMessages - code.usedMessages - 1;
+            try {
+              await prisma.$transaction((tx) =>
+                deductSuccessfulChatQuota(tx, {
+                  creatorId: project.creator.id,
+                  projectId: project.id,
+                  fanAccessCodeId: code.id,
+                  tokenEstimate: estimateTokens(`${userMessage}\n${safeReply}`),
+                }),
+              );
+              const fresh = await prisma.fanAccessCode.findUnique({
+                where: { id: code.id },
+                select: { usedMessages: true, maxMessages: true },
+              });
+              if (fresh) remainingMessages = fresh.maxMessages - fresh.usedMessages;
+            } catch {
+              // quota race or exhaustion after generation — keep optimistic estimate
+            }
+
+            send({ type: "done", reply: safeReply, tags, live2dEffects, remainingMessages });
           }
-
-          enforceChatOutputSafety(replyText, {
-            contentModeration: runtimeSettings.contentModeration,
-          });
-
-          // Step 3: Atomic quota deduction — short transaction, completes in <50ms.
-          const quota = await prisma.$transaction(async (tx) => {
-            return deductSuccessfulChatQuota(tx, {
-              creatorId: viewerSession.project.creatorId,
-              projectId: viewerSession.projectId,
-              fanAccessCodeId: viewerSession.fanAccessCodeId,
-              tokenEstimate: estimateTokens(`${userMessage}\n${replyText}`),
-            });
-          });
-
-          const live2dEffects = buildTriggeredLive2DEffects({
-            tags,
-            triggerTags: viewerSession.project.triggerTags,
-          });
-
-          controller.enqueue(
-            `data: ${JSON.stringify({
-              type: "done",
-              tags,
-              live2dEffects,
-              remainingMessages: quota.remainingMessages,
-            })}\n\n`
-          );
-          controller.enqueue("data: [DONE]\n\n");
-        } catch (err) {
-          console.error("Stream error:", err);
-          controller.enqueue(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Stream error" })}\n\n`);
+        } catch (error) {
+          controller.error(error);
+          return;
         } finally {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         }
       },
     });
 
-    recordApiRequest({ route: "/api/chat", method: "POST", status: 200, durationMs: performance.now() - startedAt });
-    return new Response(responseStream, {
+    return new Response(sse, {
       headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
       },
     });
   } catch (error) {
-    logEvent("warn", "chat_failed", { error: error instanceof Error ? error.message : "Unknown failure" });
-    recordApiRequest({ route: "/api/chat", method: "POST", status: 400, durationMs: performance.now() - startedAt });
     return jsonError(error, "Chat failed");
   }
 }

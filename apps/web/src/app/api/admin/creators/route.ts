@@ -5,35 +5,24 @@ import { createCreatorAccount } from "@/lib/admin";
 import { requirePermission } from "@/lib/authz";
 import { jsonError, parseBody } from "@/lib/request";
 
-const optionalDateTime = z.preprocess((value) => (value === "" ? undefined : value), z.string().datetime().optional());
-const optionalPositiveInt = z.preprocess((value) => (value === "" ? undefined : value), z.number().int().positive().optional());
-const optionalNonEmptyString = z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional());
-
-const creatorSchema = z.object({
-  username: z.string().trim().min(1),
+const schema = z.object({
+  username: z.string().min(1),
   password: z.string().min(8),
   displayName: z.string().min(1),
-  planName: optionalNonEmptyString,
-  expiresAt: optionalDateTime,
-  maxProjects: optionalPositiveInt,
-  monthlyAiMessageLimit: optionalPositiveInt,
-  fanCodeQuota: optionalPositiveInt,
+  planName: z.string().optional(),
+  expiresAt: z.coerce.date().optional(),
+  maxProjects: z.coerce.number().int().min(1).optional(),
+  monthlyAiMessageLimit: z.coerce.number().int().min(1).optional(),
+  fanCodeQuota: z.coerce.number().int().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission("creators.manage");
-    const body = await parseBody(request, creatorSchema);
+    const body = await parseBody(request, schema);
     const creator = await createCreatorAccount({
       admin: { id: session.user.id, role: session.user.role },
-      username: body.username,
-      password: body.password,
-      displayName: body.displayName,
-      planName: body.planName,
-      expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
-      maxProjects: body.maxProjects,
-      monthlyAiMessageLimit: body.monthlyAiMessageLimit,
-      fanCodeQuota: body.fanCodeQuota,
+      ...body,
     });
     return NextResponse.json({ creator }, { status: 201 });
   } catch (error) {

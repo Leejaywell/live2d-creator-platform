@@ -6,19 +6,14 @@ import { optionalJsonString } from "@/lib/json-field";
 import { createTriggerTag } from "@/lib/projects";
 import { jsonError, parseBody } from "@/lib/request";
 
-const csvSchema = z.union([z.string(), z.array(z.string())]).transform((value) =>
-  Array.isArray(value)
-    ? value
-    : value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
+const csv = z.union([z.string(), z.array(z.string())]).transform((value) =>
+  Array.isArray(value) ? value : value.split(",").map((item) => item.trim()).filter(Boolean),
 );
 
-const tagSchema = z.object({
+const schema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  keywords: csvSchema,
+  keywords: csv.default([]),
   promptFragment: z.string().optional(),
   live2dExpression: z.string().optional(),
   live2dParams: optionalJsonString("live2dParams must be valid JSON"),
@@ -32,16 +27,11 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
     if (session.user.role !== "creator") {
       return NextResponse.json({ error: "Only creators can create tags" }, { status: 403 });
     }
-
     const { projectId } = await context.params;
-    const body = await parseBody(request, tagSchema);
-    const tag = await createTriggerTag({
-      projectId,
-      creatorId: session.user.id,
-      ...body,
-    });
+    const body = await parseBody(request, schema);
+    const tag = await createTriggerTag({ projectId, creatorId: session.user.id, ...body });
     return NextResponse.json({ tag }, { status: 201 });
   } catch (error) {
-    return jsonError(error, "Trigger tag creation failed");
+    return jsonError(error, "Tag creation failed");
   }
 }

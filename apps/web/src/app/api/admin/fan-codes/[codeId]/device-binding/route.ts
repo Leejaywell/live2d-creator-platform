@@ -1,20 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { requirePermission } from "@/lib/authz";
 import { resetFanAccessCodeDeviceBinding } from "@/lib/fan-code-service";
 import { jsonError } from "@/lib/request";
 
-export async function POST(_request: Request, context: RouteContext<"/api/admin/fan-codes/[codeId]/device-binding">) {
+export async function POST(_request: NextRequest, context: RouteContext<"/api/admin/fan-codes/[codeId]/device-binding">) {
   try {
     const session = await requirePermission("fan_codes.manage");
     const { codeId } = await context.params;
-    const code = await resetFanAccessCodeDeviceBinding({
+    const result = await resetFanAccessCodeDeviceBinding({
       codeId,
       actor: { id: session.user.id, role: session.user.role },
     });
-
-    return NextResponse.json({ code });
+    return NextResponse.json({ ok: true, result });
   } catch (error) {
-    return jsonError(error, "Fan code device reset failed");
+    return jsonError(error, "Device binding reset failed");
   }
 }
