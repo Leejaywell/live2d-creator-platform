@@ -1,0 +1,177 @@
+/* ============================================================
+   Backstage — global design tokens + base styles
+   Dark editorial aesthetic: pink/teal accents on near-black,
+   serif display + sans body + mono labels.
+   ============================================================ */
+
+:root {
+  /* surfaces */
+  --bg: #090711;
+  --bg-raised: #0e0c15;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --hairline: rgba(255, 255, 255, 0.06);
+
+  /* text */
+  --text: #f3effc;
+  --text-dim: #beb6d2;
+  --text-muted: #837b9b;
+  --text-faint: #4d4660;
+
+  /* accents */
+  --pink: #ff6c9e;
+  --pink-bright: #ff9cbe;
+  --pink-deep: #ff5b91;
+  --pink-soft: #ff84ad;
+  --teal: #6fe7da;
+  --green: #5bdca6;
+  --amber: #f2c14e;
+  --violet: #9b8cff;
+  --danger: #ff7a7a;
+
+  /* tinted fills */
+  --pink-fill: rgba(255, 108, 158, 0.16);
+  --pink-fill-strong: rgba(255, 108, 158, 0.28);
+  --pink-line: rgba(255, 108, 158, 0.4);
+  --teal-fill: rgba(111, 231, 218, 0.06);
+  --teal-line: rgba(111, 231, 218, 0.3);
+  --amber-fill: rgba(242, 193, 78, 0.14);
+
+  /* gradients */
+  --grad-pink: linear-gradient(180deg, #ff84ad, #ff5b91);
+  --grad-mark: radial-gradient(circle at 35% 30%, #ff9cbe, #ff5b91);
+
+  /* fonts */
+  --font-display: "Noto Serif SC", serif;
+  --font-body: "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* radius */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* motion */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.15s;
+  --dur: 0.22s;
+  --dur-slow: 0.36s;
+
+  /* shadows */
+  --shadow-card: 0 50px 120px -50px #000;
+  --shadow-pink: 0 14px 34px -12px rgba(255, 108, 158, 0.7);
+  --shadow-pink-soft: 0 10px 26px -10px rgba(255, 108, 158, 0.65);
+
+  /* layout */
+  --shell-max: 1320px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+::selection {
+  background: rgba(255, 108, 158, 0.32);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2438;
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3350;
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* shared keyframes */
+@keyframes spotbreath {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+@keyframes dotpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

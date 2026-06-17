@@ -1,0 +1,205 @@
+/* Backstage shared UI primitives */
+
+/* ---- brand mark ---- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.brandDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--grad-mark);
+  box-shadow: 0 0 16px 2px rgba(255, 108, 158, 0.7);
+  flex: none;
+}
+.brandName {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.brandDotSm {
+  width: 11px;
+  height: 11px;
+}
+.brandNameSm {
+  font-size: 16px;
+}
+
+/* ---- buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 13px 22px;
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.primary {
+  background: var(--grad-pink);
+  color: #1a0a12;
+  box-shadow: var(--shadow-pink-soft);
+}
+.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.ghost {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+  backdrop-filter: blur(18px);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.tintPink {
+  background: var(--pink-fill);
+  border-color: var(--pink-line);
+  color: var(--pink-bright);
+}
+.tintPink:hover:not(:disabled) {
+  background: var(--pink-fill-strong);
+}
+.danger {
+  background: rgba(255, 122, 122, 0.14);
+  border-color: rgba(255, 122, 122, 0.4);
+  color: var(--danger);
+}
+.danger:hover:not(:disabled) {
+  background: rgba(255, 122, 122, 0.24);
+}
+.sm {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: var(--r-sm);
+}
+.lg {
+  padding: 15px 28px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+.block {
+  width: 100%;
+}
+
+/* ---- pills / badges ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.pillMono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+.toneLive {
+  background: rgba(91, 220, 166, 0.12);
+  color: var(--green);
+  border-color: rgba(91, 220, 166, 0.35);
+}
+.toneLive .dot {
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+  animation: dotpulse 1.6s infinite;
+}
+.toneAmber {
+  background: var(--amber-fill);
+  color: var(--amber);
+  border-color: rgba(242, 193, 78, 0.3);
+}
+.tonePink {
+  background: var(--pink-fill);
+  color: var(--pink-bright);
+  border-color: var(--pink-line);
+}
+.toneTeal {
+  background: var(--teal-fill);
+  color: var(--teal);
+  border-color: var(--teal-line);
+}
+.toneNeutral {
+  background: var(--surface);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+.toneDanger {
+  background: rgba(255, 122, 122, 0.12);
+  color: var(--danger);
+  border-color: rgba(255, 122, 122, 0.3);
+}
+
+/* ---- glass card ---- */
+.card {
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.cardPad {
+  padding: 24px;
+}
+
+/* ---- mono eyebrow ---- */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--teal);
+  padding: 7px 13px;
+  border: 1px solid var(--teal-line);
+  border-radius: var(--r-pill);
+  background: var(--teal-fill);
+}
+.eyebrow .dot {
+  background: var(--teal);
+  animation: dotpulse 2s infinite;
+}
+
+/* ---- stat ---- */
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1;
+}
+.statLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
