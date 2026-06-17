@@ -3,8 +3,9 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import styles from "@/app/dashboard.module.css";
 import { adminOrderProducts, paymentMethodLabel, type CheckoutProduct } from "@/lib/checkout-products";
+
+import styles from "./creator-checkout-form.module.css";
 
 type CheckoutResult = {
   orderId: string;
@@ -73,7 +74,7 @@ export function CreatorCheckoutForm({ products = adminOrderProducts }: CreatorCh
   }
 
   return (
-    <form onSubmit={submit} aria-busy={pending}>
+    <form className={styles.form} onSubmit={submit} aria-busy={pending}>
       <label>
         支付方式
         <select name="paymentMethod" defaultValue={paymentMethods[0] ?? "alipay"} required>
@@ -101,10 +102,10 @@ export function CreatorCheckoutForm({ products = adminOrderProducts }: CreatorCh
           </label>
         ))}
       </fieldset>
-      <button type="submit" disabled={pending}>
+      <button className={styles.submit} type="submit" disabled={pending}>
         {pending ? "创建中…" : "提交订单"}
       </button>
-      {status ? <p aria-live="polite">{status}</p> : null}
+      {status ? <p className={styles.status} aria-live="polite">{status}</p> : null}
       {result ? (
         <div className={styles.checkoutResult}>
           <strong>{result.label}</strong>

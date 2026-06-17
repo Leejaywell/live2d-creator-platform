@@ -499,6 +499,102 @@
   color: #fff;
 }
 
+/* ---- billing ---- */
+.billingGrid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 22px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+.planCard {
+  padding: 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 108, 158, 0.12), rgba(111, 231, 218, 0.06));
+  border: 1px solid var(--pink-line);
+}
+.planHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.planName {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.planMetaRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.planMetaRow span:last-child {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+.planBar {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.planBar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff5b91, #ff84ad);
+}
+.planFoot {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.rulesCard {
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--amber-fill);
+  border: 1px solid rgba(242, 193, 78, 0.25);
+}
+.rulesCard h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber);
+  margin: 0 0 10px;
+}
+.rulesCard ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.9;
+}
+
+/* account columns */
+.accountGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.avatarBig {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--grad-mark);
+  flex: none;
+}
+
 /* ---- form card (wraps ApiForm / ProjectCreateForm) ---- */
 .formCard {
   display: block;

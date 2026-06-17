@@ -1,0 +1,28 @@
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, rgba(242, 193, 78, 0.16), rgba(255, 108, 158, 0.16));
+  border-bottom: 1px solid rgba(242, 193, 78, 0.3);
+  font-size: 12.5px;
+  color: var(--amber);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  flex-wrap: wrap;
+}
+.bannerDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: dotpulse 1.6s infinite;
+}
+.bannerLink {
+  color: var(--teal);
+  text-decoration: underline;
+}
+.bannerLink:hover {
+  color: #fff;
+}
