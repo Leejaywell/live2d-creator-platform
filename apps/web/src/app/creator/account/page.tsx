@@ -1,10 +1,28 @@
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
-import { Pill } from "@/components/ui";
+import { Button, Pill } from "@/components/ui";
 
 import { CreatorAuthRequired, CreatorShell, creatorStyles as styles } from "../_components";
 
 export const dynamic = "force-dynamic";
+
+function IdentityRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 13,
+        color: "var(--text-dim)",
+        padding: "10px 0",
+        borderBottom: last ? "none" : "1px solid var(--hairline)",
+      }}
+    >
+      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
 
 export default async function CreatorAccountPage() {
   const session = await getCurrentSession();
@@ -30,41 +48,53 @@ export default async function CreatorAccountPage() {
           </div>
           <div className={styles.avatarRow}>
             <div className={styles.avatarBig} aria-hidden />
-            <Pill tone="neutral">{username}</Pill>
+            <Button variant="ghost" size="sm" disabled title="即将支持">
+              更换头像
+            </Button>
           </div>
-          <div className={styles.metaGrid} style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className={styles.metaItem}>
-              <span>登录名</span>
-              <strong style={{ fontSize: 15 }}>{username}</strong>
-            </div>
-            <div className={styles.metaItem}>
-              <span>角色</span>
-              <strong style={{ fontSize: 15 }}>{session.user.role}</strong>
-            </div>
-            <div className={styles.metaItem}>
-              <span>状态</span>
-              <strong style={{ fontSize: 15 }}>{session.user.status === "active" ? "正常" : session.user.status}</strong>
-            </div>
+          <div className={styles.formCard}>
+            <form>
+              <label>
+                登录名
+                <input value={username} readOnly />
+              </label>
+              <label>
+                角色
+                <input value={session.user.role} readOnly />
+              </label>
+            </form>
           </div>
         </section>
 
-        <section className={styles.panel}>
-          <div className={styles.panelHead}>
-            <h2>修改密码</h2>
-          </div>
-          <div className={styles.formCard}>
-            <ApiForm action="/api/account/password" submitLabel="更新密码">
-              <label>
-                当前密码
-                <input name="currentPassword" type="password" autoComplete="current-password" required />
-              </label>
-              <label>
-                新密码
-                <input name="newPassword" type="password" autoComplete="new-password" minLength={8} required />
-              </label>
-            </ApiForm>
-          </div>
-        </section>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <h2>修改密码</h2>
+            </div>
+            <div className={styles.formCard}>
+              <ApiForm action="/api/account/password" submitLabel="更新密码">
+                <label>
+                  当前密码
+                  <input name="currentPassword" type="password" autoComplete="current-password" required />
+                </label>
+                <label>
+                  新密码
+                  <input name="newPassword" type="password" autoComplete="new-password" minLength={8} required />
+                </label>
+              </ApiForm>
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <h2>身份信息</h2>
+              <Pill tone="neutral">未认证</Pill>
+            </div>
+            <IdentityRow label="账号状态" value={session.user.status === "active" ? "正常" : session.user.status} />
+            <IdentityRow label="主体类型" value="个人创作者" />
+            <IdentityRow label="实名认证" value="MVP 阶段由管理员维护" last />
+          </section>
+        </div>
       </div>
     </CreatorShell>
   );
