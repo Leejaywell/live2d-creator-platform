@@ -81,7 +81,6 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   const [attempt, setAttempt] = useState(0);
 
   const init = useCallback(async () => {
-    setPhase("loading");
     try {
       for (const src of SCRIPTS) {
         // sequential: cubism core must register before the display bundle
@@ -125,6 +124,9 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   }, [projectSlug, viewerSessionId]);
 
   useEffect(() => {
+    // init() only calls setState after awaiting the CDN runtime + model load,
+    // so it cannot trigger a synchronous cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     init();
     return () => {
       modelRef.current?.destroy();
@@ -185,7 +187,14 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
             加载失败
           </div>
           <span className={styles.statusText}>模型资源无法加载，请检查网络</span>
-          <button type="button" className={styles.retry} onClick={() => setAttempt((n) => n + 1)}>
+          <button
+            type="button"
+            className={styles.retry}
+            onClick={() => {
+              setPhase("loading");
+              setAttempt((n) => n + 1);
+            }}
+          >
             重试
           </button>
         </div>

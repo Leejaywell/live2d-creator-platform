@@ -255,6 +255,38 @@
 .tagDisabled {
   opacity: 0.6;
 }
+.toggle {
+  flex: none;
+  width: 38px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.14);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.toggle:disabled {
+  cursor: progress;
+}
+.toggleOn {
+  background: var(--green);
+}
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #837b9b;
+  transition: transform var(--dur) var(--ease), background var(--dur);
+}
+.toggleOn .toggleKnob {
+  transform: translateX(16px);
+  background: #0b0913;
+}
 
 /* tester */
 .tester {

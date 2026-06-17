@@ -151,6 +151,30 @@ export default async function CreatorPage() {
         </div>
       )}
 
+      <div className={styles.quickGrid}>
+        <Link href="/creator/projects" className={styles.quickCard}>
+          <div className={styles.quickIcon} aria-hidden>
+            ＋
+          </div>
+          <div className={styles.quickTitle}>新建角色项目</div>
+          <div className={styles.quickSub}>从模型上传开始</div>
+        </Link>
+        <Link href="/creator/projects" className={styles.quickCard}>
+          <div className={styles.quickIcon} aria-hidden>
+            ⊞
+          </div>
+          <div className={styles.quickTitle}>生成粉丝码</div>
+          <div className={styles.quickSub}>批量发放访问码</div>
+        </Link>
+        <Link href="/creator/billing" className={styles.quickCard}>
+          <div className={styles.quickIcon} aria-hidden>
+            ⊟
+          </div>
+          <div className={styles.quickTitle}>查看账单</div>
+          <div className={styles.quickSub}>用量与套餐</div>
+        </Link>
+      </div>
+
       <div className={styles.twoCol}>
         <section className={styles.panel}>
           <div className={styles.panelHead}>

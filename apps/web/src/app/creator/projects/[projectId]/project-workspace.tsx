@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
-import { FanCodeGenerator } from "@/components/fan-code-generator";
-import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { TriggerTagTester } from "@/components/trigger-tag-tester";
 import { Button, Pill, type Tone } from "@/components/ui";
 
@@ -50,19 +49,18 @@ export type WorkspaceProject = {
   readiness: boolean[];
 };
 
-type StepKey = "basics" | "model" | "tags" | "voice" | "codes" | "publish";
+type StepKey = "model" | "tags" | "voice" | "basics" | "publish";
 
 const statusToneMap: Record<string, Tone> = { published: "live", paused: "danger", draft: "amber" };
 const statusLabelMap: Record<string, string> = { published: "上演中", paused: "已暂停", draft: "草稿" };
 
 export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
-  const [active, setActive] = useState<StepKey>("tags");
+  const [active, setActive] = useState<StepKey>("model");
 
-  const [profileDone, modelDone, tagsDone, codesDone] = project.readiness;
+  const [profileDone, modelDone, tagsDone] = project.readiness;
   const publishUnlocked = profileDone && modelDone && tagsDone;
 
   const steps: Array<{ key: StepKey; name: string; sub: string; done: boolean; locked?: boolean }> = [
-    { key: "basics", name: "基本信息", sub: profileDone ? "已填写" : "完善人设与简介", done: profileDone },
     {
       key: "model",
       name: "模型资源",
@@ -81,12 +79,7 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
       sub: project.voices.length ? `${project.voices.length} 条语音` : "待配置",
       done: project.voices.length > 0,
     },
-    {
-      key: "codes",
-      name: "发放粉丝码",
-      sub: codesDone ? "已有有效码" : "生成访问码",
-      done: codesDone,
-    },
+    { key: "basics", name: "人设设定", sub: profileDone ? "已填写" : "完善人设与简介", done: profileDone },
     {
       key: "publish",
       name: "发布设置",
@@ -112,6 +105,11 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
         </div>
         <div className={styles.topActions}>
           <span className={styles.autosave}>已保存</span>
+          <Link href={`/creator/projects/${project.id}/fan-codes`}>
+            <Button variant="ghost" size="sm">
+              粉丝码
+            </Button>
+          </Link>
           <Link href={`/creator/projects/${project.id}/preview`}>
             <Button variant="ghost" size="sm">
               预览
@@ -200,8 +198,6 @@ function renderStep(active: StepKey, project: WorkspaceProject) {
       return <TagsStep project={project} />;
     case "voice":
       return <VoiceStep project={project} />;
-    case "codes":
-      return <CodesStep project={project} />;
     case "publish":
       return <PublishStep project={project} />;
   }
@@ -296,6 +292,49 @@ function ModelStep({ project }: { project: WorkspaceProject }) {
   );
 }
 
+function TagToggle({ projectId, tagId, enabled }: { projectId: string; tagId: string; enabled: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(enabled);
+  const [pending, setPending] = useState(false);
+
+  async function toggle() {
+    if (pending) return;
+    const next = !on;
+    setPending(true);
+    setOn(next);
+    try {
+      const response = await fetch(`/api/creator/projects/${projectId}/tags/${tagId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (!response.ok) {
+        setOn(!next);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setOn(!next);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={on ? "停用标签" : "启用标签"}
+      className={`${styles.toggle} ${on ? styles.toggleOn : ""}`}
+      onClick={toggle}
+      disabled={pending}
+    >
+      <span className={styles.toggleKnob} aria-hidden />
+    </button>
+  );
+}
+
 function TagsStep({ project }: { project: WorkspaceProject }) {
   return (
     <>
@@ -319,7 +358,7 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
               )}
             </div>
             {tag.live2dExpression && <span className={styles.tagMeta}>{tag.live2dExpression}</span>}
-            <Pill tone={tag.enabled ? "live" : "neutral"}>{tag.enabled ? "启用" : "停用"}</Pill>
+            <TagToggle projectId={project.id} tagId={tag.id} enabled={tag.enabled} />
             <details className={creatorStyles.disclosure}>
               <summary>删除</summary>
               <div className={creatorStyles.formCard}>
@@ -393,44 +432,6 @@ function VoiceStep({ project }: { project: WorkspaceProject }) {
             </div>
           ))
         )}
-      </div>
-    </>
-  );
-}
-
-function CodesStep({ project }: { project: WorkspaceProject }) {
-  return (
-    <>
-      <StepHeader
-        title="发放粉丝码"
-        sub="生成访问码并发放给粉丝 · 纯文本仅本次展示，请及时导出 CSV"
-        action={<ShareLinkCopyButton path={`/c/${project.slug}`} label="复制观众页链接" />}
-      />
-      <div className={styles.panelBox}>
-        <div className={creatorStyles.formCard}>
-          <FanCodeGenerator projectId={project.id} />
-        </div>
-      </div>
-
-      <div>
-        <h3 style={{ fontSize: 15, margin: "4px 0 12px" }}>最近粉丝码</h3>
-        <div className={styles.simpleList}>
-          {project.codes.length === 0 ? (
-            <div className={creatorStyles.empty}>还没有生成过粉丝码。</div>
-          ) : (
-            project.codes.map((code) => (
-              <div key={code.id} className={styles.simpleRow}>
-                <span className={styles.codeMono}>{code.display}</span>
-                <span className={styles.codeMono}>
-                  {code.usedMessages}/{code.maxMessages} 条
-                </span>
-                <Pill tone={code.status === "unused" || code.status === "bound" ? "live" : "neutral"}>
-                  {code.status}
-                </Pill>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </>
   );
