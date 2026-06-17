@@ -1,0 +1,115 @@
+/* Admin control room — shell chrome (amber accent). Generic panel/table/form
+   classes are reused from the creator dashboard stylesheet. */
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 244px 1fr;
+  background: var(--bg-raised);
+}
+.sidebar {
+  background: #0b0913;
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 20px;
+}
+.roleBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--amber-fill);
+  letter-spacing: 0.04em;
+}
+.sidebarLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.14em;
+  padding: 0 8px 10px;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: background var(--dur), color var(--dur);
+}
+.navItem:hover {
+  background: var(--surface);
+  color: #fff;
+}
+.navIcon {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
+}
+.navActive {
+  background: var(--amber-fill);
+  border-color: rgba(242, 193, 78, 0.3);
+  color: #fff;
+}
+.sidebarFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.sidebarFoot a {
+  color: var(--text-dim);
+  transition: color var(--dur);
+}
+.sidebarFoot a:hover {
+  color: #fff;
+}
+.main {
+  padding: 28px 34px 60px;
+  min-width: 0;
+}
+
+@media (max-width: 920px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .brandRow,
+  .sidebarLabel,
+  .sidebarFoot {
+    display: none;
+  }
+  .navItem {
+    margin: 0;
+  }
+  .main {
+    padding: 20px 16px 50px;
+  }
+}
