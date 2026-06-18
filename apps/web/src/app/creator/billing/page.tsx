@@ -129,7 +129,7 @@ export default async function CreatorBillingPage() {
                     <details className={styles.disclosure}>
                       <summary>取消</summary>
                       <div className={styles.formCard}>
-                        <ApiForm action={`/api/creator/checkout/${order.id}`} method="DELETE" submitLabel="取消订单">
+                        <ApiForm action={`/api/creator/checkout/${order.id}`} method="DELETE" submitLabel="取消订单" submitVariant="danger">
                           <span className={styles.pageHeadSub}>取消这笔等待管理员确认的订单。</span>
                         </ApiForm>
                       </div>

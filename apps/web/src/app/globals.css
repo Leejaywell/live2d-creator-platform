@@ -45,10 +45,13 @@
   --grad-pink: linear-gradient(180deg, #ff84ad, #ff5b91);
   --grad-mark: radial-gradient(circle at 35% 30%, #ff9cbe, #ff5b91);
 
-  /* fonts */
-  --font-display: "Noto Serif SC", serif;
-  --font-body: "Noto Sans SC", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* fonts — system stacks only (Google Fonts is blocked in China). CJK falls
+     back to platform UI fonts; an elegant serif is used for display headings. */
+  --font-display: "Source Han Serif SC", "Songti SC", "STSong", "Noto Serif SC", "Noto Serif CJK SC",
+    "Microsoft YaHei", Georgia, serif;
+  --font-body: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Source Han Sans SC", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   /* radius */
   --r-xs: 6px;
@@ -100,6 +103,29 @@ a {
 
 button {
   font-family: inherit;
+}
+
+/* Unified text form controls — single source of truth for inputs/selects/
+   textareas across every surface. Modules layer only layout or intentional
+   overrides (e.g. the audience code field's mono/centered treatment). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="submit"]):not([type="button"]),
+textarea,
+select {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color var(--dur), box-shadow var(--dur);
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="submit"]):not([type="button"]):focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(111, 231, 218, 0.55);
+  box-shadow: 0 0 0 3px rgba(111, 231, 218, 0.12);
 }
 
 h1,

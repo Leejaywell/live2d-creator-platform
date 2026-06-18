@@ -101,7 +101,7 @@ export default async function CreatorProjectsPage() {
                 <details className={styles.disclosure}>
                   <summary>删除</summary>
                   <div className={styles.formCard}>
-                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除项目">
+                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除项目" submitVariant="danger">
                       <span className={styles.pageHeadSub}>
                         将删除该项目及其模型、标签、粉丝码与聊天用量记录，操作不可恢复。
                       </span>

@@ -253,7 +253,7 @@ function BasicsStep({ project }: { project: WorkspaceProject }) {
             主题色
             <input name="theme" type="color" defaultValue={project.theme} aria-label="项目主题色" />
           </label>
-          <button type="submit">保存基本信息</button>
+          <Button type="submit">保存基本信息</Button>
         </form>
       </div>
     </>
@@ -366,6 +366,7 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
                   action={`/api/creator/projects/${project.id}/tags/${tag.id}`}
                   method="DELETE"
                   submitLabel="确认删除标签"
+                  submitVariant="danger"
                 >
                   <span className={creatorStyles.pageHeadSub}>删除后该标签不再参与触发。</span>
                 </ApiForm>

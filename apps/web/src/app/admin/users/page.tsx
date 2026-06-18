@@ -137,7 +137,7 @@ export default async function AdminUsersPage() {
                   <details className={dash.disclosure}>
                     <summary>删除</summary>
                     <div className={dash.formCard}>
-                      <ApiForm action={`/api/admin/users/${adminUser.id}`} method="DELETE" submitLabel="确认删除">
+                      <ApiForm action={`/api/admin/users/${adminUser.id}`} method="DELETE" submitLabel="确认删除" submitVariant="danger">
                         <span className={dash.pageHeadSub}>不能删除当前账号或最后一个超级管理员。</span>
                       </ApiForm>
                     </div>
@@ -196,7 +196,7 @@ export default async function AdminUsersPage() {
                     <details className={dash.disclosure}>
                       <summary>删除</summary>
                       <div className={dash.formCard}>
-                        <ApiForm action={`/api/admin/creators/${creator.id}`} method="DELETE" submitLabel="确认删除创作者">
+                        <ApiForm action={`/api/admin/creators/${creator.id}`} method="DELETE" submitLabel="确认删除创作者" submitVariant="danger">
                           <span className={dash.pageHeadSub}>同时删除其项目、订单、模型、粉丝码等记录。</span>
                         </ApiForm>
                       </div>

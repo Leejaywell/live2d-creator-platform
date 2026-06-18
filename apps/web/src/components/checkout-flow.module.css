@@ -131,27 +131,9 @@
   font-weight: 600;
   color: #fff;
 }
+/* Visuals come from the shared <Button> primitive; only spacing is owned here. */
 .payBtn {
-  width: 100%;
-  padding: 14px;
-  border-radius: var(--r-md);
-  border: none;
-  background: var(--grad-pink);
-  color: #1a0a12;
-  font-weight: 600;
-  font-size: 15px;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: var(--shadow-pink-soft);
-  transition: transform var(--dur) var(--ease), opacity var(--dur);
   margin-bottom: 12px;
-}
-.payBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-.payBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 .payHint {
   display: flex;

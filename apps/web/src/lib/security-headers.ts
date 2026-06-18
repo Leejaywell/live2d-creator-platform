@@ -73,7 +73,8 @@ function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
     ["img-src", "'self'", "data:", "blob:", "https:"],
     ["font-src", "'self'", "data:"],
     ["media-src", "'self'", "blob:", "data:"],
-    ["connect-src", "'self'", ...extraConnectSrc],
+    /* jsdelivr: landing-page demo loads the sample Live2D model3.json/motions directly from CDN */
+    ["connect-src", "'self'", "https://cdn.jsdelivr.net", ...extraConnectSrc],
     ["worker-src", "'self'", "blob:"],
     ["manifest-src", "'self'"],
     ["report-uri", env.CSP_REPORT_URI || "/api/csp-report"],

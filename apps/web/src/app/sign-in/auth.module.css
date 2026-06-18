@@ -72,22 +72,10 @@
   color: var(--text-dim);
   margin-bottom: 7px;
 }
+/* Base input visuals come from globals.css; only layout owned here. */
 .input {
   width: 100%;
-  padding: 13px 15px;
-  border-radius: var(--r-md);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-soft);
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
   margin-bottom: 18px;
-  transition: border-color var(--dur), box-shadow var(--dur);
-}
-.input:focus {
-  outline: none;
-  border-color: rgba(111, 231, 218, 0.55);
-  box-shadow: 0 0 0 3px rgba(111, 231, 218, 0.12);
 }
 .forgot {
   text-align: right;

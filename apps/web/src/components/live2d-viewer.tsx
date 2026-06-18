@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Live2DControls, type ControlPanel } from "@/components/live2d-controls";
+import { Button } from "@/components/ui";
+
 import styles from "./live2d-viewer.module.css";
 
 export type Live2DEffect = { tag: string; params: Array<{ id: string; value: number }> };
@@ -22,13 +25,18 @@ const SCRIPTS = [
 ];
 
 type CoreModel = { setParameterValueById(id: string, value: number): void };
+type MotionManager = {
+  definitions?: Record<string, unknown[]>;
+  motionGroups?: Record<string, unknown[]>;
+};
 type Live2DModelInstance = {
   scale: { set(value: number): void };
   position: { set(x: number, y: number): void };
   anchor: { set(x: number, y: number): void };
   width: number;
   height: number;
-  internalModel?: { coreModel?: CoreModel };
+  internalModel?: { coreModel?: CoreModel; motionManager?: MotionManager };
+  motion?: (group: string, index?: number) => void;
   expression?: (name?: string) => void;
   destroy(): void;
 };
@@ -79,6 +87,7 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   const modelRef = useRef<Live2DModelInstance | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
+  const [motionGroups, setMotionGroups] = useState<string[]>([]);
 
   const init = useCallback(async () => {
     try {
@@ -116,6 +125,9 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
       };
       fit();
       app.stage.addChild(model);
+      const mm = model.internalModel?.motionManager;
+      const defs = mm?.definitions ?? mm?.motionGroups;
+      setMotionGroups(defs ? Object.keys(defs) : []);
       setPhase("ready");
     } catch (error) {
       console.error("Live2D init failed", error);
@@ -126,7 +138,6 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   useEffect(() => {
     // init() only calls setState after awaiting the CDN runtime + model load,
     // so it cannot trigger a synchronous cascading render.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     init();
     return () => {
       modelRef.current?.destroy();
@@ -170,9 +181,28 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
     return () => cancelAnimationFrame(raf);
   }, [isSpeaking]);
 
+  const motionGroupNames = motionGroups.length ? motionGroups : [""];
+  const panels: ControlPanel[] = [
+    {
+      key: "act",
+      title: "动作 / 表情",
+      icon: "act",
+      sections: [
+        {
+          title: "动作 / 表情",
+          items: motionGroupNames.map((g, i) => ({
+            label: g || `动作 ${i + 1}`,
+            onSelect: () => modelRef.current?.motion?.(g),
+          })),
+        },
+      ],
+    },
+  ];
+
   return (
     <div className={styles.root}>
       <canvas ref={canvasRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
+      {phase === "ready" ? <Live2DControls panels={panels} /> : null}
       {phase === "loading" ? (
         <div className={styles.status}>
           <div className={styles.spinner} aria-hidden />
@@ -187,8 +217,10 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
             加载失败
           </div>
           <span className={styles.statusText}>模型资源无法加载，请检查网络</span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className={styles.retry}
             onClick={() => {
               setPhase("loading");
@@ -196,7 +228,7 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
             }}
           >
             重试
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

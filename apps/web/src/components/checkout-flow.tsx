@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { Button } from "@/components/ui";
 import { type CheckoutProduct, paymentMethodLabel } from "@/lib/checkout-products";
 
 import styles from "./checkout-flow.module.css";
@@ -113,9 +114,9 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
             ¥{selected.amount} {selected.currency}
           </span>
         </div>
-        <button className={styles.payBtn} type="button" onClick={confirm} disabled={pending}>
+        <Button className={styles.payBtn} block size="lg" type="button" onClick={confirm} disabled={pending}>
           {pending ? "创建中…" : "确认支付"}
-        </button>
+        </Button>
         {status === "waiting" ? (
           <div className={`${styles.payHint} ${styles.done}`}>
             <span />

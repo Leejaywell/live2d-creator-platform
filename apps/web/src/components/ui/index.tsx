@@ -4,7 +4,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "reac
 import styles from "./ui.module.css";
 
 export type Tone = "live" | "amber" | "pink" | "teal" | "neutral" | "danger";
-export type ButtonVariant = "primary" | "ghost" | "tintPink" | "danger";
+export type ButtonVariant = "primary" | "ghost" | "tintPink" | "danger" | "live";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const toneClass: Record<Tone, string> = {
@@ -21,6 +21,7 @@ const variantClass: Record<ButtonVariant, string> = {
   ghost: styles.ghost,
   tintPink: styles.tintPink,
   danger: styles.danger,
+  live: styles.live,
 };
 
 const sizeClass: Record<ButtonSize, string> = {

@@ -110,7 +110,7 @@ export default async function FanCodesPage({ params }: PageProps<"/creator/proje
                     <details className={styles.disclosure}>
                       <summary>停用</summary>
                       <div className={styles.formCard}>
-                        <ApiForm action={`/api/creator/fan-codes/${code.id}`} method="DELETE" submitLabel="确认停用">
+                        <ApiForm action={`/api/creator/fan-codes/${code.id}`} method="DELETE" submitLabel="确认停用" submitVariant="danger">
                           <span className={styles.pageHeadSub}>停用后该码无法再进场。</span>
                         </ApiForm>
                       </div>

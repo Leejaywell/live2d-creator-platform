@@ -3,16 +3,19 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useState } from "react";
 
+import { Button, type ButtonVariant } from "@/components/ui";
+
 type ApiFormProps = {
   action: string;
   method?: "POST" | "PATCH" | "DELETE";
   submitLabel: string;
+  submitVariant?: ButtonVariant;
   children?: ReactNode;
 };
 
 // Generic progressive form: serializes fields to JSON (or multipart when a file
 // input is present), surfaces status text, and refreshes server data on success.
-export function ApiForm({ action, method = "POST", submitLabel, children }: ApiFormProps) {
+export function ApiForm({ action, method = "POST", submitLabel, submitVariant = "primary", children }: ApiFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
@@ -57,9 +60,9 @@ export function ApiForm({ action, method = "POST", submitLabel, children }: ApiF
   return (
     <form onSubmit={onSubmit} aria-busy={pending}>
       {children}
-      <button type="submit" disabled={pending}>
+      <Button type="submit" variant={submitVariant} disabled={pending}>
         {pending ? "提交中…" : submitLabel}
-      </button>
+      </Button>
       {status ? <p aria-live="polite">{status}</p> : null}
     </form>
   );

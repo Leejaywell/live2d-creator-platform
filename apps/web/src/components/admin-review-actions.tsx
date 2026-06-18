@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui";
+
 import styles from "@/app/admin/admin.module.css";
 
 type Status = "draft" | "published" | "paused";
@@ -29,19 +31,19 @@ export function AdminReviewActions({ projectId, status }: { projectId: string; s
   return (
     <div className={styles.reviewActions}>
       {status !== "published" ? (
-        <button type="button" className={styles.approve} onClick={() => setStatus("published")} disabled={pending}>
+        <Button type="button" variant="live" size="sm" onClick={() => setStatus("published")} disabled={pending}>
           {status === "draft" ? "通过" : "恢复"}
-        </button>
+        </Button>
       ) : null}
       {status === "draft" ? (
-        <button type="button" className={styles.reject} onClick={() => setStatus("paused")} disabled={pending}>
+        <Button type="button" variant="danger" size="sm" onClick={() => setStatus("paused")} disabled={pending}>
           驳回
-        </button>
+        </Button>
       ) : null}
       {status === "published" ? (
-        <button type="button" className={styles.reject} onClick={() => setStatus("paused")} disabled={pending}>
+        <Button type="button" variant="danger" size="sm" onClick={() => setStatus("paused")} disabled={pending}>
           下架
-        </button>
+        </Button>
       ) : null}
     </div>
   );

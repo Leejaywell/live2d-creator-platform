@@ -42,10 +42,13 @@
 /* hero */
 .hero {
   display: grid;
-  grid-template-columns: 1fr 524px;
+  grid-template-columns: 1fr 600px;
   gap: 48px;
-  padding: 72px 40px 64px;
+  padding: 56px 40px;
   align-items: center;
+  /* Fill the bordered shell so the entry screen reads as one full viewport
+     instead of a tall card with an empty lower half. */
+  min-height: calc(100vh - 176px);
 }
 .title {
   font-size: 62px;

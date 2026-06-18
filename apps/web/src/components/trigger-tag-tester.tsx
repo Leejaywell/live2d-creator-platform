@@ -2,6 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui";
+
 type TestResult = {
   reply: string;
   tags: string[];
@@ -55,9 +57,9 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
           required
         />
       </label>
-      <button type="submit" disabled={pending || !message.trim()}>
+      <Button type="submit" disabled={pending || !message.trim()}>
         {pending ? "测试中…" : "测试"}
-      </button>
+      </Button>
       {error ? <p aria-live="polite">{error}</p> : null}
       {result ? (
         <p aria-live="polite">

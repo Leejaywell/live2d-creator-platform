@@ -113,36 +113,6 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-.approve,
-.reject {
-  padding: 7px 14px;
-  border-radius: 9px;
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background var(--dur);
-}
-.approve {
-  border: 1px solid rgba(91, 220, 166, 0.4);
-  background: rgba(91, 220, 166, 0.16);
-  color: var(--green);
-}
-.approve:hover:not(:disabled) {
-  background: rgba(91, 220, 166, 0.26);
-}
-.reject {
-  border: 1px solid rgba(242, 96, 122, 0.35);
-  background: rgba(242, 96, 122, 0.12);
-  color: #f2607a;
-}
-.reject:hover:not(:disabled) {
-  background: rgba(242, 96, 122, 0.22);
-}
-.approve:disabled,
-.reject:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .avatarSwatch {
   width: 38px;
   height: 38px;

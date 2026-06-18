@@ -102,6 +102,7 @@ export default async function AdminProjectsPage() {
               {statusPill(project.status)}
               <span className={dash.mono}>{relativeTime(project.updatedAt)}</span>
               <div className={dash.rowActions}>
+                <Link href={`/admin/projects/${project.id}/preview`}>预览模型</Link>
                 {hasPermission(role, "projects.pause") ? (
                   <AdminReviewActions projectId={project.id} status={project.status} />
                 ) : (

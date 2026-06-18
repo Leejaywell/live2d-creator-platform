@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui";
+
 type GeneratedCode = { id: string; batchId: string; code: string; expiresAt: string; maxMessages: number };
 
 function defaultExpiry() {
@@ -75,9 +77,9 @@ export function FanCodeGenerator({ projectId }: { projectId: string }) {
           <option value="none">不绑定</option>
         </select>
       </label>
-      <button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "生成中…" : "生成并导出 CSV"}
-      </button>
+      </Button>
       {status ? <p aria-live="polite">{status}</p> : null}
       {codes.length ? (
         <textarea readOnly rows={Math.min(codes.length, 8)} value={codes.map((c) => c.code).join("\n")} aria-label="本次生成的粉丝码" />

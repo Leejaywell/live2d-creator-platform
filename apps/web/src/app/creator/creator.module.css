@@ -124,7 +124,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 26px;
+  margin-bottom: 20px;
 }
 .metric {
   padding: 20px;
@@ -184,7 +184,7 @@
   border-radius: 18px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .panelHead {
   display: flex;
@@ -254,6 +254,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+  margin-bottom: 20px;
 }
 .quickCard {
   padding: 20px;
@@ -285,7 +286,7 @@
 .twoCol {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
 }
 
 /* ---- data table ---- */
@@ -611,53 +612,24 @@
   font-size: 13px;
   color: var(--text-dim);
 }
-.formCard input,
-.formCard textarea,
-.formCard select {
-  padding: 11px 13px;
-  border-radius: var(--r-md);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-soft);
-  color: var(--text);
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color var(--dur);
-}
+/* Base input visuals come from globals.css; only structural overrides here. */
 .formCard input[type="color"] {
   padding: 4px;
   height: 42px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-soft);
+  background: rgba(0, 0, 0, 0.25);
   cursor: pointer;
-}
-.formCard input:focus,
-.formCard textarea:focus,
-.formCard select:focus {
-  outline: none;
-  border-color: rgba(111, 231, 218, 0.55);
 }
 .formCard textarea {
   min-height: 84px;
   resize: vertical;
 }
+/* Submit buttons now render the shared <Button> primitive; only their
+   alignment within the flex-column form is owned here. */
 .formCard button[type="submit"] {
   align-self: flex-start;
   margin-top: 4px;
-  padding: 12px 22px;
-  border-radius: var(--r-md);
-  border: none;
-  background: var(--grad-pink);
-  color: #1a0a12;
-  font-weight: 600;
-  font-size: 14px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: transform var(--dur) var(--ease), opacity var(--dur);
-}
-.formCard button[type="submit"]:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-.formCard button[type="submit"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 .formCard p[aria-live] {
   font-size: 13px;

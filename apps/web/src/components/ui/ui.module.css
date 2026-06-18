@@ -82,6 +82,14 @@
 .danger:hover:not(:disabled) {
   background: rgba(255, 122, 122, 0.24);
 }
+.live {
+  background: rgba(91, 220, 166, 0.16);
+  border-color: rgba(91, 220, 166, 0.4);
+  color: var(--green);
+}
+.live:hover:not(:disabled) {
+  background: rgba(91, 220, 166, 0.26);
+}
 .sm {
   padding: 8px 14px;
   font-size: 13px;
