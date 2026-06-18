@@ -58,7 +58,11 @@ export default async function AdminSettingsPage() {
         </div>
         <div className={dash.table}>
           {settings.map((setting) => (
-            <div key={setting.key} className={dash.tableRow} style={{ gridTemplateColumns: "1.4fr 2fr auto", alignItems: "center" }}>
+            <div
+              key={setting.key}
+              className={dash.tableRow}
+              style={{ gridTemplateColumns: "1.4fr 1.8fr 150px 60px", alignItems: "center" }}
+            >
               <div className={dash.cellMain}>
                 <strong>{setting.label}</strong>
                 <small>
@@ -67,11 +71,13 @@ export default async function AdminSettingsPage() {
                 </small>
               </div>
               <span className={dash.pageHeadSub}>{setting.description}</span>
-              <div className={dash.rowActions}>
+              <span style={{ justifySelf: "end" }}>
                 <Pill tone="neutral" mono>
                   {String(setting.value)}
                 </Pill>
-                <details className={dash.disclosure}>
+              </span>
+              <div className={dash.rowActions}>
+                <details>
                   <summary>编辑</summary>
                   <div className={dash.formCard}>
                     <ApiForm action="/api/admin/platform-settings" submitLabel="保存设置">

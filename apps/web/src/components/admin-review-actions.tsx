@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui";
-
-import styles from "@/app/admin/admin.module.css";
+import dash from "@/app/creator/creator.module.css";
 
 type Status = "draft" | "published" | "paused";
 
+// Bare buttons (no wrapper) so they sit directly in the page's .rowActions
+// cluster and share its uniform text-link styling (approve = green, destructive = red).
 export function AdminReviewActions({ projectId, status }: { projectId: string; status: Status }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -29,22 +29,22 @@ export function AdminReviewActions({ projectId, status }: { projectId: string; s
   }
 
   return (
-    <div className={styles.reviewActions}>
+    <>
       {status !== "published" ? (
-        <Button type="button" variant="live" size="sm" onClick={() => setStatus("published")} disabled={pending}>
+        <button type="button" className={dash.approve} onClick={() => setStatus("published")} disabled={pending}>
           {status === "draft" ? "通过" : "恢复"}
-        </Button>
+        </button>
       ) : null}
       {status === "draft" ? (
-        <Button type="button" variant="danger" size="sm" onClick={() => setStatus("paused")} disabled={pending}>
+        <button type="button" className={dash.danger} onClick={() => setStatus("paused")} disabled={pending}>
           驳回
-        </Button>
+        </button>
       ) : null}
       {status === "published" ? (
-        <Button type="button" variant="danger" size="sm" onClick={() => setStatus("paused")} disabled={pending}>
+        <button type="button" className={dash.danger} onClick={() => setStatus("paused")} disabled={pending}>
           下架
-        </Button>
+        </button>
       ) : null}
-    </div>
+    </>
   );
 }

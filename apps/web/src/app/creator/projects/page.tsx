@@ -98,8 +98,8 @@ export default async function CreatorProjectsPage() {
               <div className={styles.rowActions}>
                 <Link href={`/creator/projects/${project.id}`}>编辑</Link>
                 <ShareLinkCopyButton path={`/c/${project.slug}`} />
-                <details className={styles.disclosure}>
-                  <summary>删除</summary>
+                <details>
+                  <summary className={styles.danger}>删除</summary>
                   <div className={styles.formCard}>
                     <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除项目" submitVariant="danger">
                       <span className={styles.pageHeadSub}>

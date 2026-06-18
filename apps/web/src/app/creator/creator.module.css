@@ -324,17 +324,69 @@
 }
 .rowActions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  min-height: 36px;
   font-size: 13px;
 }
-.rowActions a {
+/* Uniform text-link controls: links, bare buttons, and disclosure summaries
+   all render identically so action clusters stay aligned and consistent. */
+.rowActions :is(a, button, summary) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  line-height: 1;
+  font-family: inherit;
   color: var(--teal);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  list-style: none;
   transition: color var(--dur);
 }
-.rowActions a:hover {
+.rowActions summary::-webkit-details-marker {
+  display: none;
+}
+.rowActions :is(a, button, summary):hover {
   color: #fff;
+}
+.rowActions :is(a, button, summary):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rowActions .danger {
+  color: #f2607a;
+}
+.rowActions .danger:hover {
+  color: #ff9d9d;
+}
+.rowActions .approve {
+  color: var(--green);
+}
+.rowActions .approve:hover {
+  color: #8df0c4;
+}
+/* disclosure inside a row: keep the popout out of the inline flow */
+.rowActions details {
+  position: relative;
+}
+.rowActions details > div {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 260px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 24px 60px -24px #000;
+  text-align: left;
+  white-space: normal;
 }
 .empty {
   padding: 40px;

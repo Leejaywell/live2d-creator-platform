@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
 import { TriggerTagTester } from "@/components/trigger-tag-tester";
-import { Button, Pill, type Tone } from "@/components/ui";
+import { Button, LinkButton, Pill, type Tone } from "@/components/ui";
 
 import { creatorStyles } from "../../_components";
 import { updateProjectAction } from "./actions";
@@ -105,16 +105,12 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
         </div>
         <div className={styles.topActions}>
           <span className={styles.autosave}>已保存</span>
-          <Link href={`/creator/projects/${project.id}/fan-codes`}>
-            <Button variant="ghost" size="sm">
-              粉丝码
-            </Button>
-          </Link>
-          <Link href={`/creator/projects/${project.id}/preview`}>
-            <Button variant="ghost" size="sm">
-              预览
-            </Button>
-          </Link>
+          <LinkButton href={`/creator/projects/${project.id}/fan-codes`} variant="ghost" size="sm">
+            粉丝码
+          </LinkButton>
+          <LinkButton href={`/creator/projects/${project.id}/preview`} variant="ghost" size="sm">
+            预览
+          </LinkButton>
           <Button size="sm" onClick={() => setActive("publish")} disabled={!publishUnlocked}>
             发布 →
           </Button>
@@ -176,11 +172,15 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
             <Button variant="ghost" size="sm" block>
               重置姿态
             </Button>
-            <Link href={`/creator/projects/${project.id}/preview`} style={{ flex: 1 }}>
-              <Button variant="tintPink" size="sm" block>
-                打开预览
-              </Button>
-            </Link>
+            <LinkButton
+              href={`/creator/projects/${project.id}/preview`}
+              variant="tintPink"
+              size="sm"
+              block
+              style={{ flex: 1 }}
+            >
+              打开预览
+            </LinkButton>
           </div>
         </aside>
       </div>
