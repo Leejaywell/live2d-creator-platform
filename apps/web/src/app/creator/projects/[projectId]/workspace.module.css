@@ -76,7 +76,7 @@
 .layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 248px 1fr 396px;
+  grid-template-columns: 220px minmax(0, 0.85fr) minmax(460px, 1.15fr);
   min-height: 0;
 }
 

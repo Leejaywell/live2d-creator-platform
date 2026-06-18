@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
+import { Live2DViewer } from "@/components/live2d-viewer";
 import { TriggerTagTester } from "@/components/trigger-tag-tester";
 import { Button, LinkButton, Pill, type Tone } from "@/components/ui";
 
@@ -162,11 +163,15 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
             <span className={styles.stageLive}>实时</span>
           </div>
           <div className={styles.stageBody}>
-            <div className={styles.stageSlot}>
-              LIVE2D
-              <br />
-              {project.modelStatus === "valid" ? "模型已就绪" : "模型渲染区"}
-            </div>
+            {project.modelStatus === "valid" ? (
+              <Live2DViewer projectSlug={project.slug} activeTags={[]} activeEffects={[]} isSpeaking={false} />
+            ) : (
+              <div className={styles.stageSlot}>
+                LIVE2D
+                <br />
+                {project.modelStatus === "invalid" ? "模型校验失败" : "尚未上传模型"}
+              </div>
+            )}
           </div>
           <div className={styles.stageFoot}>
             <Button variant="ghost" size="sm" block>

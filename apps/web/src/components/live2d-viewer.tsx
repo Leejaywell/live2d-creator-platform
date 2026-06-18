@@ -11,7 +11,7 @@ export type Live2DEffect = { tag: string; params: Array<{ id: string; value: num
 
 type Props = {
   projectSlug: string;
-  viewerSessionId: string;
+  viewerSessionId?: string;
   activeTags: string[];
   activeEffects: Live2DEffect[];
   isSpeaking: boolean;
@@ -112,7 +112,9 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
       });
       appRef.current = app;
 
-      const manifestUrl = `/api/assets/live2d-model?projectSlug=${encodeURIComponent(projectSlug)}&viewerSessionId=${encodeURIComponent(viewerSessionId)}`;
+      const manifestUrl = `/api/assets/live2d-model?projectSlug=${encodeURIComponent(projectSlug)}${
+        viewerSessionId ? `&viewerSessionId=${encodeURIComponent(viewerSessionId)}` : ""
+      }`;
       const model = await Live2DModel.from(manifestUrl);
       modelRef.current = model;
 
