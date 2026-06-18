@@ -97,6 +97,7 @@ export default async function CreatorProjectsPage() {
               <span className={styles.mono}>{project._count.fanAccessCodes} 个</span>
               <div className={styles.rowActions}>
                 <Link href={`/creator/projects/${project.id}`}>编辑</Link>
+                <Link href={`/creator/projects/${project.id}/fan-codes`}>粉丝码</Link>
                 <ShareLinkCopyButton path={`/c/${project.slug}`} />
                 <details>
                   <summary className={styles.danger}>删除</summary>

@@ -496,15 +496,29 @@
   margin: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
+  /* Mobile: the stage fills the screen; the chat becomes a translucent bottom
+     sheet overlaying it (transcript scrolls top-down, input pinned at bottom). */
   .arena {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(220px, 42vh) 1fr;
+    display: block;
+    position: relative;
+  }
+  .canvas {
+    position: absolute;
+    inset: 0;
   }
   .dock {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 62vh;
     border-left: none;
     border-top: 1px solid var(--border-soft);
     border-radius: var(--r-xl) var(--r-xl) 0 0;
+    background: rgba(20, 17, 29, 0.82);
+    backdrop-filter: blur(22px);
+    box-shadow: 0 -24px 60px -30px #000;
   }
   .silhouette,
   .portrait {
