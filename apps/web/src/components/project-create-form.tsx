@@ -18,7 +18,7 @@ export function ProjectCreateForm() {
   }
 
   return (
-    <ApiForm action="/api/creator/projects" submitLabel="创建角色项目">
+    <ApiForm action="/api/creator/projects" submitLabel="创建模型">
       <label>
         名称
         <input name="name" onChange={onName} placeholder="星野 Hoshino" required />

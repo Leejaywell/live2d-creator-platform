@@ -94,12 +94,12 @@ export default async function CreatorPage() {
             {liveCount} 位角色正在演 · 平台运行正常
           </p>
         </div>
-        <LinkButton href="/creator/projects">+ 新建项目</LinkButton>
+        <LinkButton href="/creator/projects">管理模型 →</LinkButton>
       </div>
 
       <div className={styles.metrics}>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>项目总数</div>
+          <div className={styles.metricLabel}>模型总数</div>
           <div className={styles.metricValue}>{projects.length}</div>
         </div>
         <div className={`${styles.metric} ${styles.metricLive}`}>
@@ -156,7 +156,7 @@ export default async function CreatorPage() {
           <div className={styles.quickIcon} aria-hidden>
             ＋
           </div>
-          <div className={styles.quickTitle}>新建角色项目</div>
+          <div className={styles.quickTitle}>管理我的模型</div>
           <div className={styles.quickSub}>从模型上传开始</div>
         </Link>
         <Link href="/creator/projects" className={styles.quickCard}>
@@ -190,7 +190,7 @@ export default async function CreatorPage() {
               <strong>{usage.totalTokens}</strong>
             </div>
             <div className={styles.metaItem}>
-              <span>活跃项目</span>
+              <span>活跃模型</span>
               <strong>{usage.activeProjects}</strong>
             </div>
             <div className={styles.metaItem}>
@@ -203,7 +203,7 @@ export default async function CreatorPage() {
 
         <section className={styles.panel}>
           <div className={styles.panelHead}>
-            <h2>最近项目</h2>
+            <h2>我的模型</h2>
             <Link href="/creator/projects" className={styles.panelMeta}>
               全部 →
             </Link>
@@ -225,7 +225,7 @@ export default async function CreatorPage() {
                 </div>
               </div>
             ))}
-            {projects.length === 0 && <div className={styles.empty}>还没有项目，点右上角「新建项目」开始。</div>}
+            {projects.length === 0 && <div className={styles.empty}>还没有模型，点右上角「管理模型」开始。</div>}
           </div>
         </section>
       </div>

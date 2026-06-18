@@ -5,12 +5,11 @@ import { Brand } from "@/components/ui";
 
 import styles from "./creator.module.css";
 
-type NavKey = "overview" | "projects" | "fancodes" | "billing" | "account";
+type NavKey = "overview" | "projects" | "billing" | "account";
 
 const creatorLinks: ReadonlyArray<readonly [NavKey, string, string, string]> = [
   ["overview", "/creator", "工作台", "◎"],
-  ["projects", "/creator/projects", "项目", "▤"],
-  ["fancodes", "/creator/projects", "粉丝码", "⊞"],
+  ["projects", "/creator/projects", "模型", "▤"],
   ["billing", "/creator/billing", "账单", "⊟"],
   ["account", "/creator/account", "账户", "⚙"],
 ];

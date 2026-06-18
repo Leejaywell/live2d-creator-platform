@@ -55,7 +55,7 @@ export default async function FanCodesPage({ params }: PageProps<"/creator/proje
   const revoked = codes.filter((c) => c.status === "revoked").length;
 
   return (
-    <CreatorShell active="fancodes" user={session.user}>
+    <CreatorShell active="projects" user={session.user}>
       <div className={styles.pageHead}>
         <div>
           <h1>粉丝码 · {project.name}</h1>

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
 import { ProjectCreateForm } from "@/components/project-create-form";
 import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { Pill } from "@/components/ui";
+import { ensureCreatorPlan } from "@/lib/creator-onboarding";
 import { prisma } from "@/lib/prisma";
 import { usageWindowStart } from "@/lib/usage-analytics";
 
@@ -21,13 +23,14 @@ export const dynamic = "force-dynamic";
 
 const COLS = "2.2fr 1.3fr 1fr 1fr 1fr auto";
 
-export default async function CreatorProjectsPage() {
+export default async function CreatorModelsPage() {
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="角色项目" />;
+    return <CreatorAuthRequired title="模型" />;
   }
 
-  const [projects, usageGroups] = await Promise.all([
+  const [plan, projects, usageGroups] = await Promise.all([
+    ensureCreatorPlan(session.user.id),
     prisma.project.findMany({
       where: { creatorId: session.user.id },
       include: {
@@ -43,33 +46,51 @@ export default async function CreatorProjectsPage() {
     }),
   ]);
 
+  const maxModels = plan?.maxProjects ?? 1;
+  const multiModel = maxModels > 1;
+
+  // Single-model creators jump straight to their model's workspace (the demo page).
+  // The list view is reserved for creators granted multi-model access by an admin.
+  if (!multiModel && projects.length === 1) {
+    redirect(`/creator/projects/${projects[0].id}`);
+  }
+
+  const canCreate = projects.length < maxModels;
   const usageByProject = new Map(usageGroups.map((g) => [g.projectId, g._sum.messageCount ?? 0]));
 
   return (
-    <CreatorShell active="projects" user={session.user}>
+    <CreatorShell active="projects" user={session.user} planName={plan?.planName}>
       <div className={styles.pageHead}>
         <div>
-          <h1>项目</h1>
-          <p className={styles.pageHeadSub}>{projects.length} 个角色项目</p>
+          <h1>{multiModel ? "模型" : "我的模型"}</h1>
+          <p className={styles.pageHeadSub}>
+            {multiModel
+              ? `${projects.length} / ${maxModels} 个模型`
+              : "每个创作者默认拥有一个 Live2D 模型；如需更多请向管理员申请。"}
+          </p>
         </div>
-        <div className={styles.toolbar}>
-          <span className={styles.searchBox}>🔍 搜索项目…</span>
-        </div>
+        {multiModel ? (
+          <div className={styles.toolbar}>
+            <span className={styles.searchBox}>🔍 搜索模型…</span>
+          </div>
+        ) : null}
       </div>
 
-      <details className={`${styles.panel} ${styles.disclosure}`}>
-        <summary>+ 新建角色项目</summary>
-        <div className={styles.formCard}>
-          <ProjectCreateForm />
-        </div>
-      </details>
+      {canCreate ? (
+        <details className={`${styles.panel} ${styles.disclosure}`} open={projects.length === 0}>
+          <summary>+ 创建模型</summary>
+          <div className={styles.formCard}>
+            <ProjectCreateForm />
+          </div>
+        </details>
+      ) : null}
 
       {projects.length === 0 ? (
-        <div className={styles.empty}>还没有角色项目。展开上方「新建角色项目」，从上传 Live2D 模型开始。</div>
+        <div className={styles.empty}>还没有模型。展开上方「创建模型」，从上传 Live2D 模型开始。</div>
       ) : (
         <div className={styles.tableWrap}>
           <div className={`${styles.tableRow} ${styles.tableHead}`} style={{ gridTemplateColumns: COLS }}>
-            <span>角色</span>
+            <span>模型</span>
             <span>slug</span>
             <span>状态</span>
             <span>30 天对话</span>
@@ -102,9 +123,9 @@ export default async function CreatorProjectsPage() {
                 <details>
                   <summary className={styles.danger}>删除</summary>
                   <div className={styles.formCard}>
-                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除项目" submitVariant="danger">
+                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除模型" submitVariant="danger">
                       <span className={styles.pageHeadSub}>
-                        将删除该项目及其模型、标签、粉丝码与聊天用量记录，操作不可恢复。
+                        将删除该模型及其标签、粉丝码与聊天用量记录，操作不可恢复。
                       </span>
                     </ApiForm>
                   </div>
@@ -114,12 +135,6 @@ export default async function CreatorProjectsPage() {
           ))}
         </div>
       )}
-
-      <div className={styles.newPrompt}>
-        <span aria-hidden>🎭</span>
-        还想新建一位角色？
-        <Link href="#">展开上方表单，从上传 Live2D 模型开始 →</Link>
-      </div>
     </CreatorShell>
   );
 }

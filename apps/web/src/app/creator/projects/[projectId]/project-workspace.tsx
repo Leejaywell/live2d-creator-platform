@@ -93,8 +93,8 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
     <div className={styles.wrap}>
       <header className={styles.topbar}>
         <div className={styles.topLeft}>
-          <Link href="/creator/projects" className={styles.back}>
-            ← 项目
+          <Link href="/creator" className={styles.back}>
+            ← 工作台
           </Link>
           <span className={styles.vdivider} aria-hidden />
           <span className={styles.projectMark} aria-hidden />
