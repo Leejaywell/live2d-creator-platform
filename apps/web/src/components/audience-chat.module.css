@@ -315,8 +315,8 @@
 
 /* ---- chat dock ---- */
 .dock {
-  background: var(--surface-2);
-  backdrop-filter: blur(18px);
+  background: rgba(9, 7, 17, 0.38);
+  backdrop-filter: blur(20px);
   border-left: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;

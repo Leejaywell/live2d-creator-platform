@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { Live2DControls, type ControlPanel } from "@/components/live2d-controls";
 import { Button } from "@/components/ui";
@@ -25,19 +25,24 @@ const SCRIPTS = [
 ];
 
 type CoreModel = { setParameterValueById(id: string, value: number): void };
-type MotionManager = {
-  definitions?: Record<string, unknown[]>;
-  motionGroups?: Record<string, unknown[]>;
+type MotionManager = { definitions?: Record<string, unknown[]>; motionGroups?: Record<string, unknown[]> };
+type InternalModel = {
+  coreModel?: CoreModel;
+  motionManager?: MotionManager;
+  eyeBlink?: unknown;
+  physics?: unknown;
+  settings?: { expressions?: Array<{ Name?: string; name?: string }> };
 };
 type Live2DModelInstance = {
-  scale: { set(value: number): void };
+  scale: { set(x: number, y?: number): void };
   position: { set(x: number, y: number): void };
   anchor: { set(x: number, y: number): void };
   width: number;
   height: number;
-  internalModel?: { coreModel?: CoreModel; motionManager?: MotionManager };
+  internalModel?: InternalModel;
   motion?: (group: string, index?: number) => void;
   expression?: (name?: string) => void;
+  focus?: (x: number, y: number) => void;
   destroy(): void;
 };
 type PixiApp = {
@@ -85,23 +90,36 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<Live2DModelInstance | null>(null);
+  const baseScaleRef = useRef(0.2);
+  const eyeBlinkRef = useRef<unknown>(undefined);
+  const physicsRef = useRef<unknown>(undefined);
+  const gazeRef = useRef(true);
+
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [motionGroups, setMotionGroups] = useState<string[]>([]);
+  const [expressions, setExpressions] = useState<string[]>([]);
+
+  // Model-setting controls (parity with the landing showcase).
+  const [scaleMul, setScaleMul] = useState(1);
+  const [posOff, setPosOff] = useState(0);
+  const [flip, setFlip] = useState(false);
+  const [gaze, setGaze] = useState(true);
+  const [blink, setBlink] = useState(true);
+  const [physics, setPhysics] = useState(true);
+  const [idle, setIdle] = useState(true);
+  const [lipSync, setLipSync] = useState(true);
 
   const init = useCallback(async () => {
     try {
       for (const src of SCRIPTS) {
-        // sequential: cubism core must register before the display bundle
         await loadScript(src);
       }
       const w = window as unknown as Live2DWindow;
       const PIXI = w.PIXI;
       const Live2DModel = PIXI?.live2d?.Live2DModel;
       const canvas = canvasRef.current;
-      if (!PIXI || !Live2DModel || !canvas) {
-        throw new Error("Live2D runtime unavailable");
-      }
+      if (!PIXI || !Live2DModel || !canvas) throw new Error("Live2D runtime unavailable");
 
       const app = new PIXI.Application({
         view: canvas,
@@ -119,17 +137,20 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
       modelRef.current = model;
 
       model.anchor.set(0.5, 0.5);
-      const fit = () => {
-        const { width, height } = app.renderer;
-        const scale = Math.min(width / (model.width || width), height / (model.height || height)) * 0.9;
-        model.scale.set(scale || 0.2);
-        model.position.set(width / 2, height / 2);
-      };
-      fit();
+      const { width, height } = app.renderer;
+      const base = Math.min(width / (model.width || width), height / (model.height || height)) * 0.9 || 0.2;
+      baseScaleRef.current = base;
+      model.scale.set(base, base);
+      model.position.set(width / 2, height / 2);
       app.stage.addChild(model);
-      const mm = model.internalModel?.motionManager;
+
+      const im = model.internalModel;
+      eyeBlinkRef.current = im?.eyeBlink;
+      physicsRef.current = im?.physics;
+      const mm = im?.motionManager;
       const defs = mm?.definitions ?? mm?.motionGroups;
       setMotionGroups(defs ? Object.keys(defs) : []);
+      setExpressions((im?.settings?.expressions ?? []).map((e, i) => e.Name ?? e.name ?? `表情 ${i + 1}`));
       setPhase("ready");
     } catch (error) {
       console.error("Live2D init failed", error);
@@ -138,8 +159,8 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   }, [projectSlug, viewerSessionId]);
 
   useEffect(() => {
-    // init() only calls setState after awaiting the CDN runtime + model load,
-    // so it cannot trigger a synchronous cascading render.
+    // init() only setStates after awaiting CDN + model load (no sync cascade).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     init();
     return () => {
       modelRef.current?.destroy();
@@ -149,7 +170,7 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
     };
   }, [init, attempt]);
 
-  // Apply triggered Live2D parameters.
+  // Triggered Live2D parameters from chat tags.
   useEffect(() => {
     const core = modelRef.current?.internalModel?.coreModel;
     if (!core) return;
@@ -164,26 +185,69 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
     }
   }, [activeEffects]);
 
-  // Light mouth motion while speaking.
+  // Transform: scale / horizontal flip / vertical offset.
   useEffect(() => {
-    if (!isSpeaking) return;
+    const model = modelRef.current;
+    const app = appRef.current;
+    if (phase !== "ready" || !model || !app) return;
+    const s = baseScaleRef.current * scaleMul;
+    model.scale.set(flip ? -s : s, s);
+    model.position.set(app.renderer.width / 2, app.renderer.height / 2 + posOff);
+  }, [phase, scaleMul, flip, posOff]);
+
+  // Auto-blink / physics toggles.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const im = modelRef.current?.internalModel;
+    if (im) im.eyeBlink = blink ? eyeBlinkRef.current : undefined;
+  }, [phase, blink]);
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const im = modelRef.current?.internalModel;
+    if (im) im.physics = physics ? physicsRef.current : undefined;
+  }, [phase, physics]);
+
+  useEffect(() => {
+    gazeRef.current = gaze;
+  }, [gaze]);
+
+  // Idle: play a motion periodically when nothing else is happening.
+  useEffect(() => {
+    if (phase !== "ready" || !idle) return;
+    const id = setInterval(() => modelRef.current?.motion?.("", 0), 9000);
+    return () => clearInterval(id);
+  }, [phase, idle]);
+
+  // Lip-sync mouth motion while speaking.
+  useEffect(() => {
+    if (!isSpeaking || !lipSync) return;
     let raf = 0;
     const animate = () => {
       const core = modelRef.current?.internalModel?.coreModel;
-      if (core) {
-        try {
-          core.setParameterValueById("ParamMouthOpenY", 0.5 + 0.5 * Math.sin(Date.now() / 120));
-        } catch {
-          // ignore
-        }
+      try {
+        core?.setParameterValueById("ParamMouthOpenY", 0.5 + 0.5 * Math.sin(Date.now() / 120));
+      } catch {
+        // ignore
       }
       raf = requestAnimationFrame(animate);
     };
     raf = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(raf);
-  }, [isSpeaking]);
+  }, [isSpeaking, lipSync]);
 
-  const motionGroupNames = motionGroups.length ? motionGroups : [""];
+  const onPointerMove = useCallback((e: ReactPointerEvent) => {
+    const model = modelRef.current;
+    const canvas = canvasRef.current;
+    if (!model?.focus || !canvas || !gazeRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    model.focus(e.clientX - rect.left, e.clientY - rect.top);
+  }, []);
+  const tapIdx = useRef(0);
+  const onPointerDown = useCallback(() => {
+    modelRef.current?.motion?.("", tapIdx.current++ % 4);
+  }, []);
+
+  const motionNames = motionGroups.length ? motionGroups : [""];
   const panels: ControlPanel[] = [
     {
       key: "act",
@@ -191,18 +255,73 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
       icon: "act",
       sections: [
         {
-          title: "动作 / 表情",
-          items: motionGroupNames.map((g, i) => ({
+          title: "动作",
+          items: motionNames.map((g, i) => ({
             label: g || `动作 ${i + 1}`,
-            onSelect: () => modelRef.current?.motion?.(g),
+            onSelect: () => modelRef.current?.motion?.(g, g ? undefined : i),
           })),
+        },
+        {
+          title: "表情",
+          items: expressions.map((name) => ({ label: name, onSelect: () => modelRef.current?.expression?.(name) })),
+        },
+      ],
+    },
+    {
+      key: "settings",
+      title: "模型设置",
+      icon: "settings",
+      sections: [
+        {
+          title: "缩放",
+          items: [
+            { label: "放大", active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
+            { label: "标准", active: scaleMul === 1, onSelect: () => setScaleMul(1) },
+            { label: "缩小", active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
+          ],
+        },
+        {
+          title: "位置",
+          items: [
+            { label: "上移", active: posOff < 0, onSelect: () => setPosOff(-40) },
+            { label: "居中", active: posOff === 0, onSelect: () => setPosOff(0) },
+            { label: "下移", active: posOff > 0, onSelect: () => setPosOff(40) },
+            { label: "镜像翻转", active: flip, onSelect: () => setFlip((v) => !v) },
+          ],
+        },
+        {
+          title: "动态参数",
+          items: [
+            { label: `视线跟随 · ${gaze ? "开" : "关"}`, active: gaze, onSelect: () => setGaze((v) => !v) },
+            { label: `自动眨眼 · ${blink ? "开" : "关"}`, active: blink, onSelect: () => setBlink((v) => !v) },
+            { label: `物理摆动 · ${physics ? "开" : "关"}`, active: physics, onSelect: () => setPhysics((v) => !v) },
+            { label: `自动待机 · ${idle ? "开" : "关"}`, active: idle, onSelect: () => setIdle((v) => !v) },
+            { label: `口型同步 · ${lipSync ? "开" : "关"}`, active: lipSync, onSelect: () => setLipSync((v) => !v) },
+          ],
+        },
+        {
+          title: "操作",
+          items: [
+            { label: "随机动作", onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
+            {
+              label: "重置全部",
+              onSelect: () => {
+                setScaleMul(1);
+                setPosOff(0);
+                setFlip(false);
+                setGaze(true);
+                setBlink(true);
+                setPhysics(true);
+              },
+            },
+          ],
         },
       ],
     },
   ];
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} onPointerMove={onPointerMove} onPointerDown={onPointerDown}>
       <canvas ref={canvasRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
       {phase === "ready" ? <Live2DControls panels={panels} /> : null}
       {phase === "loading" ? (

@@ -173,20 +173,6 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
               </div>
             )}
           </div>
-          <div className={styles.stageFoot}>
-            <Button variant="ghost" size="sm" block>
-              重置姿态
-            </Button>
-            <LinkButton
-              href={`/creator/projects/${project.id}/preview`}
-              variant="tintPink"
-              size="sm"
-              block
-              style={{ flex: 1 }}
-            >
-              打开预览
-            </LinkButton>
-          </div>
         </aside>
       </div>
     </div>
