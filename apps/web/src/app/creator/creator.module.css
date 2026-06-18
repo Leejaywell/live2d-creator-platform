@@ -370,9 +370,12 @@
 .rowActions .approve:hover {
   color: #8df0c4;
 }
-/* disclosure inside a row: keep the popout out of the inline flow */
+/* disclosure inside a row: keep the popout out of the inline flow and
+   center the summary on the same baseline as the sibling links/buttons */
 .rowActions details {
   position: relative;
+  display: inline-flex;
+  align-items: center;
 }
 .rowActions details > div {
   position: absolute;
