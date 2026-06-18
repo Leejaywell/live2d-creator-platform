@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
-import { Live2DViewer } from "@/components/live2d-viewer";
+import { Live2DViewer, type Live2DEffect } from "@/components/live2d-viewer";
 import { TriggerTagTester } from "@/components/trigger-tag-tester";
 import { Button, LinkButton, Pill, type Tone } from "@/components/ui";
 
 import { creatorStyles } from "../../_components";
 import { updateProjectAction } from "./actions";
+import { StageChat } from "./stage-chat";
 import styles from "./workspace.module.css";
 
 type WorkspaceTag = {
@@ -55,8 +56,16 @@ type StepKey = "model" | "tags" | "voice" | "basics" | "publish";
 const statusToneMap: Record<string, Tone> = { published: "live", paused: "danger", draft: "amber" };
 const statusLabelMap: Record<string, string> = { published: "上演中", paused: "已暂停", draft: "草稿" };
 
-export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
+export function ProjectWorkspace({
+  project,
+  previewSessionId,
+}: {
+  project: WorkspaceProject;
+  previewSessionId: string;
+}) {
   const [active, setActive] = useState<StepKey>("model");
+  const [chatTags, setChatTags] = useState<string[]>([]);
+  const [chatEffects, setChatEffects] = useState<Live2DEffect[]>([]);
 
   const [profileDone, modelDone, tagsDone] = project.readiness;
   const publishUnlocked = profileDone && modelDone && tagsDone;
@@ -164,7 +173,14 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
           </div>
           <div className={styles.stageBody}>
             {project.modelStatus === "valid" ? (
-              <Live2DViewer projectSlug={project.slug} activeTags={[]} activeEffects={[]} isSpeaking={false} />
+              <Live2DViewer
+                projectSlug={project.slug}
+                viewerSessionId={previewSessionId}
+                activeTags={chatTags}
+                activeEffects={chatEffects}
+                isSpeaking={false}
+                voices={project.voices.map((v) => ({ name: v.name }))}
+              />
             ) : (
               <div className={styles.stageSlot}>
                 LIVE2D
@@ -172,6 +188,14 @@ export function ProjectWorkspace({ project }: { project: WorkspaceProject }) {
                 {project.modelStatus === "invalid" ? "模型校验失败" : "尚未上传模型"}
               </div>
             )}
+            <StageChat
+              viewerSessionId={previewSessionId}
+              welcomeMessage={project.welcomeMessage}
+              onEffects={(tags, effects) => {
+                setChatTags(tags);
+                setChatEffects(effects);
+              }}
+            />
           </div>
         </aside>
       </div>

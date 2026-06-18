@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import { notFound } from "next/navigation";
 
 import { getCurrentSession } from "@/auth";
@@ -31,6 +33,30 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
   if (!project) {
     notFound();
   }
+
+  // Mint a stable debug viewer session so the persistent preview can chat with
+  // the model inline (no fan code, no publish gate).
+  const codeHash = crypto.createHash("sha256").update(`PREVIEW-${project.id}`).digest("hex");
+  const previewCode =
+    (await prisma.fanAccessCode.findUnique({ where: { codeHash } })) ??
+    (await prisma.fanAccessCode.create({
+      data: {
+        projectId: project.id,
+        codeHash,
+        expiresAt: new Date("2099-12-31T23:59:59Z"),
+        maxMessages: 9999,
+        bindMode: "none",
+        status: "active",
+        batchId: "preview",
+      },
+    }));
+  const previewSession =
+    (await prisma.viewerSession.findUnique({
+      where: { fanAccessCodeId_deviceHash: { fanAccessCodeId: previewCode.id, deviceHash: "creator-preview" } },
+    })) ??
+    (await prisma.viewerSession.create({
+      data: { projectId: project.id, fanAccessCodeId: previewCode.id, deviceHash: "creator-preview" },
+    }));
 
   const readiness = projectPublishReadiness(project).map((item) => item.done);
 
@@ -67,5 +93,5 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
     readiness,
   };
 
-  return <ProjectWorkspace project={workspace} />;
+  return <ProjectWorkspace project={workspace} previewSessionId={previewSession.id} />;
 }

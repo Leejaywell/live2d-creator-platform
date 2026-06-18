@@ -15,6 +15,7 @@ type Props = {
   activeTags: string[];
   activeEffects: Live2DEffect[];
   isSpeaking: boolean;
+  voices?: Array<{ name: string }>;
 };
 
 // CDN runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4 bundle).
@@ -86,7 +87,7 @@ function loadScript(src: string) {
   return promise;
 }
 
-export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSpeaking }: Props) {
+export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSpeaking, voices = [] }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<Live2DModelInstance | null>(null);
@@ -264,6 +265,17 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
         {
           title: "表情",
           items: expressions.map((name) => ({ label: name, onSelect: () => modelRef.current?.expression?.(name) })),
+        },
+      ],
+    },
+    {
+      key: "voice",
+      title: "声音",
+      icon: "voice",
+      sections: [
+        {
+          title: "预置语音",
+          items: voices.map((v) => ({ label: v.name, onSelect: () => modelRef.current?.motion?.("", 0) })),
         },
       ],
     },

@@ -63,7 +63,9 @@ export async function POST(request: NextRequest) {
     const code = viewerSession.fanAccessCode;
     const now = new Date();
 
-    if (project.status !== "published") {
+    // Creator debug-preview sessions (batchId "preview") may chat regardless of publish status.
+    const isPreviewSession = code.batchId === "preview";
+    if (!isPreviewSession && project.status !== "published") {
       return NextResponse.json({ error: "Project is not published" }, { status: 403 });
     }
     if (project.creator.status !== "active") {
