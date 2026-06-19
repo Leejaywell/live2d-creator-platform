@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { Pill } from "@/components/ui";
@@ -15,6 +16,8 @@ export default async function AdminPage() {
   if (!session?.user || session.user.status !== "active" || !isAdminRole(session.user.role)) {
     return <AdminAuthRequired />;
   }
+
+  const t = await getTranslations("admin");
 
   const [creatorCount, adminCount, projectCount, publishedCount, pendingOrders, recentDrafts, safetyEvents] =
     await Promise.all([
@@ -36,32 +39,32 @@ export default async function AdminPage() {
     <AdminShell active="overview" user={session.user}>
       <div className={dash.pageHead}>
         <div>
-          <h1>平台概览</h1>
-          <p className={dash.pageHeadSub}>账号、项目、订单与安全信号</p>
+          <h1>{t("overviewTitle")}</h1>
+          <p className={dash.pageHeadSub}>{t("overviewSubtitle")}</p>
         </div>
       </div>
 
       <div className={dash.metrics} style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         <div className={dash.metric}>
-          <div className={dash.metricLabel}>创作者</div>
+          <div className={dash.metricLabel}>{t("metricCreators")}</div>
           <div className={dash.metricValue}>{creatorCount}</div>
         </div>
         <div className={dash.metric}>
-          <div className={dash.metricLabel}>管理员</div>
+          <div className={dash.metricLabel}>{t("metricAdmins")}</div>
           <div className={dash.metricValue}>{adminCount}</div>
         </div>
         <div className={dash.metric}>
-          <div className={dash.metricLabel}>项目数</div>
+          <div className={dash.metricLabel}>{t("metricProjects")}</div>
           <div className={dash.metricValue}>{projectCount}</div>
         </div>
         <div className={dash.metric} style={{ background: "var(--amber-fill)", borderColor: "rgba(242,193,78,0.28)" }}>
-          <div className={dash.metricLabel}>待确认订单</div>
+          <div className={dash.metricLabel}>{t("metricPendingOrders")}</div>
           <div className={dash.metricValue} style={{ color: "var(--amber)" }}>
             {pendingOrders}
           </div>
         </div>
         <div className={`${dash.metric} ${dash.metricLive}`}>
-          <div className={dash.metricLabel}>在演项目</div>
+          <div className={dash.metricLabel}>{t("metricLiveProjects")}</div>
           <div className={dash.metricValue}>
             {publishedCount}
             {publishedCount > 0 && <span className={dash.liveDot} aria-hidden />}
@@ -72,9 +75,9 @@ export default async function AdminPage() {
       <div className={dash.twoCol} style={{ gridTemplateColumns: "1.5fr 1fr" }}>
         <section className={dash.panel}>
           <div className={dash.panelHead}>
-            <h2>待交付 / 未发布项目</h2>
+            <h2>{t("panelDrafts")}</h2>
             <Link href="/admin/projects" className={dash.panelMeta}>
-              全部 →
+              {t("viewAll")}
             </Link>
           </div>
           <div className={dash.table}>
@@ -87,28 +90,28 @@ export default async function AdminPage() {
                   </small>
                 </div>
                 <Pill tone={project.status === "paused" ? "danger" : "amber"}>
-                  {project.status === "paused" ? "已暂停" : "草稿"}
+                  {project.status === "paused" ? t("statusPaused") : t("statusDraft")}
                 </Pill>
               </div>
             ))}
-            {recentDrafts.length === 0 && <div className={dash.empty}>没有待处理的项目。</div>}
+            {recentDrafts.length === 0 && <div className={dash.empty}>{t("emptyDrafts")}</div>}
           </div>
         </section>
 
         <section className={dash.panel}>
           <div className={dash.panelHead}>
-            <h2>安全队列</h2>
+            <h2>{t("panelSafetyQueue")}</h2>
           </div>
           <div className={dash.table}>
             {safetyEvents.map((event) => (
               <div key={event.id} className={dash.tableRow} style={{ gridTemplateColumns: "1fr" }}>
                 <div className={dash.cellMain}>
                   <strong>{event.projectName}</strong>
-                  <small>{event.messagePreview || "无消息预览"}</small>
+                  <small>{event.messagePreview || t("noMessagePreview")}</small>
                 </div>
               </div>
             ))}
-            {safetyEvents.length === 0 && <div className={dash.empty}>还没有被拦截的消息。</div>}
+            {safetyEvents.length === 0 && <div className={dash.empty}>{t("emptyBlockedMessages")}</div>}
           </div>
         </section>
       </div>

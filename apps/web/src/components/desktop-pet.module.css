@@ -1,0 +1,637 @@
+/* ==========================================================================
+   Global Desktop Pet Overlay Stylesheet (Futuristic HUD & Glassmorphism)
+   ========================================================================== */
+
+.petContainer {
+  position: fixed;
+  width: 400px;
+  height: 450px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  animation: fadeInPet 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: visible;
+  border-radius: 24px;
+}
+
+.petContainer:active {
+  cursor: grabbing;
+}
+
+@keyframes fadeInPet {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.canvasWrapper {
+  width: 300px;
+  height: 380px;
+  position: relative;
+  overflow: visible;
+}
+
+.petCanvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.petCanvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+
+.hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: monospace;
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 12px;
+  border-radius: 12px;
+  backdrop-filter: blur(5px);
+  z-index: 10;
+}
+
+/* Subtitle bubble */
+.speechBubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  background: rgba(13, 10, 25, 0.82);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  z-index: 10000;
+  text-align: center;
+  pointer-events: none;
+  animation: bubblePop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bubblePop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.85) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
+.bubbleArrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: rgba(13, 10, 25, 0.82);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.speechTextJp {
+  font-size: 10px;
+  color: #00f0ff;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.speechTextZh {
+  font-size: 12px;
+  color: rgba(245, 245, 247, 0.95);
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   HOVER-REVEALED PET CONTROLS (close top-right, icon buttons on each side)
+   ========================================================================== */
+.petClose {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(13, 10, 25, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 247, 0.85);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.2s ease, color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.petClose:hover {
+  color: #fff;
+  border-color: rgba(255, 108, 158, 0.5);
+  background: rgba(255, 108, 158, 0.18);
+  transform: translateY(-1px);
+}
+
+.petCornerTL {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 6;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.petDropdownBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(13, 10, 25, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 247, 0.85);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.petDropdownBtn:hover {
+  color: #fff;
+  border-color: rgba(255, 108, 158, 0.5);
+  background: rgba(255, 108, 158, 0.18);
+  transform: translateY(-1px);
+}
+
+.petCharLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  user-select: none;
+}
+
+.petCaret {
+  font-size: 9px;
+  color: rgba(245, 245, 247, 0.6);
+  transition: transform 0.2s;
+  display: inline-block;
+  margin-top: 1px;
+}
+
+.petDropdownBtn[aria-expanded="true"] .petCaret {
+  transform: rotate(180deg);
+}
+
+.petSideLeft,
+.petSideRight {
+  position: absolute;
+  top: 44%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.petSideLeft {
+  left: 8px;
+}
+
+.petSideRight {
+  right: 8px;
+}
+
+.petIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: rgba(13, 10, 25, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 247, 0.82);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.petIconBtn:hover {
+  color: #fff;
+  border-color: rgba(255, 108, 158, 0.5);
+  background: rgba(255, 108, 158, 0.16);
+  transform: translateY(-2px);
+}
+
+.petIconBtn:active {
+  transform: translateY(0);
+}
+
+.petContainer:hover .petClose,
+.petContainer:hover .petCornerTL,
+.petContainer:hover .petSideLeft,
+.petContainer:hover .petSideRight {
+  opacity: 1;
+}
+
+.petContainer:hover .petClose,
+.petContainer:hover .petCornerTL,
+.petContainer:hover .petSideLeft,
+.petContainer:hover .petSideRight {
+  pointer-events: auto;
+}
+
+/* Touch devices have no hover — keep controls visible. */
+@media (hover: none) {
+  .petClose,
+  .petCornerTL,
+  .petSideLeft,
+  .petSideRight {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Minimized Edge Restore Button */
+.restoreBtn {
+  position: fixed;
+  right: 0;
+  bottom: 40px;
+  z-index: 9999;
+  width: 52px;
+  height: 52px;
+  border-radius: 26px 0 0 26px;
+  background: rgba(13, 10, 25, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: none;
+  box-shadow: -6px 6px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 240, 255, 0.1);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRestoreBtn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  padding-right: 4px;
+}
+
+@keyframes slideInRestoreBtn {
+  from {
+    transform: translateX(52px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.restoreBtn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.35);
+  padding-right: 12px;
+  width: 62px;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+}
+
+.restoreBtn:active {
+  transform: scale(0.95);
+}
+
+/* ==========================================================================
+   SETTINGS PANEL & FLOATING LIST OVERLAYS
+   ========================================================================== */
+.settingsPanel {
+  position: absolute;
+  box-sizing: border-box;
+  width: 270px;
+  top: 12px;
+  bottom: 12px;
+  background: rgba(13, 10, 25, 0.94);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: #fff;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  animation: panelIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.settingsPanelLeft {
+  right: calc(100% + 12px);
+}
+
+.settingsPanelRight {
+  left: calc(100% + 12px);
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.settingsHeader h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #00f0ff;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.settingsCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(245, 245, 247, 0.8);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settingsCloseBtn:hover {
+  background: rgba(255, 108, 158, 0.2);
+  border-color: rgba(255, 108, 158, 0.4);
+  color: #fff;
+}
+
+.settingsBody {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settingsBody::-webkit-scrollbar {
+  width: 4px;
+}
+.settingsBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.settingsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.groupTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(245, 245, 247, 0.55);
+  margin: 0 0 2px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settingsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingsRow label {
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.85);
+}
+
+.settingsRow input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+}
+
+.settingsRow input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00f0ff;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  transition: transform 0.15s;
+}
+
+.settingsRow input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.9);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggleRow input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: #ff6c9e;
+  cursor: pointer;
+}
+
+.resetBtn {
+  width: 100%;
+  padding: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 108, 158, 0.12);
+  border: 1px solid rgba(255, 108, 158, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.resetBtn:hover {
+  background: rgba(255, 108, 158, 0.22);
+  border-color: rgba(255, 108, 158, 0.5);
+  box-shadow: 0 0 10px rgba(255, 108, 158, 0.15);
+}
+
+.petBtnWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Floating Lists */
+.floatingList {
+  position: absolute;
+  box-sizing: border-box;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 130px;
+  max-height: 240px;
+  background: rgba(13, 10, 25, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  animation: listPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes listPop {
+  from { opacity: 0; transform: translateY(-50%) scale(0.9); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.floatingListInwardLeft {
+  left: 48px;
+}
+
+.floatingListOutwardLeft {
+  left: -142px;
+}
+
+.floatingListInwardRight {
+  right: 48px;
+}
+
+.floatingListOutwardRight {
+  right: -142px;
+}
+
+.floatingList::-webkit-scrollbar {
+  width: 3px;
+}
+.floatingList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+.floatingListItem {
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s;
+}
+
+.floatingListItem:hover {
+  color: #fff;
+  background: rgba(255, 108, 158, 0.18);
+  border-color: rgba(255, 108, 158, 0.3);
+}
+
+.floatingListItemActive {
+  color: #fff;
+  background: rgba(255, 108, 158, 0.4);
+  border-color: rgba(255, 108, 158, 0.6);
+}
+
+.emptyListHint {
+  font-size: 10px;
+  color: rgba(245, 245, 247, 0.4);
+  text-align: center;
+  padding: 10px 0;
+}
+
+.floatingListTopLeft {
+  top: 36px;
+  left: 0;
+  transform: none;
+  animation: listPopTopLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes listPopTopLeft {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.petResizeHandle {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  z-index: 105;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  background-image: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.4) 60%, transparent 60%, transparent 75%, rgba(255, 255, 255, 0.4) 75%);
+}
+
+.petResizeHandle:hover {
+  opacity: 1;
+}
+

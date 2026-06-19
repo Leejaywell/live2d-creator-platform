@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { getCurrentSession } from "@/auth";
@@ -19,6 +20,7 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
     return <AdminAuthRequired />;
   }
 
+  const t = await getTranslations("admin");
   const { projectId } = await params;
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -59,9 +61,9 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
     <main>
       <div className={styles.banner}>
         <span className={styles.bannerDot} aria-hidden />
-        管理员预览 · 跳过粉丝码 · 不消耗配额、不受发布状态限制
+        {t("previewBanner")}
         <Link href="/admin/projects" className={styles.bannerLink}>
-          返回项目审核 →
+          {t("backToReview")}
         </Link>
       </div>
       <AudienceChat

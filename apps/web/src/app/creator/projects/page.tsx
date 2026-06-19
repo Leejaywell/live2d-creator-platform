@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
@@ -24,9 +25,10 @@ export const dynamic = "force-dynamic";
 const COLS = "2.2fr 1.3fr 1fr 1fr 1fr auto";
 
 export default async function CreatorModelsPage() {
+  const t = await getTranslations("creator");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="模型" />;
+    return <CreatorAuthRequired title={t("authTitleModels")} />;
   }
 
   const [plan, projects, usageGroups] = await Promise.all([
@@ -62,23 +64,23 @@ export default async function CreatorModelsPage() {
     <CreatorShell active="projects" user={session.user} planName={plan?.planName}>
       <div className={styles.pageHead}>
         <div>
-          <h1>{multiModel ? "模型" : "我的模型"}</h1>
+          <h1>{multiModel ? t("titleModels") : t("titleMyModels")}</h1>
           <p className={styles.pageHeadSub}>
             {multiModel
-              ? `${projects.length} / ${maxModels} 个模型`
-              : "每个创作者默认拥有一个 Live2D 模型；如需更多请向管理员申请。"}
+              ? t("modelsCount", { used: projects.length, max: maxModels })
+              : t("singleModelHint")}
           </p>
         </div>
         {multiModel ? (
           <div className={styles.toolbar}>
-            <span className={styles.searchBox}>🔍 搜索模型…</span>
+            <span className={styles.searchBox}>{t("searchPlaceholder")}</span>
           </div>
         ) : null}
       </div>
 
       {canCreate ? (
         <details className={`${styles.panel} ${styles.disclosure}`} open={projects.length === 0}>
-          <summary>+ 创建模型</summary>
+          <summary>{t("createModel")}</summary>
           <div className={styles.formCard}>
             <ProjectCreateForm />
           </div>
@@ -86,15 +88,15 @@ export default async function CreatorModelsPage() {
       ) : null}
 
       {projects.length === 0 ? (
-        <div className={styles.empty}>还没有模型。展开上方「创建模型」，从上传 Live2D 模型开始。</div>
+        <div className={styles.empty}>{t("emptyModelsList")}</div>
       ) : (
         <div className={styles.tableWrap}>
           <div className={`${styles.tableRow} ${styles.tableHead}`} style={{ gridTemplateColumns: COLS }}>
-            <span>模型</span>
+            <span>{t("colModel")}</span>
             <span>slug</span>
-            <span>状态</span>
-            <span>30 天对话</span>
-            <span>粉丝码</span>
+            <span>{t("colStatus")}</span>
+            <span>{t("col30dChats")}</span>
+            <span>{t("colFanCodes")}</span>
             <span />
           </div>
           {projects.map((project) => (
@@ -103,29 +105,31 @@ export default async function CreatorModelsPage() {
                 <div className={styles.projectAvatar} aria-hidden />
                 <div className={styles.cellMain}>
                   <strong>{project.name}</strong>
-                  <small>{nextProjectStep(project)}</small>
+                  <small>{t(nextProjectStep(project))}</small>
                 </div>
               </div>
               <Link href={`/c/${project.slug}`} className={styles.monoTeal}>
                 /c/{project.slug}
               </Link>
               <Pill tone={projectStatusTone(project.status)} dot={project.status === "published"}>
-                {projectStatusLabel(project.status)}
+                {t(projectStatusLabel(project.status))}
               </Pill>
               <span className={styles.mono}>
-                {usageByProject.has(project.id) ? `${usageByProject.get(project.id)} 条` : "—"}
+                {usageByProject.has(project.id)
+                  ? t("chatsCount", { count: usageByProject.get(project.id) ?? 0 })
+                  : "—"}
               </span>
-              <span className={styles.mono}>{project._count.fanAccessCodes} 个</span>
+              <span className={styles.mono}>{t("fanCodesCount", { count: project._count.fanAccessCodes })}</span>
               <div className={styles.rowActions}>
-                <Link href={`/creator/projects/${project.id}`}>编辑</Link>
-                <Link href={`/creator/projects/${project.id}/fan-codes`}>粉丝码</Link>
+                <Link href={`/creator/projects/${project.id}`}>{t("actionEdit")}</Link>
+                <Link href={`/creator/projects/${project.id}/fan-codes`}>{t("actionFanCodes")}</Link>
                 <ShareLinkCopyButton path={`/c/${project.slug}`} />
                 <details>
-                  <summary className={styles.danger}>删除</summary>
+                  <summary className={styles.danger}>{t("actionDelete")}</summary>
                   <div className={styles.formCard}>
-                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel="确认删除模型" submitVariant="danger">
+                    <ApiForm action={`/api/creator/projects/${project.id}`} method="DELETE" submitLabel={t("confirmDeleteModel")} submitVariant="danger">
                       <span className={styles.pageHeadSub}>
-                        将删除该模型及其标签、粉丝码与聊天用量记录，操作不可恢复。
+                        {t("deleteModelHint")}
                       </span>
                     </ApiForm>
                   </div>

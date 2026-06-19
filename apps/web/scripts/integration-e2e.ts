@@ -1670,6 +1670,7 @@ async function verifyFanCodeRevocation(input: {
 
   await input.revokeFanAccessCode({
     codeId: codes[0].id,
+    actor: { id: input.creatorId, role: "creator" },
     creatorId: input.creatorId,
   });
   const first = await input.prisma.fanAccessCode.findUniqueOrThrow({ where: { id: codes[0].id } });

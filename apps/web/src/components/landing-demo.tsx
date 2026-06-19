@@ -1,171 +1,167 @@
 "use client";
 
-import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Live2DControls, type ControlPanel } from "./live2d-controls";
+import { useTranslations, useLocale } from "next-intl";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Button, cx } from "./ui";
+import { useGlobalPet, type TabType } from "./global-pet-context";
 import styles from "./landing-demo.module.css";
 
-// CDN runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4 bundle).
-const SCRIPTS = [
-  "https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js",
-  "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js",
-  "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
+// Self-hosted runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4
+// bundle). Vendored under /public so the landing demo never depends on a third-party
+// CDN being reachable at runtime.
+export const SCRIPTS = [
+  "/vendor/pixi-7.4.2.min.js",
+  "/live2dcubismcore.min.js",
+  "/vendor/pixi-live2d-cubism4-0.4.0.min.js",
 ];
 
-const KONO = `https://cdn.jsdelivr.net/gh/Eikanya/Live2d-model@master/${encodeURIComponent("为美好的世界献上祝福！Fantastic Days")}`;
-const AL = "https://cdn.jsdelivr.net/gh/Eikanya/Live2d-model@master/%E7%A2%A7%E8%93%9D%E8%88%AA%E7%BA%BF%20Azue%20Lane/Azue%20Lane(JP)";
-
-type Character = {
+export type CharacterConfig = {
   key: string;
-  name: string;
-  type: string;
-  url: string;
-  // Spoken lines surface as comic bubbles above the head (these models carry no
-  // bundled audio, so we show text instead of playing any voice).
-  lines: { text: string; tag: string }[];
+  nameCn: string;
+  nameEn: string;
+  skinId: string;
+  modelPath: string;
+  scale: number;
+  offsetY: number;
+  offsetX: number;
+  bgTheme: string;
 };
 
-// Recognizable anime characters (KonoSuba — Cubism 4), each with a rich default
-// motion group. Demo only; swap for licensed models in production.
-const CHARACTERS: Character[] = [
+export const CHARACTERS: CharacterConfig[] = [
   {
-    key: "darkness",
-    name: "达克尼斯",
-    type: "御姐",
-    url: `${KONO}/1033104/1033104.model3.json`,
-    lines: [
-      { text: "私が前衛を引き受けるわ。", tag: "担当" },
-      { text: "さあ、かかってきなさい！", tag: "挑衅" },
-      { text: "ふふ、もっと激しくても…いいのよ？", tag: "妄想" },
-      { text: "この程度、どうということはない。", tag: "坚韧" },
-    ],
+    key: "shengluyisi_3",
+    nameCn: "圣路易斯",
+    nameEn: "St. Louis",
+    skinId: "102132",
+    modelPath: "/live2d/shengluyisi_3/shengluyisi_3.model3.json",
+    scale: 0.16,
+    offsetY: 60,
+    offsetX: 0,
+    bgTheme: "aurora"
   },
   {
-    key: "megumin",
-    name: "惠惠",
-    type: "中二",
-    url: `${KONO}/1024100/1024100.model3.json`,
-    lines: [
-      { text: "我が名はめぐみん！", tag: "中二" },
-      { text: "エクスプロージョン！", tag: "爆裂" },
-      { text: "爆裂魔法こそ至高！", tag: "执着" },
-      { text: "ふっ…我が力に震えるがいい。", tag: "得意" },
-    ],
+    key: "beierfasite_2",
+    nameCn: "贝尔法斯特",
+    nameEn: "Belfast",
+    skinId: "202121",
+    modelPath: "/live2d/beierfasite_2/beierfasite_2.model3.json",
+    scale: 0.20,
+    offsetY: 90,
+    offsetX: 0,
+    bgTheme: "default"
   },
   {
-    key: "aqua",
-    name: "阿库娅",
-    type: "活泼",
-    url: `${KONO}/1013104/1013104.model3.json`,
-    lines: [
-      { text: "崇め奉りなさい！", tag: "女神" },
-      { text: "わたしは女神アクアよ！", tag: "自夸" },
-      { text: "うぅ…いじめないでよ～", tag: "哭哭" },
-      { text: "パーティ組んであげる！", tag: "活泼" },
-    ],
+    key: "aidang_2",
+    nameCn: "爱宕",
+    nameEn: "Atago",
+    skinId: "303121",
+    modelPath: "/live2d/aidang_2/aidang_2.model3.json",
+    scale: 0.14,
+    offsetY: 70,
+    offsetX: 0,
+    bgTheme: "studio"
   },
   {
-    key: "kazuma",
-    name: "和真",
-    type: "帅哥",
-    url: `${KONO}/1004100/1004100.model3.json`,
-    lines: [
-      { text: "よう、おかえり。", tag: "招呼" },
-      { text: "まあ、悪くないんじゃないか？", tag: "吐槽" },
-      { text: "しょうがないな、付き合ってやるよ。", tag: "傲娇" },
-      { text: "今日も平和が一番だ。", tag: "淡定" },
-    ],
-  },
-  // ---- 游戏角色（碧蓝航线 · Cubism4 · 日语 flavor）----
-  {
-    key: "dafeng",
-    name: "大凤",
-    type: "御姐",
-    url: `${AL}/dafeng_2/dafeng_2.model3.json`,
-    lines: [
-      { text: "おかえり、お疲れさま。", tag: "微笑" },
-      { text: "あなたが来てくれて嬉しい。", tag: "脸红" },
-      { text: "ふふ、今日もよく頑張ったわね。", tag: "安慰" },
-      { text: "あとは私に任せて。", tag: "俏皮" },
-    ],
-  },
-  {
-    key: "atago",
-    name: "爱宕",
-    type: "御姐",
-    url: `${AL}/aidang_2/aidang_2.model3.json`,
-    lines: [
-      { text: "指揮官さま、お慕いしております。", tag: "倾慕" },
-      { text: "ふふ、もっと甘えてくださいね。", tag: "娇宠" },
-      { text: "あなたのためなら何でも。", tag: "痴情" },
-      { text: "今夜は離しませんよ？", tag: "危险" },
-    ],
-  },
-  {
-    key: "belfast",
-    name: "贝尔法斯特",
-    type: "御姐",
-    url: `${AL}/beierfasite_2/beierfasite_2.model3.json`,
-    lines: [
-      { text: "おかえりなさいませ、ご主人様。", tag: "恭迎" },
-      { text: "紅茶をお淹れしましょうか。", tag: "服侍" },
-      { text: "わたくしにお任せを。", tag: "从容" },
-      { text: "あなたさまの仰せのままに。", tag: "忠诚" },
-    ],
-  },
-  {
-    key: "stlouis",
-    name: "圣路易斯",
-    type: "御姐",
-    url: `${AL}/shengluyisi_2/shengluyisi_2.model3.json`,
-    lines: [
-      { text: "あら、待っていたわ。", tag: "优雅" },
-      { text: "わたくしと踊りませんこと？", tag: "邀约" },
-      { text: "ふふ、見惚れた？", tag: "自信" },
-      { text: "素敵な夜にしましょう。", tag: "风情" },
-    ],
-  },
+    key: "aijier_3",
+    nameCn: "埃吉尔",
+    nameEn: "Ägir",
+    skinId: "499052",
+    modelPath: "/live2d/aijier_3/aijier_3.model3.json",
+    scale: 0.12,
+    offsetY: 10,
+    offsetX: 0,
+    bgTheme: "aurora"
+  }
 ];
 
-const LINE_MS = 3200;
+export interface SkinConfig {
+  id: string;
+  name: string;
+  active: boolean;
+}
 
-// Demo stage backgrounds (real projects use a creator-uploaded backgroundUrl).
-const BACKGROUNDS = [
-  { label: "聚光舞台", css: "radial-gradient(62% 52% at 50% 16%, rgba(255,108,158,0.34), transparent 70%), linear-gradient(180deg, #1c1424, #0c0a14)" },
-  { label: "黄昏", css: "linear-gradient(180deg, #f6a06b 0%, #c56b9c 46%, #3a2a4a 100%)" },
-  { label: "夜空", css: "radial-gradient(90% 60% at 50% 0%, #2b3066, #0b0a1a 72%)" },
-  { label: "樱色", css: "linear-gradient(180deg, #ffd6e6 0%, #e7a3c6 48%, #5f4560 100%)" },
-  { label: "薄荷", css: "radial-gradient(70% 60% at 50% 20%, rgba(111,231,218,0.3), transparent 70%), linear-gradient(180deg, #14201f, #0c0a14)" },
-  { label: "简约暗", css: "linear-gradient(180deg, #1b1b22, #0e0c15)" },
+export const CHARACTER_SKINS: Record<string, SkinConfig[]> = {
+  "shengluyisi_3": [
+    { id: "skin1", name: "春之华", active: true },
+    { id: "skin2", name: "默认装扮", active: true },
+    { id: "skin3", name: "雪下之誓", active: true }
+  ],
+  "beierfasite_2": [
+    { id: "skin1", name: "凉夏之歌", active: true },
+    { id: "skin2", name: "默认装扮", active: true }
+  ],
+  "aidang_2": [
+    { id: "skin1", name: "深夏游园", active: true },
+    { id: "skin2", name: "默认装扮", active: true }
+  ],
+  "aijier_3": [
+    { id: "skin1", name: "铁血之翼", active: true },
+    { id: "skin2", name: "默认装扮", active: true }
+  ]
+};
+
+// All scenes are token-aligned CSS gradients — no external imagery, so the stage
+// always matches the site palette and never waits on a remote photo to load.
+export const BACKGROUNDS = [
+  {
+    key: "default",
+    labelKey: "bgDefault",
+    css: "radial-gradient(60% 50% at 50% 30%, rgba(255, 108, 158, 0.30), transparent 70%), radial-gradient(circle at 50% 50%, #170d2a 0%, #0b0816 70%, #060409 100%)",
+  },
+  {
+    key: "aurora",
+    labelKey: "bgAurora",
+    css: "radial-gradient(52% 44% at 24% 26%, rgba(111, 231, 218, 0.24), transparent 64%), radial-gradient(52% 48% at 80% 72%, rgba(255, 108, 158, 0.24), transparent 64%), radial-gradient(circle at 50% 50%, #0e1226 0%, #070512 82%)",
+  },
+  {
+    key: "studio",
+    labelKey: "bgStudio",
+    css: "radial-gradient(60% 50% at 50% 22%, rgba(242, 193, 78, 0.20), transparent 68%), radial-gradient(circle at 50% 62%, #1a1326 0%, #0a0712 80%)",
+  },
+  {
+    key: "midnight",
+    labelKey: "bgMidnight",
+    css: "radial-gradient(circle at 50% 50%, #0d081b 0%, #040208 85%)",
+  },
+  { key: "transparent", labelKey: "bgTransparent", css: "transparent" },
 ];
 
-type CoreModel = { setParameterValueById(id: string, value: number): void };
-type InternalModel = { coreModel?: CoreModel; eyeBlink?: unknown; physics?: unknown };
+type PixiApp = {
+  stage: { addChild(c: unknown): void; removeChild(c: unknown): void };
+  renderer: { width: number; height: number };
+  destroy(removeView?: boolean, opts?: { children?: boolean }): void;
+  destroyed?: boolean;
+};
+
 type ModelInstance = {
   scale: { set(x: number, y?: number): void };
   position: { set(x: number, y: number): void };
   anchor: { set(x: number, y?: number): void };
   width: number;
   height: number;
-  internalModel?: InternalModel;
+  internalModel?: {
+    eyeBlink?: unknown;
+    physics?: unknown;
+    coreModel?: {
+      parameters: {
+        ids: string[];
+        values: number[];
+        minimumValues: number[];
+        maximumValues: number[];
+      };
+    };
+  };
   motion?: (group: string, index?: number) => void;
+  expression?: (index: number) => void;
   focus?: (x: number, y: number) => void;
   destroy(): void;
-};
-type PixiApp = {
-  stage: { addChild(c: unknown): void };
-  renderer: { width: number; height: number };
-  destroy(removeView?: boolean, opts?: { children?: boolean }): void;
-};
-type Win = {
-  PIXI?: {
-    Application: new (o: Record<string, unknown>) => PixiApp;
-    live2d?: { Live2DModel: { from(url: string): Promise<ModelInstance> } };
-  };
+  on(event: string, callback: (...args: any[]) => void): void;
 };
 
 const scriptCache = new Map<string, Promise<void>>();
-function loadScript(src: string) {
+export function loadScript(src: string) {
   if (typeof window === "undefined") return Promise.reject(new Error("no window"));
   const cached = scriptCache.get(src);
   if (cached) return cached;
@@ -193,350 +189,1168 @@ function loadScript(src: string) {
 }
 
 export function LandingDemo() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const t = useTranslations("landing");
+  const locale = useLocale();
+  // React owns this host element only. PixiJS creates and owns the actual <canvas>
+  // inside it, so destroying the Pixi app (removeView) never touches a React-managed
+  // node — avoids "removeChild" crashes and stale-WebGL-context reuse under
+  // StrictMode double-mount.
+  const stageHostRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<HTMLCanvasElement | null>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<ModelInstance | null>(null);
-  const speakingRef = useRef(false);
-  const mouthRaf = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const baseScaleRef = useRef(0.2);
-  const eyeBlinkRef = useRef<unknown>(null);
-  const physicsRef = useRef<unknown>(null);
-  const gazeRef = useRef(true);
-  const lipSyncRef = useRef(true);
+  const stageRef = useRef<HTMLDivElement>(null);
+  
+  const bgmPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const voicePlayerRef = useRef<HTMLAudioElement | null>(null);
+  const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const charMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sidebarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const widgetOffsetRef = useRef({ x: 0, y: 0 });
+
+  const {
+    layoutMode,
+    setLayoutMode,
+    charIdx,
+    setCharIdx,
+    voiceVolume,
+    setVoiceVolume,
+    bgmPlaying,
+    setBgmPlaying,
+    bgTheme,
+    setBgTheme,
+    sidebarOpen,
+    setSidebarOpen,
+    activeTab,
+    setActiveTab,
+    setWidgetPos
+  } = useGlobalPet();
 
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
-  const [charIdx, setCharIdx] = useState(0);
-  const [lineIdx, setLineIdx] = useState(0);
+  const [audioConfig, setAudioConfig] = useState<any>(null);
+  const [subtitle, setSubtitle] = useState<{ title: string; text: string } | null>(null);
+  const [subtitlePos, setSubtitlePos] = useState({ left: "50%", top: "10%" });
+  const [motionsList, setMotionsList] = useState<string[]>([]);
+  const [expressionsList, setExpressionsList] = useState<string[]>([]);
   const [charMenuOpen, setCharMenuOpen] = useState(false);
-  const [bgIdx, setBgIdx] = useState(0);
-  // model parameter settings
-  const [scaleMul, setScaleMul] = useState(1);
-  const [posOff, setPosOff] = useState(0);
-  const [flip, setFlip] = useState(false);
-  const [gaze, setGaze] = useState(true);
-  const [blink, setBlink] = useState(true);
-  const [physics, setPhysics] = useState(true);
-  const [autoPlay, setAutoPlay] = useState(true);
-  const [lipSync, setLipSync] = useState(true);
+  const [selectedSkinIdMap, setSelectedSkinIdMap] = useState<Record<string, string>>({
+    "shengluyisi_3": "skin1",
+    "beierfasite_2": "skin1",
+    "aidang_2": "skin1",
+    "aijier_3": "skin1"
+  });
 
-  const character = CHARACTERS[charIdx];
-  const line = character.lines[lineIdx % character.lines.length];
+  // model parameter settings
+  const scaleMul = 1;
+  const posOff = 0;
+  const flip = false;
+  const gaze = true;
+  const blink = true;
+  const physics = true;
+
+  const eyeBlinkRef = useRef<unknown>(null);
+  const physicsRef = useRef<unknown>(null);
+  const charIdxRef = useRef(charIdx);
+  useEffect(() => {
+    charIdxRef.current = charIdx;
+  }, [charIdx]);
+  const loadedCharIdxRef = useRef<number | null>(null);
+
+  // Stop current voice line audio
+  const stopCurrentVoice = useCallback(() => {
+    if (voicePlayerRef.current) {
+      voicePlayerRef.current.pause();
+      voicePlayerRef.current.currentTime = 0;
+    }
+    setSubtitle(null);
+    if (subtitleTimeoutRef.current) {
+      clearTimeout(subtitleTimeoutRef.current);
+      subtitleTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetDragStyles = useCallback(() => {
+    const stageEl = stageRef.current;
+    if (stageEl) {
+      stageEl.style.left = "";
+      stageEl.style.top = "";
+      stageEl.style.right = "";
+      stageEl.style.bottom = "";
+      stageEl.style.margin = "";
+    }
+  }, []);
+
+  // Resize app and clean audio on layout changes
+  useEffect(() => {
+    const app = appRef.current;
+    if (app) {
+      (app as any).resize();
+    }
+    if (layoutMode === 'widget') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      stopCurrentVoice();
+    }
+  }, [layoutMode, stopCurrentVoice]);
+
+  // Play character voice line
+  const playVoice = useCallback((eventKey: string) => {
+    if (!audioConfig) return;
+    const charKey = CHARACTERS[charIdx].key;
+    const charMeta = audioConfig[charKey];
+    if (!charMeta) return;
+
+    let voiceData = charMeta[eventKey];
+    if (!voiceData && eventKey === 'headtouch') voiceData = charMeta['touch'];
+    if (!voiceData && eventKey === 'touch2') voiceData = charMeta['touch'];
+
+    if (!voiceData) {
+      console.warn(`No voice line found for event: ${eventKey}`);
+      return;
+    }
+
+    stopCurrentVoice();
+
+    const textVal = voiceData.text;
+    let displaySpeech = "";
+    if (typeof textVal === "object" && textVal !== null) {
+      displaySpeech = textVal[locale] || textVal["zh"] || textVal["en"] || "";
+    } else {
+      const localeKey = `text_${locale}`;
+      displaySpeech = voiceData[localeKey] || voiceData["text_zh"] || voiceData.text || "";
+    }
+
+    setSubtitle({
+      title: eventKey.toUpperCase(),
+      text: displaySpeech
+    });
+
+    const audio = new Audio(voiceData.audio);
+    audio.volume = voiceVolume;
+    voicePlayerRef.current = audio;
+    
+    audio.play().catch((e) => console.warn("Voice autoplay blocked:", e));
+
+    audio.onended = () => {
+      setSubtitle(null);
+    };
+
+    if (subtitleTimeoutRef.current) clearTimeout(subtitleTimeoutRef.current);
+    subtitleTimeoutRef.current = setTimeout(() => {
+      setSubtitle(null);
+    }, 8000);
+  }, [audioConfig, charIdx, voiceVolume, stopCurrentVoice, locale]);
+
+  // Trigger motions
+  const triggerMotion = useCallback((motionName: string) => {
+    const model = modelRef.current;
+    if (!model) return;
+
+    const motions = (model as any).internalModel?.settings?.motions;
+    if (motions) {
+      let found = false;
+      for (const [group, list] of Object.entries(motions) as any) {
+        const index = list.findIndex((m: any) => {
+          const file = m.File || m.file || "";
+          return file.includes(motionName);
+        });
+        if (index !== -1) {
+          (model as any).motion(group, index);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        (model as any).motion(motionName);
+      }
+    } else {
+      (model as any).motion?.(motionName);
+    }
+  }, []);
+
+  const triggerVoiceAndMotion = useCallback((eventKey: string) => {
+    playVoice(eventKey);
+
+    const motionMapping: Record<string, string> = {
+      "login": "login",
+      "home": "home",
+      "headtouch": "touch_head",
+      "touch": "touch_body",
+      "touch2": "touch_special",
+      "main1": "main_1",
+      "main2": "main_2",
+      "main3": "main_3",
+      "mission_complete": "mission_complete",
+      "mission": "mission"
+    };
+
+    const motionName = motionMapping[eventKey] || "idle";
+    triggerMotion(motionName);
+  }, [playVoice, triggerMotion]);
+
+  const triggerExpression = useCallback((index: number) => {
+    const model = modelRef.current;
+    if (model && (model as any).expression) {
+      (model as any).expression(index);
+    }
+  }, []);
+
+  // Map a set of hit-area names to a voiced reaction.
+  const reactToHit = useCallback((hitAreas: string[]) => {
+    if (hitAreas.includes("special") || hitAreas.includes("Special")) {
+      triggerVoiceAndMotion("touch2");
+    } else if (hitAreas.includes("body") || hitAreas.includes("Body")) {
+      triggerVoiceAndMotion("touch");
+    } else if (hitAreas.includes("head") || hitAreas.includes("Head")) {
+      triggerVoiceAndMotion("headtouch");
+    } else {
+      const randomEvents = ["main1", "main2", "main3", "home"];
+      triggerVoiceAndMotion(randomEvents[Math.floor(Math.random() * randomEvents.length)]);
+    }
+  }, [triggerVoiceAndMotion]);
+
+  // Manual hit-testing. pixi-live2d-display 0.4's built-in `hit` event relies on
+  // Pixi 6's InteractionManager, which Pixi 7 replaced — so we hit-test ourselves
+  // on pointer down. Works identically for mouse click and touch tap.
+  const handleStageTap = useCallback((clientX: number, clientY: number) => {
+    const model = modelRef.current as any;
+    const host = stageHostRef.current;
+    if (!model?.hitTest || !host) return;
+    const rect = host.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const hits: string[] = model.hitTest(x, y) || [];
+    if (hits.length > 0) {
+      reactToHit(hits);
+      return;
+    }
+    // No named area, but if the tap landed on the model's silhouette, still react.
+    try {
+      const b = model.getBounds();
+      if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) {
+        reactToHit([]);
+      }
+    } catch {
+      /* bounds unavailable — ignore */
+    }
+  }, [reactToHit]);
+
+  // Fetch audio config once
+  useEffect(() => {
+    fetch("/live2d/audio_config.json")
+      .then((res) => res.json())
+      .then((data) => setAudioConfig(data))
+      .catch((err) => console.error("Failed to load audio config", err));
+  }, []);
 
   // Load (or hot-swap) a model into the existing pixi app.
-  const loadModel = useCallback(async (url: string) => {
-    const w = window as unknown as Win;
+  const loadModel = useCallback(async (url: string, charData: CharacterConfig) => {
+    const w = window as any;
     const Live2DModel = w.PIXI?.live2d?.Live2DModel;
     const app = appRef.current;
     if (!Live2DModel || !app) return;
+
     try {
+      setPhase("loading");
       modelRef.current?.destroy();
       modelRef.current = null;
+      stopCurrentVoice();
+
       const model = await Live2DModel.from(url);
+      if (app.destroyed || !app.stage) return;
       modelRef.current = model;
-      // Centered min-fit — robust across very different model bounds (some skins
-      // are full-scene / off-center), so every character renders reliably.
+      
+      // Auto-focus on pointer (gaze tracking)
+      model.trackPointer = gaze;
       model.anchor.set(0.5, 0.5);
-      const { width, height } = app.renderer;
-      baseScaleRef.current = Math.min(width / (model.width || width), height / (model.height || height)) * 0.92;
-      model.scale.set(baseScaleRef.current || 0.2);
-      model.position.set(width / 2, height / 2);
+      
       app.stage.addChild(model);
-      // capture the runtime's blink / physics handlers so they can be toggled
+      
       eyeBlinkRef.current = model.internalModel?.eyeBlink ?? null;
       physicsRef.current = model.internalModel?.physics ?? null;
+      
+      // Position and scale
+      let scale = charData.scale * scaleMul;
+      if (window.innerWidth < 768) {
+        scale = scale * 0.75;
+      }
+      model.scale.set(flip ? -scale : scale);
+      
+      if (layoutMode === 'widget') {
+        model.position.set(app.renderer.width / 2, app.renderer.height / 2 + (charData.offsetY * 0.4) + posOff);
+        model.scale.set(flip ? -scale * 0.6 : scale * 0.6);
+      } else {
+        model.position.set(app.renderer.width / 2 + charData.offsetX, app.renderer.height / 2 + charData.offsetY + posOff);
+      }
+
+      // Build motions and expressions lists
+      const motions = model.internalModel?.settings?.motions || {};
+      const uniqueMotions = new Set<string>();
+      for (const [, list] of Object.entries(motions) as any) {
+        list.forEach((m: any) => {
+          const file = m.File || m.file;
+          if (file) {
+            const parts = file.split('/');
+            const name = parts[parts.length - 1].replace('.motion3.json', '');
+            uniqueMotions.add(name);
+          }
+        });
+      }
+      if (uniqueMotions.size === 0) {
+        uniqueMotions.add("idle");
+        uniqueMotions.add("home");
+      }
+      setMotionsList(Array.from(uniqueMotions));
+
+      const expressions = model.internalModel?.settings?.expressions || [];
+      setExpressionsList(expressions.map((exp: any, index: number) => exp.Name || exp.name || `表情 ${index + 1}`));
+
+      setTimeout(() => {
+        triggerVoiceAndMotion("login");
+      }, 800);
+
       setPhase("ready");
     } catch (error) {
       console.error("Landing demo model load failed", error);
       setPhase("error");
     }
-  }, []);
+  }, [gaze, scaleMul, flip, layoutMode, posOff, stopCurrentVoice, triggerVoiceAndMotion]);
 
-  const init = useCallback(async () => {
-    try {
-      for (const src of SCRIPTS) await loadScript(src);
-      const w = window as unknown as Win;
-      const PIXI = w.PIXI;
-      const canvas = canvasRef.current;
-      if (!PIXI?.live2d?.Live2DModel || !canvas) throw new Error("Live2D runtime unavailable");
-      const app = new PIXI.Application({
-        view: canvas,
-        autoStart: true,
-        backgroundAlpha: 0,
-        resizeTo: canvas.parentElement ?? undefined,
-        antialias: true,
-      });
-      appRef.current = app;
-      const tick = () => {
-        const core = modelRef.current?.internalModel?.coreModel;
-        if (core) {
-          try {
-            core.setParameterValueById(
-              "ParamMouthOpenY",
-              speakingRef.current && lipSyncRef.current ? 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / 110)) : 0,
-            );
-          } catch {
-            /* unknown param */
-          }
-        }
-        mouthRaf.current = requestAnimationFrame(tick);
-      };
-      mouthRaf.current = requestAnimationFrame(tick);
-      await loadModel(CHARACTERS[0].url);
-    } catch (error) {
-      console.error("Landing demo init failed", error);
-      setPhase("error");
-    }
-  }, [loadModel]);
-
+  // Initial load / cleanup on layoutMode changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (layoutMode !== "sidebar") return;
+
+    let active = true;
+
+    const init = async () => {
+      try {
+        for (const src of SCRIPTS) await loadScript(src);
+        if (!active) return;
+
+        const w = window as any;
+        const PIXI = w.PIXI;
+        const host = stageHostRef.current;
+        if (!PIXI?.live2d?.Live2DModel || !host) throw new Error("Live2D runtime unavailable");
+
+        // Mock Live2DCubismCore memory allocator if not defined
+        w.Live2DCubismCore = w.Live2DCubismCore || {};
+        w.Live2DCubismCore.Memory = w.Live2DCubismCore.Memory || {
+          initializeAmountOfMemory: function(size: number) {
+            console.log('Mocked Live2DCubismCore.Memory.initializeAmountOfMemory called with size:', size);
+          }
+        };
+
+        // Patch clipping context list to prevent crashing on WebGL contexts
+        const Cubism4InternalModel = w.PIXI.live2d?.Cubism4InternalModel;
+        if (Cubism4InternalModel) {
+          const originalUpdateWebGLContext = Cubism4InternalModel.prototype.updateWebGLContext;
+          Cubism4InternalModel.prototype.updateWebGLContext = function (gl: any, glContextID: any) {
+            if (this.renderer && !this.renderer._clippingManager) {
+              this.renderer._clippingManager = new Proxy({}, {
+                get(target: any, prop: any) {
+                  if (prop === '_currentFrameNo' || prop === '_maskTexture') {
+                    return target[prop];
+                  }
+                  return function() {
+                    if (prop === 'getRenderTextureCount' || prop === 'getClippingMaskBufferSize') {
+                      return 0;
+                    }
+                    if (prop === 'getClippingContextListForDraw') {
+                      return [];
+                    }
+                    return undefined;
+                  };
+                },
+                set(target: any, prop: any, value: any) {
+                  target[prop] = value;
+                  return true;
+                }
+              });
+            }
+            originalUpdateWebGLContext.call(this, gl, glContextID);
+          };
+        }
+
+        if (w.PIXI.live2d?.Live2DModel) {
+          w.PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker);
+        }
+
+        // Destroy any existing application to be safe
+        if (appRef.current) {
+          try {
+            appRef.current.destroy(true, { children: true });
+          } catch {}
+          appRef.current = null;
+        }
+
+        const app = new PIXI.Application({
+          autoStart: true,
+          backgroundAlpha: 0,
+          resizeTo: host,
+          antialias: true,
+        });
+
+        if (!active) {
+          app.destroy(true, { children: true });
+          return;
+        }
+
+        // Pixi owns this canvas; mount it into our React host once.
+        const view = app.view as HTMLCanvasElement;
+        viewRef.current = view;
+        host.replaceChildren(view);
+
+        appRef.current = app;
+
+        const char = CHARACTERS[charIdxRef.current];
+        setBgTheme(char.bgTheme);
+        await loadModel(char.modelPath, char);
+        loadedCharIdxRef.current = charIdxRef.current;
+      } catch (error) {
+        console.error("Landing demo init failed", error);
+        if (active) {
+          setPhase("error");
+        }
+      }
+    };
+
     init();
+
     return () => {
-      if (timer.current) clearTimeout(timer.current);
-      cancelAnimationFrame(mouthRaf.current);
+      active = false;
+      if (subtitleTimeoutRef.current) clearTimeout(subtitleTimeoutRef.current);
+      stopCurrentVoice();
       modelRef.current?.destroy();
       modelRef.current = null;
-      appRef.current?.destroy(false, { children: true });
-      appRef.current = null;
+      if (appRef.current) {
+        try {
+          appRef.current.destroy(true, { children: true });
+        } catch (e) {
+          console.warn("Error destroying Pixi app in landing demo:", e);
+        }
+        appRef.current = null;
+      }
     };
-  }, [init]);
+  }, [layoutMode, loadModel, setBgTheme, stopCurrentVoice]);
 
-  // Hot-swap when the user switches character (initial one loaded by init()).
-  const firstChar = useRef(true);
+  // Hot-swap character when selection changes
   useEffect(() => {
-    if (firstChar.current) {
-      firstChar.current = false;
-      return;
-    }
-    setLineIdx(0);
-    loadModel(CHARACTERS[charIdx].url);
-  }, [charIdx, loadModel]);
+    if (layoutMode !== "sidebar") return;
+    if (loadedCharIdxRef.current === charIdx) return;
+    
+    const char = CHARACTERS[charIdx];
+    setBgTheme(char.bgTheme);
+    loadModel(char.modelPath, char);
+    loadedCharIdxRef.current = charIdx;
+  }, [charIdx, loadModel, setBgTheme, layoutMode]);
 
-  // Auto-play: cycle the character's lines as head bubbles, animate the mouth,
-  // and play a motion for each line. No audio — text only.
+  // Handle transformations
   useEffect(() => {
-    if (phase !== "ready") return;
-    modelRef.current?.motion?.("", lineIdx % 4);
-    speakingRef.current = true;
-    timer.current = setTimeout(() => {
-      speakingRef.current = false;
-      if (autoPlay) setLineIdx((i) => i + 1);
-    }, LINE_MS);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [phase, lineIdx, charIdx, autoPlay]);
-
-  // Mirror toggles used inside the RAF loop / event handlers.
-  useEffect(() => {
-    gazeRef.current = gaze;
-  }, [gaze]);
-  useEffect(() => {
-    lipSyncRef.current = lipSync;
-  }, [lipSync]);
-
-  // Transform: scale / horizontal flip / vertical offset.
-  useEffect(() => {
+    if (layoutMode !== "sidebar") return;
     const model = modelRef.current;
     const app = appRef.current;
     if (phase !== "ready" || !model || !app) return;
-    const base = baseScaleRef.current * scaleMul;
-    model.scale.set(flip ? -base : base, base);
-    model.position.set(app.renderer.width / 2, app.renderer.height / 2 + posOff);
-  }, [phase, scaleMul, flip, posOff]);
+    
+    const charData = CHARACTERS[charIdx];
+    let scale = charData.scale * scaleMul;
+    if (window.innerWidth < 768) {
+      scale = scale * 0.75;
+    }
+    model.scale.set(flip ? -scale : scale);
+    model.position.set(app.renderer.width / 2 + charData.offsetX, app.renderer.height / 2 + charData.offsetY + posOff);
+  }, [phase, scaleMul, flip, posOff, charIdx, layoutMode]);
 
-  // Auto-blink / physics toggles (restore or detach the runtime handlers).
+  // Live2D Settings Toggles
   useEffect(() => {
+    if (layoutMode !== "sidebar") return;
     if (phase !== "ready") return;
     const im = modelRef.current?.internalModel;
     // eslint-disable-next-line react-hooks/immutability
     if (im) im.eyeBlink = blink ? eyeBlinkRef.current : undefined;
-  }, [phase, blink, charIdx]);
+  }, [phase, blink, layoutMode]);
+
   useEffect(() => {
+    if (layoutMode !== "sidebar") return;
     if (phase !== "ready") return;
     const im = modelRef.current?.internalModel;
     // eslint-disable-next-line react-hooks/immutability
     if (im) im.physics = physics ? physicsRef.current : undefined;
-  }, [phase, physics, charIdx]);
+  }, [phase, physics, layoutMode]);
 
-  // Pointer: gaze follows the cursor; tap plays a motion + speaks a line.
-  const onPointerMove = useCallback((e: ReactPointerEvent) => {
+  useEffect(() => {
+    if (layoutMode !== "sidebar") return;
+    if (modelRef.current) {
+      (modelRef.current as any).trackPointer = gaze;
+    }
+  }, [gaze, layoutMode]);
+
+  // Gaze cursor tracking on canvas pointermove
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
     const model = modelRef.current;
-    const canvas = canvasRef.current;
-    if (!model?.focus || !canvas || !gazeRef.current) return;
+    const canvas = stageHostRef.current;
+    if (!model?.focus || !canvas || !gaze) return;
     const rect = canvas.getBoundingClientRect();
     model.focus(e.clientX - rect.left, e.clientY - rect.top);
-  }, []);
-  const tapIdx = useRef(0);
-  const onPointerDown = useCallback(() => {
-    const model = modelRef.current;
-    if (!model?.motion) return;
-    model.motion("", tapIdx.current % 4);
-    tapIdx.current += 1;
-    // advance to the next line bubble on touch
-    setLineIdx((i) => i + 1);
-  }, []);
+  }, [gaze]);
 
-  const panels: ControlPanel[] = [
-    {
-      key: "act",
-      title: "动作 / 表情 / 换肤",
-      icon: "act",
-      sections: [
-        {
-          title: "动作 / 表情",
-          items: Array.from({ length: 6 }, (_, i) => ({
-            label: `动作 ${i + 1}`,
-            onSelect: () => modelRef.current?.motion?.("", i),
-          })),
-        },
-        {
-          title: "换肤 / 角色",
-          items: CHARACTERS.map((c, i) => ({
-            label: `${c.name} · ${c.type}`,
-            active: charIdx === i,
-            onSelect: () => setCharIdx(i),
-          })),
-        },
-      ],
-    },
-    {
-      key: "voice",
-      title: "声音",
-      icon: "voice",
-      sections: [
-        {
-          title: "台词（无声 · 头顶气泡）",
-          items: character.lines.map((l, i) => ({
-            label: `${l.tag} · ${l.text}`,
-            active: lineIdx % character.lines.length === i,
-            onSelect: () => setLineIdx(i),
-          })),
-        },
-      ],
-    },
-    {
-      key: "settings",
-      title: "模型设置",
-      icon: "settings",
-      sections: [
-        {
-          title: "缩放",
-          items: [
-            { label: "放大", active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
-            { label: "标准", active: scaleMul === 1, onSelect: () => setScaleMul(1) },
-            { label: "缩小", active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
-          ],
-        },
-        {
-          title: "位置",
-          items: [
-            { label: "上移", active: posOff < 0, onSelect: () => setPosOff(-40) },
-            { label: "居中", active: posOff === 0, onSelect: () => setPosOff(0) },
-            { label: "下移", active: posOff > 0, onSelect: () => setPosOff(40) },
-            { label: "镜像翻转", active: flip, onSelect: () => setFlip((v) => !v) },
-          ],
-        },
-        {
-          title: "动态参数",
-          items: [
-            { label: `视线跟随 · ${gaze ? "开" : "关"}`, active: gaze, onSelect: () => setGaze((v) => !v) },
-            { label: `自动眨眼 · ${blink ? "开" : "关"}`, active: blink, onSelect: () => setBlink((v) => !v) },
-            { label: `物理摆动 · ${physics ? "开" : "关"}`, active: physics, onSelect: () => setPhysics((v) => !v) },
-            { label: `自动待机 · ${autoPlay ? "开" : "关"}`, active: autoPlay, onSelect: () => setAutoPlay((v) => !v) },
-            { label: `口型同步 · ${lipSync ? "开" : "关"}`, active: lipSync, onSelect: () => setLipSync((v) => !v) },
-          ],
-        },
-        {
-          title: "背景",
-          items: BACKGROUNDS.map((bg, i) => ({
-            label: bg.label,
-            active: bgIdx === i,
-            onSelect: () => setBgIdx(i),
-          })),
-        },
-        {
-          title: "操作",
-          items: [
-            { label: "随机动作", onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 6)) },
-            {
-              label: "重置全部",
-              onSelect: () => {
-                setScaleMul(1);
-                setPosOff(0);
-                setFlip(false);
-                setGaze(true);
-                setBlink(true);
-                setPhysics(true);
-                setAutoPlay(true);
-                setLipSync(true);
-              },
-            },
-          ],
-        },
-      ],
-    },
+  // Drag widget event handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (layoutMode !== "widget") {
+      // On the stage: tap/click the model to trigger a touch reaction.
+      handleStageTap(e.clientX, e.clientY);
+      return;
+    }
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    
+    const stageEl = stageRef.current;
+    if (stageEl) {
+      const rect = stageEl.getBoundingClientRect();
+      widgetOffsetRef.current = { x: rect.left, y: rect.top };
+      stageEl.style.right = 'auto';
+      stageEl.style.bottom = 'auto';
+      stageEl.style.left = `${rect.left}px`;
+      stageEl.style.top = `${rect.top}px`;
+      stageEl.style.margin = '0';
+    }
+  };
+
+  // Draggable widget updates
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      const stageEl = stageRef.current;
+      if (stageEl) {
+        const dx = e.clientX - dragStartRef.current.x;
+        const dy = e.clientY - dragStartRef.current.y;
+        const newLeft = widgetOffsetRef.current.x + dx;
+        const newTop = widgetOffsetRef.current.y + dy;
+        stageEl.style.left = `${newLeft}px`;
+        stageEl.style.top = `${newTop}px`;
+
+        const ringEl = document.getElementById("ring-menu");
+        if (ringEl) {
+          const rect = stageEl.getBoundingClientRect();
+          ringEl.style.left = `${rect.left + rect.width / 2 - 120}px`;
+          ringEl.style.top = `${rect.top + rect.height - 66}px`;
+        }
+      }
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    if (layoutMode === 'widget') {
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+    }
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [layoutMode]);
+
+  // Position ring menu on layout or character changes
+  useEffect(() => {
+    if (layoutMode !== 'widget') return;
+    
+    const positionRingMenu = () => {
+      const stageEl = stageRef.current;
+      const ringEl = document.getElementById("ring-menu");
+      if (stageEl && ringEl) {
+        const rect = stageEl.getBoundingClientRect();
+        ringEl.style.left = `${rect.left + rect.width / 2 - 120}px`;
+        ringEl.style.top = `${rect.top + rect.height - 66}px`;
+      }
+    };
+
+    const timeout = setTimeout(positionRingMenu, 100);
+    return () => clearTimeout(timeout);
+  }, [layoutMode, charIdx]);
+
+  // Handle window resizing
+  useEffect(() => {
+    const handleResize = () => {
+      const model = modelRef.current;
+      const app = appRef.current;
+      if (app) {
+        (app as any).resize();
+      }
+      if (model && app) {
+        const charData = CHARACTERS[charIdx];
+        let scale = charData.scale * scaleMul;
+        if (window.innerWidth < 768) {
+          scale = scale * 0.75;
+        }
+        model.scale.set(flip ? -scale : scale);
+        if (layoutMode === "widget") {
+          model.position.set(app.renderer.width / 2, app.renderer.height / 2 + (charData.offsetY * 0.4) + posOff);
+        } else {
+          model.position.set(app.renderer.width / 2 + charData.offsetX, app.renderer.height / 2 + charData.offsetY + posOff);
+        }
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [charIdx, scaleMul, flip, layoutMode, posOff]);
+
+
+  // Subtitle positioning relative to model bounds
+  useEffect(() => {
+    if (!subtitle || !modelRef.current || layoutMode === 'widget') {
+      setSubtitlePos({ left: '50%', top: '10%' });
+      return;
+    }
+    try {
+      const bounds = (modelRef.current as any).getBounds();
+      setSubtitlePos({
+        left: `${bounds.x + bounds.width / 2}px`,
+        top: `${bounds.y - 120}px`
+      });
+    } catch {
+      setSubtitlePos({ left: '50%', top: '10%' });
+    }
+  }, [subtitle, layoutMode]);
+
+  // Handle BGM play state
+  useEffect(() => {
+    const player = bgmPlayerRef.current;
+    if (!player) return;
+    if (bgmPlaying) {
+      player.play().catch((err) => console.warn("BGM play blocked:", err));
+    } else {
+      player.pause();
+    }
+  }, [bgmPlaying]);
+
+  const translateMotionName = (name: string) => {
+    const dict: Record<string, string> = {
+      "idle": "空闲等待",
+      "idle1": "随性站姿",
+      "home": "主界面动作",
+      "login": "登录迎接",
+      "mail": "收到邮件",
+      "mission": "查看任务",
+      "mission_complete": "任务完成",
+      "complete": "互动完成",
+      "wedding": "誓约珍藏",
+      "touch_head": "摸头反馈",
+      "touch_body": "身体触碰",
+      "touch_special": "特别触碰",
+      "touch_idle": "触碰待机",
+      "main_1": "对话主线 1",
+      "main_2": "对话主线 2",
+      "main_3": "对话主线 3",
+      "effect": "特效触发"
+    };
+    return dict[name] || name;
+  };
+
+  const bgThemeObj = BACKGROUNDS.find((b) => b.key === bgTheme) || BACKGROUNDS[0];
+
+  if (layoutMode === "widget") {
+    return (
+      <div className={styles.placeholderCard}>
+        <div className={styles.placeholderIcon} aria-hidden>🧸</div>
+        <h3 className={styles.placeholderTitle}>{t("demo.widgetTitle")}</h3>
+        <p className={styles.placeholderText}>{t("demo.widgetText")}</p>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            setLayoutMode("sidebar");
+            resetDragStyles();
+          }}
+        >
+          {t("demo.toStage")}
+        </Button>
+      </div>
+    );
+  }
+
+  const CATS: { key: TabType; label: string; icon: IconName }[] = [
+    { key: "motions", label: t("demo.tabMotions"), icon: "motions" },
+    { key: "expressions", label: t("demo.tabExpressions"), icon: "expressions" },
+    { key: "audio", label: t("demo.tabAudio"), icon: "audio" },
+    { key: "skins", label: t("demo.tabSkins"), icon: "shirt" },
+    { key: "scenes", label: t("demo.tabScenes"), icon: "scenes" },
   ];
+
+  const tab: TabType = activeTab;
+
+  const onTabClick = (key: TabType) => {
+    if (sidebarOpen && tab === key) {
+      setSidebarOpen(false);
+    } else {
+      setActiveTab(key);
+      setSidebarOpen(true);
+    }
+  };
 
   return (
     <div className={styles.root}>
-      <div className={styles.stage} onPointerMove={onPointerMove} onPointerDown={onPointerDown}>
-        <div className={styles.bg} style={{ background: BACKGROUNDS[bgIdx].css }} aria-hidden />
-        <canvas ref={canvasRef} className={styles.canvas} />
+      <div 
+        ref={stageRef}
+        className={styles.stage} 
+        onPointerMove={onPointerMove} 
+        onPointerDown={handlePointerDown}
+      >
+        <div
+          className={styles.bg}
+          style={{ background: bgThemeObj.css }}
+          aria-hidden
+        />
+        <div ref={stageHostRef} className={styles.canvas} />
 
-        {phase === "loading" ? <div className={styles.hint}>模型加载中…</div> : null}
-        {phase === "error" ? <div className={styles.hint}>演示模型加载失败</div> : null}
+        {phase === "loading" ? <div className={styles.hint}>{t("modelLoading")}</div> : null}
+        {phase === "error" ? <div className={styles.hint}>{t("modelLoadFailed")}</div> : null}
 
         {phase === "ready" ? (
           <>
-            <div className={styles.nameMenu}>
-              <button
-                type="button"
-                className={styles.nameCard}
-                onClick={() => setCharMenuOpen((o) => !o)}
-                aria-expanded={charMenuOpen}
-                aria-label="切换角色"
+            {/* Bilingual Subtitle Speech Bubble */}
+            {subtitle && (
+              <div 
+                className={styles.speechBubble} 
+                style={{
+                  left: subtitlePos.left,
+                  top: subtitlePos.top,
+                }}
               >
-                <span className={styles.nameType}>{character.type}</span>
-                <span className={styles.name}>{character.name}</span>
-                <span className={styles.caret} aria-hidden>
-                  ▾
-                </span>
-              </button>
-              {charMenuOpen ? (
-                <div className={styles.nameDropdown} role="menu">
-                  {CHARACTERS.map((c, i) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      role="menuitem"
-                      className={`${styles.nameItem} ${charIdx === i ? styles.nameItemActive : ""}`}
-                      onClick={() => {
-                        setCharIdx(i);
-                        setCharMenuOpen(false);
-                      }}
-                    >
-                      <span className={styles.nameItemType}>{c.type}</span>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+                <div className={styles.bubbleArrow} />
+                <div className={styles.speechTextJp}>⚓ {subtitle.title}</div>
+                <div className={styles.speechTextZh}>{subtitle.text}</div>
+              </div>
+            )}
 
-            <div className={styles.bubble} key={`${charIdx}-${lineIdx}`}>
-              {line.text}
-              <span className={styles.bubbleTail} aria-hidden />
-            </div>
-
-            <span className={styles.tagChip}># {line.tag}</span>
-            <span className={styles.demoTag}>演示 · 非真实 AI · 触摸互动</span>
-
-            <Live2DControls panels={panels} />
+            {/* Disclaimer marker (bottom-right) */}
+            <span className={styles.demoTag}>{t("demoTag")}</span>
           </>
         ) : null}
       </div>
+
+      {/* Hover-revealed control overlay — buttons appear when the card is hovered
+          (always visible on touch devices via @media (hover: none)). */}
+      <div className={styles.controls}>
+        {/* Top-left: character switch (dropdown list) */}
+        <div 
+          className={cx(styles.dropdownContainer, styles.cornerTL)}
+          onMouseEnter={() => {
+            if (charMenuTimeoutRef.current) {
+              clearTimeout(charMenuTimeoutRef.current);
+              charMenuTimeoutRef.current = null;
+            }
+            setCharMenuOpen(true);
+          }}
+          onMouseLeave={() => {
+            charMenuTimeoutRef.current = setTimeout(() => {
+              setCharMenuOpen(false);
+            }, 300);
+          }}
+        >
+          <button
+            type="button"
+            className={styles.dropdownBtn}
+            title={t("switchCharacter")}
+            aria-label={t("switchCharacter")}
+            onClick={() => setCharMenuOpen(true)}
+            aria-expanded={charMenuOpen}
+          >
+            <Icon name="character" size={16} />
+            <span className={styles.charLabel}>{CHARACTERS[charIdx].nameCn}</span>
+            <span className={styles.caret}>▾</span>
+          </button>
+          {charMenuOpen && (
+            <div className={styles.dropdownMenu}>
+              {CHARACTERS.map((char, idx) => (
+                <button
+                  key={char.key}
+                  type="button"
+                  className={cx(styles.dropdownItem, charIdx === idx && styles.dropdownItemActive)}
+                  onClick={() => {
+                    setCharIdx(idx);
+                    setCharMenuOpen(false);
+                  }}
+                >
+                  {char.nameCn}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top-right: desktop-pet toggle */}
+        <button
+          type="button"
+          className={cx(styles.cornerBtn, styles.cornerTR)}
+          title={t("demo.toWidget")}
+          aria-label={t("demo.toWidget")}
+          onClick={() => {
+            if (stageHostRef.current) {
+              const rect = stageHostRef.current.getBoundingClientRect();
+              setWidgetPos({ x: rect.left, y: rect.top });
+            }
+            setLayoutMode("widget");
+          }}
+        >
+          <Icon name="pet" />
+        </button>
+
+        {/* Bottom dock and panel wrapper */}
+        <div 
+          className={styles.dockWrapper}
+          onMouseEnter={() => {
+            if (sidebarTimeoutRef.current) {
+              clearTimeout(sidebarTimeoutRef.current);
+              sidebarTimeoutRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            sidebarTimeoutRef.current = setTimeout(() => {
+              setSidebarOpen(false);
+            }, 300);
+          }}
+        >
+          {/* Popover control panel — floats above the dock so the model stays the star. */}
+          {sidebarOpen && (
+            <div 
+              className={styles.panel} 
+              role="group" 
+              aria-label={t("demo.consoleTitle")}
+            >
+              <div className={styles.panelTop}>
+                <span className={styles.panelTitle}>
+                  {CATS.find((c) => c.key === tab)?.label}
+                </span>
+              </div>
+
+              <div className={styles.panelBody}>
+                {/* Motions */}
+                {tab === "motions" && (
+                  <div className={styles.chipGrid}>
+                    {motionsList.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={styles.chip}
+                        onClick={() => {
+                          triggerMotion(m);
+                          const motionMapping: Record<string, string> = {
+                            login: "login",
+                            home: "home",
+                            touch_head: "headtouch",
+                            touch_body: "touch",
+                            touch_special: "touch2",
+                            main_1: "main1",
+                            main_2: "main2",
+                            main_3: "main3",
+                            mission_complete: "mission_complete",
+                            mission: "mission",
+                          };
+                          const revMapping = Object.fromEntries(
+                            Object.entries(motionMapping).map(([k, v]) => [v, k])
+                          );
+                          const voiceKey = revMapping[m];
+                          if (voiceKey) playVoice(voiceKey);
+                        }}
+                      >
+                        {translateMotionName(m)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Expressions */}
+                {tab === "expressions" && (
+                  <div className={styles.chipGrid}>
+                    {expressionsList.length > 0 ? (
+                      expressionsList.map((exp, idx) => (
+                        <button
+                          key={exp}
+                          type="button"
+                          className={cx(styles.chip, styles.chipMuted)}
+                          onClick={() => triggerExpression(idx)}
+                        >
+                          {exp.replace(".exp3.json", "")}
+                        </button>
+                      ))
+                    ) : (
+                      <span className={styles.emptyHint}>{t("demo.expressionsHeading")}—</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Audio */}
+                {tab === "audio" && (
+                  <div className={styles.stack}>
+                    <div className={styles.sliderRow}>
+                      <span className={styles.sliderLabel}>{t("demo.voiceVolume")}</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={voiceVolume}
+                        onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                        aria-label={t("demo.voiceVolume")}
+                      />
+                    </div>
+                    <div className={styles.audioButtons}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const randomEvents = ["home", "login", "touch", "main1", "main2", "main3"];
+                          const rnd = randomEvents[Math.floor(Math.random() * randomEvents.length)];
+                          triggerVoiceAndMotion(rnd);
+                        }}
+                      >
+                        {t("demo.randomInteract")}
+                      </Button>
+                      <Button
+                        variant={bgmPlaying ? "primary" : "tintPink"}
+                        size="sm"
+                        onClick={() => setBgmPlaying(!bgmPlaying)}
+                      >
+                        {bgmPlaying ? t("demo.bgmPause") : t("demo.bgmPlay")}
+                      </Button>
+                    </div>
+                    <div className={styles.statusRow}>
+                      <span>{t("demo.bgmStatusLabel")}</span>
+                      <span className={cx(styles.statusVal, bgmPlaying && styles.statusOn)}>
+                        {bgmPlaying ? t("demo.bgmOn") : t("demo.bgmOff")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Skins */}
+                {tab === "skins" && (
+                  <div className={styles.chipGrid}>
+                    {CHARACTER_SKINS[CHARACTERS[charIdx].key]?.map((skin) => {
+                      const charKey = CHARACTERS[charIdx].key;
+                      const activeSkinId = selectedSkinIdMap[charKey] || "skin1";
+                      return (
+                        <button
+                          key={skin.id}
+                          type="button"
+                          className={cx(styles.chip, activeSkinId === skin.id && styles.chipActive)}
+                          onClick={() => {
+                            setSelectedSkinIdMap((prev) => ({
+                              ...prev,
+                              [charKey]: skin.id
+                            }));
+                          }}
+                        >
+                          {skin.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Scenes */}
+                {tab === "scenes" && (
+                  <div className={styles.chipGrid}>
+                    {BACKGROUNDS.map((bg) => (
+                      <button
+                        key={bg.key}
+                        type="button"
+                        className={cx(styles.chip, bgTheme === bg.key && styles.chipActive)}
+                        onClick={() => setBgTheme(bg.key)}
+                      >
+                        {t(`demo.${bg.labelKey}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className={styles.dock}>
+            {CATS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={cx(styles.dockTab, sidebarOpen && tab === c.key && styles.dockTabActive)}
+                title={c.label}
+                aria-label={c.label}
+                onClick={() => onTabClick(c.key)}
+                onMouseEnter={() => {
+                  setActiveTab(c.key);
+                  setSidebarOpen(true);
+                }}
+              >
+                <Icon name={c.icon} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Self-hosted ambient BGM */}
+      <audio ref={bgmPlayerRef} loop src="/audio/ambient.ogg" />
     </div>
+  );
+}
+
+// Modern line-icon set (Lucide geometry), shared by the demo stage and the desktop pet.
+export type IconName =
+  | "character"
+  | "pet"
+  | "motions"
+  | "expressions"
+  | "audio"
+  | "scenes"
+  | "chat"
+  | "voice"
+  | "shuffle"
+  | "close"
+  | "settings"
+  | "shirt";
+
+const ICON_PATHS: Record<IconName, ReactNode> = {
+  character: (
+    <>
+      <path d="M12 2 2 7v10l10 5 10-5V7Z" />
+      <circle cx="12" cy="11" r="3" />
+      <path d="M8 17a4 4 0 0 1 8 0" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+    </>
+  ),
+  pet: (
+    <>
+      <path d="M3 10V5l4 4h10l4-4v5l-2 3v4l-4 3H9l-4-3v-4Z" />
+      <rect x="7" y="11" width="3" height="2" rx="0.5" />
+      <rect x="14" y="11" width="3" height="2" rx="0.5" />
+      <path d="M11 15h2l-1 1Z" />
+    </>
+  ),
+  motions: (
+    <>
+      <path d="M4 8V4h4" />
+      <path d="M16 4h4v4" />
+      <path d="M4 16v4h4" />
+      <path d="M16 20h4v-4" />
+      <line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" strokeWidth={2.5} />
+      <line x1="12" y1="7" x2="12" y2="17" />
+      <circle cx="12" cy="5" r="1.5" />
+      <path d="m9 10 3 1 3-1" />
+      <path d="m10 17 2-3 2 3" />
+    </>
+  ),
+  expressions: (
+    <>
+      <path d="M8 3h8l5 5v8l-5 5H8l-5-5V8Z" />
+      <line x1="8" y1="10" x2="10" y2="10" />
+      <line x1="14" y1="10" x2="16" y2="10" />
+      <path d="M9 14h6" />
+      <path d="M9 14v1a3 3 0 0 0 6 0v-1" />
+    </>
+  ),
+  audio: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="5" y2="12" />
+      <line x1="19" y1="12" x2="22" y2="12" />
+    </>
+  ),
+  scenes: (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="4" />
+      <line x1="3" y1="13" x2="21" y2="13" />
+      <line x1="12" y1="13" x2="12" y2="21" />
+      <line x1="12" y1="13" x2="6" y2="21" />
+      <line x1="12" y1="13" x2="18" y2="21" />
+      <circle cx="12" cy="9" r="3" />
+    </>
+  ),
+  chat: (
+    <>
+      <path d="M4 6h16v10h-4l-4 4-4-4H4V6Z" />
+      <circle cx="8" cy="11" r="1" />
+      <circle cx="12" cy="11" r="1" />
+      <circle cx="16" cy="11" r="1" />
+    </>
+  ),
+  voice: (
+    <>
+      <path d="M3 10v4" />
+      <path d="M6 6v12" />
+      <path d="M9 11v2" />
+      <path d="M12 3v18" />
+      <path d="M15 8v8" />
+      <path d="M18 5v14" />
+      <path d="M21 9v6" />
+      <path d="M12 3h2" />
+      <path d="M12 21h-2" />
+    </>
+  ),
+  shuffle: (
+    <>
+      <path d="M18 8h4v-4" />
+      <path d="M22 8 15 15" />
+      <path d="M6 16H2v4" />
+      <path d="M2 16 9 9" />
+      <circle cx="4" cy="6" r="2" />
+      <circle cx="20" cy="18" r="2" />
+      <path d="M6 6h6l8 8" />
+    </>
+  ),
+  close: (
+    <>
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+      <path d="M4 8V4h4" />
+      <path d="M16 4h4v4" />
+      <path d="M4 16v4h4" />
+      <path d="M16 20h4v-4" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="9" strokeDasharray="4 2" />
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="5" y2="12" />
+      <line x1="19" y1="12" x2="22" y2="12" />
+      <circle cx="6" cy="6" r="1" />
+      <circle cx="18" cy="18" r="1" />
+    </>
+  ),
+  shirt: (
+    <>
+      <path d="M12 2 6 5v4l3 3v6l3 2 3-2v-6l3-3V5Z" />
+      <circle cx="12" cy="9" r="1.5" />
+      <path d="M9 5h6" />
+      <line x1="6" y1="9" x2="18" y2="9" />
+    </>
+  ),
+};
+
+export function Icon({ name, size = 19 }: { name: IconName; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {ICON_PATHS[name]}
+    </svg>
   );
 }

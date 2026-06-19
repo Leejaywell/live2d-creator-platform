@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { Live2DControls, type ControlPanel } from "@/components/live2d-controls";
 import { Button } from "@/components/ui";
+import { STAGE_BACKGROUNDS } from "@/lib/stage-backgrounds";
 
 import styles from "./live2d-viewer.module.css";
 
@@ -15,14 +17,16 @@ type Props = {
   activeTags: string[];
   activeEffects: Live2DEffect[];
   isSpeaking: boolean;
-  voices?: Array<{ name: string }>;
+  voices?: Array<{ name: string; audioUrl?: string }>;
+  backgroundUrl?: string | null;
 };
 
-// CDN runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4 bundle).
+// Self-hosted runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4
+// bundle). Vendored under /public so model rendering never depends on a CDN.
 const SCRIPTS = [
-  "https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js",
-  "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js",
-  "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
+  "/vendor/pixi-7.4.2.min.js",
+  "/live2dcubismcore.min.js",
+  "/vendor/pixi-live2d-cubism4-0.4.0.min.js",
 ];
 
 type CoreModel = { setParameterValueById(id: string, value: number): void };
@@ -87,7 +91,15 @@ function loadScript(src: string) {
   return promise;
 }
 
-export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSpeaking, voices = [] }: Props) {
+export function Live2DViewer({
+  projectSlug,
+  viewerSessionId,
+  activeEffects,
+  isSpeaking,
+  voices = [],
+  backgroundUrl,
+}: Props) {
+  const t = useTranslations("audience");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<Live2DModelInstance | null>(null);
@@ -110,6 +122,24 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   const [physics, setPhysics] = useState(true);
   const [idle, setIdle] = useState(true);
   const [lipSync, setLipSync] = useState(true);
+  const [bgIdx, setBgIdx] = useState(0);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Background options: the creator's uploaded background (if any) first, then
+  // the shared stage presets — same set as the landing showcase.
+  const bgOptions = [
+    ...(backgroundUrl ? [{ kind: "image" as const, url: backgroundUrl }] : []),
+    ...STAGE_BACKGROUNDS.map((b) => ({ kind: "preset" as const, css: b.css, labelKey: b.labelKey })),
+  ];
+  const currentBg = bgOptions[bgIdx] ?? bgOptions[0];
+
+  const playVoice = (url?: string) => {
+    if (!url) return;
+    voiceAudioRef.current?.pause();
+    const audio = new Audio(url);
+    voiceAudioRef.current = audio;
+    void audio.play().catch(() => {});
+  };
 
   const init = useCallback(async () => {
     try {
@@ -151,13 +181,13 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
       const mm = im?.motionManager;
       const defs = mm?.definitions ?? mm?.motionGroups;
       setMotionGroups(defs ? Object.keys(defs) : []);
-      setExpressions((im?.settings?.expressions ?? []).map((e, i) => e.Name ?? e.name ?? `表情 ${i + 1}`));
+      setExpressions((im?.settings?.expressions ?? []).map((e, i) => e.Name ?? e.name ?? t("expressionN", { n: i + 1 })));
       setPhase("ready");
     } catch (error) {
       console.error("Live2D init failed", error);
       setPhase("error");
     }
-  }, [projectSlug, viewerSessionId]);
+  }, [projectSlug, viewerSessionId, t]);
 
   useEffect(() => {
     // init() only setStates after awaiting CDN + model load (no sync cascade).
@@ -252,71 +282,85 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
   const panels: ControlPanel[] = [
     {
       key: "act",
-      title: "动作 / 表情",
+      title: t("panelActTitle"),
       icon: "act",
       sections: [
         {
-          title: "动作",
+          title: t("sectionMotion"),
           items: motionNames.map((g, i) => ({
-            label: g || `动作 ${i + 1}`,
+            label: g || t("motionN", { n: i + 1 }),
             onSelect: () => modelRef.current?.motion?.(g, g ? undefined : i),
           })),
         },
         {
-          title: "表情",
+          title: t("sectionExpression"),
           items: expressions.map((name) => ({ label: name, onSelect: () => modelRef.current?.expression?.(name) })),
         },
       ],
     },
     {
       key: "voice",
-      title: "声音",
+      title: t("panelVoiceTitle"),
       icon: "voice",
       sections: [
         {
-          title: "预置语音",
-          items: voices.map((v) => ({ label: v.name, onSelect: () => modelRef.current?.motion?.("", 0) })),
+          title: t("sectionPresetVoice"),
+          items: voices.map((v) => ({
+            label: v.name,
+            onSelect: () => {
+              if (v.audioUrl) playVoice(v.audioUrl);
+              else modelRef.current?.motion?.("", 0);
+            },
+          })),
         },
       ],
     },
     {
       key: "settings",
-      title: "模型设置",
+      title: t("panelSettingsTitle"),
       icon: "settings",
       sections: [
         {
-          title: "缩放",
+          title: t("sectionScale"),
           items: [
-            { label: "放大", active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
-            { label: "标准", active: scaleMul === 1, onSelect: () => setScaleMul(1) },
-            { label: "缩小", active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
+            { label: t("scaleUp"), active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
+            { label: t("scaleNormal"), active: scaleMul === 1, onSelect: () => setScaleMul(1) },
+            { label: t("scaleDown"), active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
           ],
         },
         {
-          title: "位置",
+          title: t("sectionPosition"),
           items: [
-            { label: "上移", active: posOff < 0, onSelect: () => setPosOff(-40) },
-            { label: "居中", active: posOff === 0, onSelect: () => setPosOff(0) },
-            { label: "下移", active: posOff > 0, onSelect: () => setPosOff(40) },
-            { label: "镜像翻转", active: flip, onSelect: () => setFlip((v) => !v) },
+            { label: t("moveUp"), active: posOff < 0, onSelect: () => setPosOff(-40) },
+            { label: t("center"), active: posOff === 0, onSelect: () => setPosOff(0) },
+            { label: t("moveDown"), active: posOff > 0, onSelect: () => setPosOff(40) },
+            { label: t("mirror"), active: flip, onSelect: () => setFlip((v) => !v) },
           ],
         },
         {
-          title: "动态参数",
+          title: t("sectionDynamic"),
           items: [
-            { label: `视线跟随 · ${gaze ? "开" : "关"}`, active: gaze, onSelect: () => setGaze((v) => !v) },
-            { label: `自动眨眼 · ${blink ? "开" : "关"}`, active: blink, onSelect: () => setBlink((v) => !v) },
-            { label: `物理摆动 · ${physics ? "开" : "关"}`, active: physics, onSelect: () => setPhysics((v) => !v) },
-            { label: `自动待机 · ${idle ? "开" : "关"}`, active: idle, onSelect: () => setIdle((v) => !v) },
-            { label: `口型同步 · ${lipSync ? "开" : "关"}`, active: lipSync, onSelect: () => setLipSync((v) => !v) },
+            { label: `${t("gaze")} · ${gaze ? t("on") : t("off")}`, active: gaze, onSelect: () => setGaze((v) => !v) },
+            { label: `${t("blink")} · ${blink ? t("on") : t("off")}`, active: blink, onSelect: () => setBlink((v) => !v) },
+            { label: `${t("physics")} · ${physics ? t("on") : t("off")}`, active: physics, onSelect: () => setPhysics((v) => !v) },
+            { label: `${t("idle")} · ${idle ? t("on") : t("off")}`, active: idle, onSelect: () => setIdle((v) => !v) },
+            { label: `${t("lipSync")} · ${lipSync ? t("on") : t("off")}`, active: lipSync, onSelect: () => setLipSync((v) => !v) },
           ],
         },
         {
-          title: "操作",
+          title: t("sectionBackground"),
+          items: bgOptions.map((b, i) => ({
+            label: b.kind === "image" ? t("creatorBackground") : t(b.labelKey),
+            active: bgIdx === i,
+            onSelect: () => setBgIdx(i),
+          })),
+        },
+        {
+          title: t("sectionOps"),
           items: [
-            { label: "随机动作", onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
+            { label: t("randomMotion"), onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
             {
-              label: "重置全部",
+              label: t("resetAll"),
               onSelect: () => {
                 setScaleMul(1);
                 setPosOff(0);
@@ -324,6 +368,9 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
                 setGaze(true);
                 setBlink(true);
                 setPhysics(true);
+                setIdle(true);
+                setLipSync(true);
+                setBgIdx(0);
               },
             },
           ],
@@ -334,12 +381,21 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
 
   return (
     <div className={styles.root} onPointerMove={onPointerMove} onPointerDown={onPointerDown}>
+      <div
+        className={styles.bg}
+        aria-hidden
+        style={
+          currentBg?.kind === "image"
+            ? { backgroundImage: `url(${currentBg.url})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : { background: currentBg?.css }
+        }
+      />
       <canvas ref={canvasRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
       {phase === "ready" ? <Live2DControls panels={panels} /> : null}
       {phase === "loading" ? (
         <div className={styles.status}>
           <div className={styles.spinner} aria-hidden />
-          <span className={styles.statusText}>舞台加载中…</span>
+          <span className={styles.statusText}>{t("stageLoading")}</span>
         </div>
       ) : null}
       {phase === "error" ? (
@@ -347,9 +403,9 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
           <div className={styles.slot}>
             LIVE2D
             <br />
-            加载失败
+            {t("loadFailed")}
           </div>
-          <span className={styles.statusText}>模型资源无法加载，请检查网络</span>
+          <span className={styles.statusText}>{t("loadFailedDetail")}</span>
           <Button
             type="button"
             variant="ghost"
@@ -360,7 +416,7 @@ export function Live2DViewer({ projectSlug, viewerSessionId, activeEffects, isSp
               setAttempt((n) => n + 1);
             }}
           >
-            重试
+            {t("retry")}
           </Button>
         </div>
       ) : null}

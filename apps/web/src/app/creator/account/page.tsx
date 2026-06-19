@@ -1,5 +1,8 @@
+import { getTranslations } from "next-intl/server";
+
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button, Pill } from "@/components/ui";
 
 import { CreatorAuthRequired, CreatorShell, creatorStyles as styles } from "../_components";
@@ -25,9 +28,11 @@ function IdentityRow({ label, value, last }: { label: string; value: string; las
 }
 
 export default async function CreatorAccountPage() {
+  const t = await getTranslations("fans");
+  const tc = await getTranslations("common");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="账户设置" />;
+    return <CreatorAuthRequired title={t("accountTitle")} />;
   }
 
   const username = session.user.username ?? "creator";
@@ -36,31 +41,27 @@ export default async function CreatorAccountPage() {
     <CreatorShell active="account" user={session.user}>
       <div className={styles.pageHead}>
         <div>
-          <h1>账户设置</h1>
-          <p className={styles.pageHeadSub}>管理你的账号资料与登录安全</p>
+          <h1>{t("accountTitle")}</h1>
+          <p className={styles.pageHeadSub}>{t("accountSubtitle")}</p>
         </div>
       </div>
 
       <div className={styles.accountGrid}>
         <section className={styles.panel}>
           <div className={styles.panelHead}>
-            <h2>个人资料</h2>
+            <h2>{t("accountProfile")}</h2>
           </div>
           <div className={styles.avatarRow}>
             <div className={styles.avatarBig} aria-hidden />
-            <Button variant="ghost" size="sm" disabled title="即将支持">
-              更换头像
+            <Button variant="ghost" size="sm" disabled title={t("accountComingSoon")}>
+              {t("accountChangeAvatar")}
             </Button>
           </div>
           <div className={styles.formCard}>
             <form>
               <label>
-                登录名
+                {t("accountUsername")}
                 <input value={username} readOnly />
-              </label>
-              <label>
-                角色
-                <input value={session.user.role} readOnly />
               </label>
             </form>
           </div>
@@ -69,16 +70,16 @@ export default async function CreatorAccountPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           <section className={styles.panel}>
             <div className={styles.panelHead}>
-              <h2>修改密码</h2>
+              <h2>{t("accountChangePassword")}</h2>
             </div>
             <div className={styles.formCard}>
-              <ApiForm action="/api/account/password" submitLabel="更新密码">
+              <ApiForm action="/api/account/password" submitLabel={t("accountUpdatePassword")}>
                 <label>
-                  当前密码
+                  {t("accountCurrentPassword")}
                   <input name="currentPassword" type="password" autoComplete="current-password" required />
                 </label>
                 <label>
-                  新密码
+                  {t("accountNewPassword")}
                   <input name="newPassword" type="password" autoComplete="new-password" minLength={8} required />
                 </label>
               </ApiForm>
@@ -87,12 +88,22 @@ export default async function CreatorAccountPage() {
 
           <section className={styles.panel}>
             <div className={styles.panelHead}>
-              <h2>身份信息</h2>
-              <Pill tone="neutral">未认证</Pill>
+              <h2>{tc("language")}</h2>
             </div>
-            <IdentityRow label="账号状态" value={session.user.status === "active" ? "正常" : session.user.status} />
-            <IdentityRow label="主体类型" value="个人创作者" />
-            <IdentityRow label="实名认证" value="MVP 阶段由管理员维护" last />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("accountLanguageHint")}</span>
+              <LocaleSwitcher />
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <h2>{t("accountIdentity")}</h2>
+              <Pill tone="neutral">{t("accountUnverified")}</Pill>
+            </div>
+            <IdentityRow label={t("accountStatusLabel")} value={session.user.status === "active" ? t("accountStatusActive") : session.user.status} />
+            <IdentityRow label={t("accountEntityType")} value={t("accountEntityIndividual")} />
+            <IdentityRow label={t("accountRealName")} value={t("accountRealNameValue")} last />
           </section>
         </div>
       </div>

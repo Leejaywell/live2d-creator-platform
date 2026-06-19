@@ -522,13 +522,22 @@
 .tableWrap {
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
-  overflow: hidden;
+  /* overflow stays visible so row-action popovers (status/delete disclosures)
+     can extend past the last row instead of being clipped. Corners are rounded
+     per-edge below to keep the head/last-row backgrounds inside the border. */
 }
 .tableWrap .tableRow {
   padding: 16px 20px;
 }
 .tableWrap .tableHead {
   background: rgba(255, 255, 255, 0.03);
+  border-top-left-radius: var(--r-lg);
+  border-top-right-radius: var(--r-lg);
+}
+.tableWrap .tableRow:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: var(--r-lg);
+  border-bottom-right-radius: var(--r-lg);
 }
 .tableWrap .tableRow:not(.tableHead) {
   transition: background var(--dur);

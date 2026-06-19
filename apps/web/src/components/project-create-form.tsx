@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type ChangeEvent, useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
 import { normalizeProjectSlug } from "@/lib/project-slugs";
 
 export function ProjectCreateForm() {
+  const t = useTranslations("workspace");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -18,38 +20,38 @@ export function ProjectCreateForm() {
   }
 
   return (
-    <ApiForm action="/api/creator/projects" submitLabel="创建模型">
+    <ApiForm action="/api/creator/projects" submitLabel={t("createModel")}>
       <label>
-        名称
-        <input name="name" onChange={onName} placeholder="星野 Hoshino" required />
+        {t("fieldName")}
+        <input name="name" onChange={onName} placeholder={t("namePlaceholder")} required />
       </label>
       <label>
         Slug
         <input name="slug" value={slug} onChange={onSlug} pattern="[a-z0-9-]+" placeholder="hoshino" required />
       </label>
       <label>
-        简介
-        <textarea name="intro" placeholder="治愈系虚拟主播 · 中文 / 日文" />
+        {t("fieldIntro")}
+        <textarea name="intro" placeholder={t("introPlaceholder")} />
       </label>
       <label>
-        头像 URL
+        {t("fieldAvatarUrl")}
         <input name="avatarUrl" type="url" placeholder="https://…" />
       </label>
       <label>
-        舞台背景图 URL
-        <input name="backgroundUrl" type="url" placeholder="https://…（留空使用默认舞台光效）" />
+        {t("fieldBackgroundUrl")}
+        <input name="backgroundUrl" type="url" placeholder={t("backgroundUrlPlaceholder")} />
       </label>
       <label>
-        系统提示词（人设）
-        <textarea name="systemPrompt" placeholder="你是星野，一位温柔治愈的虚拟主播…" required />
+        {t("fieldSystemPrompt")}
+        <textarea name="systemPrompt" placeholder={t("systemPromptPlaceholder")} required />
       </label>
       <label>
-        欢迎语
-        <input name="welcomeMessage" placeholder="欢迎进场～今天想聊点什么呀？" required />
+        {t("fieldWelcomeMessage")}
+        <input name="welcomeMessage" placeholder={t("welcomeMessagePlaceholder")} required />
       </label>
       <label>
-        主题色
-        <input name="theme" type="color" defaultValue="#ff6c9e" aria-label="项目主题色" />
+        {t("fieldTheme")}
+        <input name="theme" type="color" defaultValue="#ff6c9e" aria-label={t("themeAriaLabel")} />
       </label>
     </ApiForm>
   );

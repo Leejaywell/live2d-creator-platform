@@ -3,16 +3,17 @@ import test from "node:test";
 
 import { securityHeaderReadiness, securityHeaders } from "../src/lib/security-headers";
 
-test("securityHeaders include CSP for Live2D runtime sources", () => {
+test("securityHeaders keep a self-hosted CSP with no third-party CDN sources", () => {
   const headers = securityHeaders({ NODE_ENV: "test" });
   const csp = headers.find((header) => header.key === "Content-Security-Policy")?.value ?? "";
 
   assert.match(csp, /script-src/);
   assert.match(csp, /'unsafe-inline'/);
   assert.doesNotMatch(csp, /'unsafe-eval'/);
-  assert.match(csp, /https:\/\/cubism\.live2d\.com/);
-  assert.match(csp, /https:\/\/cdnjs\.cloudflare\.com/);
-  assert.match(csp, /https:\/\/cdn\.jsdelivr\.net/);
+  // Live2D runtime + models are now vendored under /public — no CDN allowances.
+  assert.doesNotMatch(csp, /https:\/\/cubism\.live2d\.com/);
+  assert.doesNotMatch(csp, /https:\/\/cdnjs\.cloudflare\.com/);
+  assert.doesNotMatch(csp, /https:\/\/cdn\.jsdelivr\.net/);
   assert.match(csp, /frame-ancestors 'none'/);
   assert.match(csp, /report-uri \/api\/csp-report/);
 });

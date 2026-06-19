@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
 import { type Live2DEffect, Live2DViewer } from "@/components/live2d-viewer";
@@ -34,17 +35,17 @@ function deviceId() {
   return saved;
 }
 
-function describeAccessError(message: string): AccessNotice {
+function describeAccessError(message: string, t: (key: string) => string): AccessNotice {
   const lower = message.toLowerCase();
   if (lower.includes("another device") || lower.includes("bound"))
-    return { tone: "bad", title: "粉丝码已绑定其他设备", detail: "请向主播申请重置设备绑定或换发新码。" };
+    return { tone: "bad", title: t("errBoundDeviceTitle"), detail: t("errBoundDeviceDetail") };
   if (lower.includes("expired") || lower.includes("revoked"))
-    return { tone: "bad", title: "粉丝码已过期或被撤销", detail: "向主播要一个新的访问码吧。" };
+    return { tone: "bad", title: t("errExpiredTitle"), detail: t("errExpiredDetail") };
   if (lower.includes("quota") || lower.includes("exhausted"))
-    return { tone: "warn", title: "消息配额已用完", detail: "这个码的聊天次数已用完。" };
+    return { tone: "warn", title: t("errQuotaTitle"), detail: t("errQuotaDetail") };
   if (lower.includes("not published") || lower.includes("project"))
-    return { tone: "warn", title: "角色暂未开放", detail: "主播还没有发布这位角色，或暂停了访问。" };
-  return { tone: "bad", title: "进场失败", detail: message };
+    return { tone: "warn", title: t("errNotPublishedTitle"), detail: t("errNotPublishedDetail") };
+  return { tone: "bad", title: t("errEnterFailTitle"), detail: message };
 }
 
 export function AudienceChat({
@@ -57,6 +58,7 @@ export function AudienceChat({
   hasLive2DModel,
   initialViewerSessionId,
 }: Props) {
+  const t = useTranslations("audience");
   const [code, setCode] = useState("");
   const [viewerSessionId, setViewerSessionId] = useState(initialViewerSessionId ?? "");
   const [message, setMessage] = useState("");
@@ -91,7 +93,7 @@ export function AudienceChat({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setNotice(describeAccessError(data.error ?? "Access denied"));
+        setNotice(describeAccessError(data.error ?? "Access denied", t));
         return;
       }
       setViewerSessionId(data.viewerSessionId);
@@ -126,7 +128,7 @@ export function AudienceChat({
       });
       if (!response.ok || !response.body) {
         const data = await response.json().catch(() => ({}));
-        const next = describeAccessError(data.error ?? "Chat failed");
+        const next = describeAccessError(data.error ?? "Chat failed", t);
         setNotice(next);
         if (next.tone === "bad") setViewerSessionId("");
         setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
@@ -179,7 +181,7 @@ export function AudienceChat({
         }
       }
     } catch {
-      setNotice({ tone: "bad", title: "发送失败", detail: "网络异常，请稍后重试。" });
+      setNotice({ tone: "bad", title: t("sendFailTitle"), detail: t("sendFailDetail") });
       setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
     } finally {
       setPending(false);
@@ -208,7 +210,7 @@ export function AudienceChat({
             <Link
               href="/"
               className={styles.nameAvatar}
-              aria-label="返回首页"
+              aria-label={t("backHome")}
               style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}
             />
             <div>
@@ -216,7 +218,7 @@ export function AudienceChat({
               {unlocked ? (
                 <div className={styles.liveLabel}>
                   <span aria-hidden />
-                  在演中
+                  {t("live")}
                 </div>
               ) : null}
             </div>
@@ -241,16 +243,16 @@ export function AudienceChat({
               <div className={styles.silhouette} aria-hidden>
                 LIVE2D
                 <br />
-                模型渲染区
+                {t("modelRenderArea")}
               </div>
             </div>
           )}
 
           {unlocked && (activeTags.length > 0 || pending) ? (
-            <div className={styles.readouts} aria-label="实时动作">
+            <div className={styles.readouts} aria-label={t("realtimeAction")}>
               {activeTags.length > 0 ? (
                 <div className={styles.readoutExpr}>
-                  触发 #{activeTags[0]}
+                  {t("triggered")} #{activeTags[0]}
                   {exprReadout?.params?.[0] ? ` → ${exprReadout.params[0].id} ${exprReadout.params[0].value}` : ""}
                 </div>
               ) : null}
@@ -261,7 +263,7 @@ export function AudienceChat({
                     <i />
                     <i />
                   </span>
-                  语音播放中
+                  {t("voicePlaying")}
                 </div>
               ) : null}
             </div>
@@ -273,23 +275,23 @@ export function AudienceChat({
                 <div className={styles.gateIcon} aria-hidden>
                   🔒
                 </div>
-                <h2>凭粉丝码进场</h2>
-                <p>输入{projectName}发放的访问码，即可实时对话。</p>
+                <h2>{t("gateTitle")}</h2>
+                <p>{t("gateDesc", { name: projectName })}</p>
                 <form onSubmit={onValidate} data-testid="fan-code-form">
                   <input
                     data-testid="fan-code-input"
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     placeholder="L2D-XXXX-XXXX-XX"
-                    aria-label="粉丝访问码"
+                    aria-label={t("fanCodeAria")}
                   />
                   <div className={styles.gateHints} aria-hidden>
-                    <span>📱 绑定到此设备</span>
-                    <span>⚡ 配额内畅聊</span>
+                    <span>📱 {t("gateHintDevice")}</span>
+                    <span>⚡ {t("gateHintQuota")}</span>
                   </div>
                   {notice ? <p className={styles.gateError}>{notice.detail}</p> : null}
                   <button data-testid="fan-code-submit" type="submit" disabled={pending || !code.trim()}>
-                    {pending ? "检票中…" : "进场 →"}
+                    {pending ? t("checking") : t("enter")}
                   </button>
                 </form>
               </div>
@@ -301,10 +303,10 @@ export function AudienceChat({
               <div className={styles.boundaryIcon} aria-hidden>
                 ⌛
               </div>
-              <h2>额度已用完</h2>
-              <p>这个访问码的聊天次数已经用完，向{projectName}申请新码或补充配额。</p>
+              <h2>{t("quotaExhaustedTitle")}</h2>
+              <p>{t("quotaExhaustedDesc", { name: projectName })}</p>
               <Link href="/" className={styles.boundaryLink}>
-                返回角色广场
+                {t("backToPlaza")}
               </Link>
             </div>
           ) : null}
@@ -312,9 +314,9 @@ export function AudienceChat({
 
         <aside className={styles.dock}>
           <div className={styles.dockHead}>
-            <span className={styles.dockTitle}>对话</span>
+            <span className={styles.dockTitle}>{t("chat")}</span>
             <span className={styles.dockRemaining} data-testid="remaining-messages">
-              {remaining === null ? "待检票" : `剩余 ${remaining} 条`}
+              {remaining === null ? t("awaitingCheck") : t("remaining", { n: remaining })}
             </span>
           </div>
 
@@ -335,12 +337,12 @@ export function AudienceChat({
                       {item.tags.map((tag) => (
                         <span key={tag}>#{tag}</span>
                       ))}
-                      🔊 已朗读
+                      🔊 {t("readAloud")}
                     </span>
                   ) : null}
                   {item.failed ? (
                     <button type="button" className={styles.retry} onClick={() => send(item.content, true)} disabled={pending}>
-                      ⚠️ 发送失败，点击重试
+                      ⚠️ {t("retrySend")}
                     </button>
                   ) : null}
                 </div>
@@ -361,21 +363,21 @@ export function AudienceChat({
                 data-testid="chat-message-input"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder={`对${projectName}说点什么…`}
-                aria-label="聊天消息"
+                placeholder={t("composerPlaceholder", { name: projectName })}
+                aria-label={t("chatMessageAria")}
               />
               <button
                 className={styles.sendBtn}
                 data-testid="chat-submit"
                 type="submit"
                 disabled={pending || !message.trim() || remaining === 0}
-                aria-label="发送"
+                aria-label={t("send")}
               >
-                {remaining === 0 ? "用尽" : pending ? "…" : "→"}
+                {remaining === 0 ? t("used") : pending ? "…" : "→"}
               </button>
             </form>
           ) : (
-            <p className={styles.composerHint}>检票通过后即可开始聊天</p>
+            <p className={styles.composerHint}>{t("composerHint")}</p>
           )}
         </aside>
       </div>

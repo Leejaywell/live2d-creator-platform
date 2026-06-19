@@ -1,0 +1,182 @@
+{
+  "shengluyisi_3": {
+    "home": {
+      "audio": "/live2d/audio/102132/home.ogg",
+      "text": {
+        "zh": "欢迎回来，我已经为你把暖气打开了。哦，我吗？我还想在这里多欣赏一会儿雪景。",
+        "en": "Welcome back. I've turned on the heater for you. Oh, me? I'd like to admire the snow scenery here a bit longer.",
+        "ja": "お帰りなさい、暖房を入れておきました。私ですか？もう少しここで雪景色を眺めていたいのです。"
+      }
+    },
+    "login": {
+      "audio": "/live2d/audio/102132/login.ogg",
+      "text": {
+        "zh": "工作前你应该喝点热饮暖暖身子。",
+        "en": "You should have a warm drink to warm yourself up before working.",
+        "ja": "仕事の前に温かい飲み物を飲んで体を温めたほうがいいですよ。"
+      }
+    },
+    "feeling5": {
+      "audio": "/live2d/audio/102132/feeling5.ogg",
+      "text": "嗯……看来雪还要下一阵子。指挥官，今晚不如留下来吧？……哦？我本想着我们能一起喝杯酒，但或许你有别的想法？啊哈哈♡"
+    },
+    "touch": {
+      "audio": "/live2d/audio/102132/touch.ogg",
+      "text": "我们要出门了吗？啊哈，那让我把伞拿出来。嘿，靠近点，不然雪会落到你衣服上的。"
+    },
+    "unlock": {
+      "audio": "/live2d/audio/102132/unlock.ogg",
+      "text": "重樱的衣服真是太精致了。啊哈哈……指挥官，站在外面不冷吗？快和我坐下来喝一杯吧。"
+    },
+    "main1": {
+      "audio": "/live2d/audio/102132/main1.ogg",
+      "text": "“初诣”吗……指挥官有什么愿望要许吗？刚好我没有，那我的愿望就送给你吧。"
+    },
+    "main2": {
+      "audio": "/live2d/audio/102132/main2.ogg",
+      "text": "并不是说白鹰的新年庆祝冷清，但重樱和东煌的元旦确实过得更加热闹。而我喜欢热闹。"
+    },
+    "main3": {
+      "audio": "/live2d/audio/102132/main3.ogg",
+      "text": "噢，指挥官，如果你是想灌醉我……那得看你自己的酒量了。啊哈哈~"
+    }
+  },
+  "beierfasite_2": {
+    "home": {
+      "audio": "/live2d/audio/202121/home.ogg",
+      "text": "我为某位因工作太投入而忘记吃饭的主人烤了这道点心。请享用吧。"
+    },
+    "login": {
+      "audio": "/live2d/audio/202121/login.ogg",
+      "text": "欢迎回来，主人。我专门从东煌采购了一些不同的茶叶。您想先尝尝哪一种呢？"
+    },
+    "detail": {
+      "audio": "/live2d/audio/202121/detail.ogg",
+      "text": "东煌的服饰确实有一种独特的魅力。也许我可以把它们推荐给女仆团的其他成员。您觉得呢？"
+    },
+    "expedition": {
+      "audio": "/live2d/audio/202121/expedition.ogg",
+      "text": "主人，给那些还在辛苦执行委托的姑娘们发些红包，您觉得怎么样？"
+    },
+    "feeling5": {
+      "audio": "/live2d/audio/202121/feeling5.ogg",
+      "text": "您知道吗，主人……我能为您做的，就只有向其他阵营学习他们的文化，以便为您提供更好的服务。但与您每天为我们所做的一切相比，这些都微不足道，而您却习以为常……真是个让人既喜爱又有些无奈的人呢。"
+    },
+    "touch": {
+      "audio": "/live2d/audio/202121/touch.ogg",
+      "text": "虽然今天放假，但我随时准备出击。"
+    },
+    "unlock": {
+      "audio": "/live2d/audio/202121/unlock.ogg",
+      "text": "呵呵……主人，您看到我怎么愣住了？我以为您想看我穿旗袍的样子……难道是我误会了吗？"
+    },
+    "main1": {
+      "audio": "/live2d/audio/202121/main1.ogg",
+      "text": "各种各样的烹饪手法和调味方式……东煌的饮食文化真让我大开眼界。"
+    },
+    "main2": {
+      "audio": "/live2d/audio/202121/main2.ogg",
+      "text": "东煌的习俗是新年的晚上大家聚在一起吃年夜饭？啊，要服务这么多人……我作为女仆的灵魂正在颤抖！"
+    },
+    "main3": {
+      "audio": "/live2d/audio/202121/main3.ogg",
+      "text": "我们港区里只有几位来自东煌的同伴。正因为如此，我不能让她们感到孤单。"
+    },
+    "touch2": {
+      "audio": "/live2d/audio/202121/touch2.ogg",
+      "text": "我明白了，主人。这身旗袍最大的缺点，就是会夺走您的自制力。"
+    }
+  },
+  "aidang_2": {
+    "login": {
+      "audio": "/live2d/audio/303121/login.ogg",
+      "text": "呼……夏天可真热啊。诶？你的脸怎么这么红？是中暑了吗？"
+    },
+    "detail": {
+      "audio": "/live2d/audio/303121/detail.ogg",
+      "text": "哎呀，指挥官……你在看哪里呢~？需要我再弯下腰一点吗~？"
+    },
+    "expedition": {
+      "audio": "/live2d/audio/303121/expedition.ogg",
+      "text": "在这样的酷暑中执行委托可不容易。我们去好好犒劳一下辛苦的姑娘们吧。"
+    },
+    "touch": {
+      "audio": "/live2d/audio/303121/touch.ogg",
+      "text": "最棒的泳装款式？那绝对是比基尼了。指挥官，你不这么认为吗？"
+    },
+    "unlock": {
+      "audio": "/live2d/audio/303121/unlock.ogg",
+      "text": "温柔包裹着肌肤的暖风，以及踩在白沙上的轻盈足迹……这不就是夏天的精髓吗？指挥官，夏天对你来说意味着什么？"
+    },
+    "main1": {
+      "audio": "/live2d/audio/303121/main1.ogg",
+      "text": "竹刀和墨镜……高雄，你真的是来度假的吗？"
+    },
+    "main2": {
+      "audio": "/live2d/audio/303121/main2.ogg",
+      "text": "指挥官，如果觉得太热的话，可以到我的遮阳伞下面来哦。"
+    },
+    "main3": {
+      "audio": "/live2d/audio/303121/main3.ogg",
+      "text": "指挥官，想看我打沙滩排球吗？"
+    },
+    "touch2": {
+      "audio": "/live2d/audio/303121/touch2.ogg",
+      "text": "哎呀。虽然地球只有一个，但指挥官当然有两只手哦~。"
+    }
+  },
+  "aijier_3": {
+    "mission_complete": {
+      "audio": "/live2d/audio/499052/mission_complete.ogg",
+      "text": "任务完成。你现在可以安心享受节日了。"
+    },
+    "home": {
+      "audio": "/live2d/audio/499052/home.ogg",
+      "text": "即使是海洋的霸主也需要休息。何不坐下来，享受这空气中令人安心的香气？"
+    },
+    "login": {
+      "audio": "/live2d/audio/499052/login.ogg",
+      "text": "你回来了。呵呵，是想我了吗？还是只是累了？"
+    },
+    "detail": {
+      "audio": "/live2d/audio/499052/detail.ogg",
+      "text": "我听说东煌人把龙视为神圣的象征……那为什么十二生肖里龙才排在第五位呢？"
+    },
+    "expedition": {
+      "audio": "/live2d/audio/499052/expedition.ogg",
+      "text": "委托完成了。快去吧，那些在节日里辛苦工作的姑娘们值得好好感谢。"
+    },
+    "touch": {
+      "audio": "/live2d/audio/499052/touch.ogg",
+      "text": "一起去散步？倒也不是不行……不过，先帮我穿上高跟鞋，好吗？"
+    },
+    "headtouch": {
+      "audio": "/live2d/audio/499052/headtouch.ogg",
+      "text": "没有我的允许，不准碰我的角饰！"
+    },
+    "unlock": {
+      "audio": "/live2d/audio/499052/unlock.ogg",
+      "text": "新装饰、新衣服，还有无数的准备工作……农历新年真是一年中最忙碌的时候。快去忙你的职责吧，我很清楚你对这个节日的顺利运转有多么不可或缺。只是别让我等太久哦。嘻嘻。"
+    },
+    "main1": {
+      "audio": "/live2d/audio/499052/main1.ogg",
+      "text": "毛笔要怎么拿？这样？还是……这样？唔……我才不信你不知道正确的姿势。别发呆了，快来教教我！"
+    },
+    "main2": {
+      "audio": "/live2d/audio/499052/main2.ogg",
+      "text": "原来这就是她们的舞龙啊……我第一次听说的时候，还以为她们会用类似我们铁血那样的龙形舾装呢。"
+    },
+    "main3": {
+      "audio": "/live2d/audio/499052/main3.ogg",
+      "text": "布伦希尔德，这个碗是你的东煌古董吗？不得不承认，这做工确实非凡。哼，看来你的品味还挺高雅的。"
+    },
+    "mission": {
+      "audio": "/live2d/audio/499052/mission.ogg",
+      "text": "这么多任务让你连享受节日的时间都没有了……这怎么行。哼，我来帮你一起搞定吧。"
+    },
+    "touch2": {
+      "audio": "/live2d/audio/499052/touch2.ogg",
+      "text": "什么？！你让我把墨水洒得到处都是！我、我自己会清理干净的！"
+    }
+  }
+}

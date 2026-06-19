@@ -1,25 +1,29 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import type { CreatorPlan, UserRole } from "@prisma/client";
 
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Pill, type Tone } from "@/components/ui";
 import { paymentStatusTone } from "@/lib/billing-history";
 
 import { creatorStyles as dash } from "../creator/_components";
 import styles from "./admin.module.css";
 
+type AdminTranslator = Awaited<ReturnType<typeof getTranslations<"admin">>>;
+
 type NavKey = "overview" | "users" | "billing" | "projects" | "diagnostics" | "settings";
 
 const adminLinks: ReadonlyArray<readonly [NavKey, string, string]> = [
-  ["overview", "/admin", "首页"],
-  ["projects", "/admin/projects", "项目审核"],
-  ["users", "/admin/users", "用户"],
-  ["billing", "/admin/billing", "订单"],
-  ["settings", "/admin/settings", "设置"],
-  ["diagnostics", "/admin/diagnostics", "诊断"],
+  ["overview", "/admin", "navOverview"],
+  ["users", "/admin/users", "navUsers"],
+  ["projects", "/admin/projects", "navProjects"],
+  ["billing", "/admin/billing", "navBilling"],
+  ["settings", "/admin/settings", "navSettings"],
+  ["diagnostics", "/admin/diagnostics", "navDiagnostics"],
 ];
 
-export function AdminShell({
+export async function AdminShell({
   active,
   user,
   children,
@@ -28,6 +32,7 @@ export function AdminShell({
   user: { username: string | null; role: UserRole };
   children: ReactNode;
 }) {
+  const t = await getTranslations("admin");
   return (
     <div className={styles.shell}>
       <header className={styles.topbar}>
@@ -36,23 +41,24 @@ export function AdminShell({
           <span className={styles.brandName}>Backstage</span>
           <span className={styles.roleBadge}>Admin</span>
         </div>
-        <nav className={styles.nav} aria-label="管理后台导航">
+        <nav className={styles.nav} aria-label={t("navAriaLabel")}>
           {adminLinks.map(([key, href, label]) => (
             <Link key={key} href={href} className={`${styles.navItem} ${active === key ? styles.navActive : ""}`}>
-              {label}
+              {t(label)}
             </Link>
           ))}
         </nav>
         <div className={styles.topRight}>
+          <LocaleSwitcher />
           <span className={styles.userChip}>{user.username ?? "admin"}</span>
           <Link href="/creator" className={styles.topLink}>
-            创作者
+            {t("navCreatorLink")}
           </Link>
           <Link href="/api/auth/signout" className={styles.topLink}>
-            退出
+            {t("navSignOut")}
           </Link>
           <span className={styles.avatar} aria-hidden>
-            管
+            {t("navAvatar")}
           </span>
         </div>
       </header>
@@ -61,16 +67,17 @@ export function AdminShell({
   );
 }
 
-export function AdminAuthRequired() {
+export async function AdminAuthRequired() {
+  const t = await getTranslations("admin");
   return (
     <main className={dash.authShell}>
       <div className={dash.authCard}>
         <p className={dash.kicker}>CONTROL ROOM</p>
-        <h1>管理后台</h1>
-        <p>请使用有效的超级管理员、运营管理员或客服管理员账号登录。</p>
+        <h1>{t("authTitle")}</h1>
+        <p>{t("authDescription")}</p>
         <div className={dash.authActions}>
-          <Link href="/sign-in">去登录</Link>
-          <Link href="/">回首页</Link>
+          <Link href="/sign-in">{t("authSignIn")}</Link>
+          <Link href="/">{t("authBackHome")}</Link>
         </div>
       </div>
     </main>
@@ -85,17 +92,31 @@ export function paymentStatusPillTone(status: string): Tone {
   return "neutral";
 }
 
-export function creatorPlanDetails(plan: CreatorPlan | null, projectCount: number) {
-  if (!plan) return ["未开通套餐"];
+export function creatorPlanDetails(t: AdminTranslator, plan: CreatorPlan | null, projectCount: number) {
+  if (!plan) return [t("planNone")];
   return [
-    `${plan.planName} · ${plan.status} · ${plan.expiresAt.toISOString().slice(0, 10)} 到期`,
-    `项目 ${projectCount}/${plan.maxProjects} · AI ${plan.usedAiMessages}/${plan.monthlyAiMessageLimit}`,
-    `粉丝码 ${plan.usedFanCodes}/${plan.fanCodeQuota}`,
+    t("planExpiry", {
+      planName: plan.planName,
+      status: plan.status,
+      date: plan.expiresAt.toISOString().slice(0, 10),
+    }),
+    t("planUsage", {
+      projects: projectCount,
+      maxProjects: plan.maxProjects,
+      usedAi: plan.usedAiMessages,
+      aiLimit: plan.monthlyAiMessageLimit,
+    }),
+    t("planFanCodes", { used: plan.usedFanCodes, quota: plan.fanCodeQuota }),
   ];
 }
 
-export function StatusPill({ status }: { status: string }) {
-  return <Pill tone={status === "active" ? "live" : "danger"}>{status === "active" ? "正常" : "停用"}</Pill>;
+export async function StatusPill({ status }: { status: string }) {
+  const t = await getTranslations("admin");
+  return (
+    <Pill tone={status === "active" ? "live" : "danger"}>
+      {status === "active" ? t("statusActive") : t("statusSuspended")}
+    </Pill>
+  );
 }
 
 export { dash };

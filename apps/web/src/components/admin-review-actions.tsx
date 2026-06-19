@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -10,6 +11,7 @@ type Status = "draft" | "published" | "paused";
 // Bare buttons (no wrapper) so they sit directly in the page's .rowActions
 // cluster and share its uniform text-link styling (approve = green, destructive = red).
 export function AdminReviewActions({ projectId, status }: { projectId: string; status: Status }) {
+  const t = useTranslations("admin");
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -28,21 +30,17 @@ export function AdminReviewActions({ projectId, status }: { projectId: string; s
     }
   }
 
+  // Publishing is self-service; admins only moderate public models.
   return (
     <>
-      {status !== "published" ? (
+      {status === "paused" ? (
         <button type="button" className={dash.approve} onClick={() => setStatus("published")} disabled={pending}>
-          {status === "draft" ? "通过" : "恢复"}
-        </button>
-      ) : null}
-      {status === "draft" ? (
-        <button type="button" className={dash.danger} onClick={() => setStatus("paused")} disabled={pending}>
-          驳回
+          {t("actionRestore")}
         </button>
       ) : null}
       {status === "published" ? (
         <button type="button" className={dash.danger} onClick={() => setStatus("paused")} disabled={pending}>
-          下架
+          {t("actionTakedown")}
         </button>
       ) : null}
     </>

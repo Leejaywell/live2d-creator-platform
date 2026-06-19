@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 
 import { DetailsDismissOnOutsideClick } from "@/components/details-dismiss-on-outside-click";
+import { GlobalPetProvider } from "@/components/global-pet-context";
+import { DesktopPet } from "@/components/desktop-pet";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,19 +16,22 @@ export const metadata: Metadata = {
     "给你的角色一座随时开演的舞台:上传 Live2D 模型、配置语音与触发标签、发放粉丝访问码,让观众凭码进场与 AI 驱动的角色实时对话。",
 };
 
-// Fonts use system stacks (see --font-* in globals.css). Google Fonts is
-// intentionally NOT loaded — it is blocked in mainland China and would otherwise
-// stall rendering behind an unreachable stylesheet.
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
-    <html lang="zh-CN">
+    <html lang={locale}>
       <body>
-        <DetailsDismissOnOutsideClick />
-        {children}
+        <NextIntlClientProvider>
+          <GlobalPetProvider>
+            <DetailsDismissOnOutsideClick />
+            {children}
+            <DesktopPet />
+          </GlobalPetProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

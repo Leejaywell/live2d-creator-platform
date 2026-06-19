@@ -13,7 +13,15 @@
     pointer-events: auto;
   }
 }
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transition: background 0.4s var(--ease);
+}
 .canvas {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   opacity: 0;
@@ -25,6 +33,7 @@
 .status {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;

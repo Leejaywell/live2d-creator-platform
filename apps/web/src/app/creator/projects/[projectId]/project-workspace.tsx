@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { ApiForm } from "@/components/api-form";
@@ -54,7 +55,11 @@ export type WorkspaceProject = {
 type StepKey = "model" | "tags" | "voice" | "basics" | "publish";
 
 const statusToneMap: Record<string, Tone> = { published: "live", paused: "danger", draft: "amber" };
-const statusLabelMap: Record<string, string> = { published: "上演中", paused: "已暂停", draft: "草稿" };
+const statusLabelKey: Record<string, string> = {
+  published: "statusPublished",
+  paused: "statusPaused",
+  draft: "statusDraft",
+};
 
 export function ProjectWorkspace({
   project,
@@ -63,6 +68,7 @@ export function ProjectWorkspace({
   project: WorkspaceProject;
   previewSessionId: string;
 }) {
+  const t = useTranslations("workspace");
   const [active, setActive] = useState<StepKey>("model");
   const [chatTags, setChatTags] = useState<string[]>([]);
   const [chatEffects, setChatEffects] = useState<Live2DEffect[]>([]);
@@ -73,27 +79,27 @@ export function ProjectWorkspace({
   const steps: Array<{ key: StepKey; name: string; sub: string; done: boolean; locked?: boolean }> = [
     {
       key: "model",
-      name: "模型资源",
-      sub: modelDone ? `已校验 · ${project.modelAssetCount} 个资产` : "上传 Live2D 模型",
+      name: t("stepModel"),
+      sub: modelDone ? t("modelVerifiedCount", { count: project.modelAssetCount }) : t("uploadLive2dModel"),
       done: modelDone,
     },
     {
       key: "tags",
-      name: "触发标签",
-      sub: project.tags.length ? `${project.tags.length} 个标签` : "待配置",
+      name: t("stepTags"),
+      sub: project.tags.length ? t("tagCount", { count: project.tags.length }) : t("toConfigure"),
       done: tagsDone,
     },
     {
       key: "voice",
-      name: "语音绑定",
-      sub: project.voices.length ? `${project.voices.length} 条语音` : "待配置",
+      name: t("stepVoice"),
+      sub: project.voices.length ? t("voiceCount", { count: project.voices.length }) : t("toConfigure"),
       done: project.voices.length > 0,
     },
-    { key: "basics", name: "人设设定", sub: profileDone ? "已填写" : "完善人设与简介", done: profileDone },
+    { key: "basics", name: t("stepBasics"), sub: profileDone ? t("profileFilled") : t("completeProfile"), done: profileDone },
     {
       key: "publish",
-      name: "发布设置",
-      sub: publishUnlocked ? (project.status === "published" ? "已发布" : "可发布") : "完成前置步骤后解锁",
+      name: t("stepPublish"),
+      sub: publishUnlocked ? (project.status === "published" ? t("published") : t("publishable")) : t("lockedUntilSteps"),
       done: project.status === "published",
       locked: !publishUnlocked,
     },
@@ -104,32 +110,32 @@ export function ProjectWorkspace({
       <header className={styles.topbar}>
         <div className={styles.topLeft}>
           <Link href="/creator" className={styles.back}>
-            ← 工作台
+            ← {t("backWorkbench")}
           </Link>
           <span className={styles.vdivider} aria-hidden />
           <span className={styles.projectMark} aria-hidden />
           <div className={styles.projectTitle}>
             {project.name}
-            <Pill tone={statusToneMap[project.status]}>{statusLabelMap[project.status]}</Pill>
+            <Pill tone={statusToneMap[project.status]}>{t(statusLabelKey[project.status])}</Pill>
           </div>
         </div>
         <div className={styles.topActions}>
-          <span className={styles.autosave}>已保存</span>
+          <span className={styles.autosave}>{t("saved")}</span>
           <LinkButton href={`/creator/projects/${project.id}/fan-codes`} variant="ghost" size="sm">
-            粉丝码
+            {t("fanCodes")}
           </LinkButton>
           <LinkButton href={`/creator/projects/${project.id}/preview`} variant="ghost" size="sm">
-            预览
+            {t("preview")}
           </LinkButton>
           <Button size="sm" onClick={() => setActive("publish")} disabled={!publishUnlocked}>
-            发布 →
+            {t("publish")} →
           </Button>
         </div>
       </header>
 
       <div className={styles.layout}>
-        <aside className={styles.rail} aria-label="配置步骤">
-          <div className={styles.railLabel}>配置步骤</div>
+        <aside className={styles.rail} aria-label={t("configSteps")}>
+          <div className={styles.railLabel}>{t("configSteps")}</div>
           {steps.map((step, index) => {
             const isActive = active === step.key;
             return (
@@ -158,9 +164,9 @@ export function ProjectWorkspace({
             );
           })}
           <div className={styles.assistCard}>
-            <strong>需要协助？</strong>
-            <p>模型绑定遇到问题可申请官方协助处理。</p>
-            <Link href="#">申请 model-assistance →</Link>
+            <strong>{t("needHelp")}</strong>
+            <p>{t("modelHelpHint")}</p>
+            <Link href="#">{t("requestModelAssistance")} →</Link>
           </div>
         </aside>
 
@@ -168,8 +174,8 @@ export function ProjectWorkspace({
 
         <aside className={styles.stage}>
           <div className={styles.stageHead}>
-            <span className={styles.stageHeadLabel}>常驻预览</span>
-            <span className={styles.stageLive}>实时</span>
+            <span className={styles.stageHeadLabel}>{t("persistentPreview")}</span>
+            <span className={styles.stageLive}>{t("realtime")}</span>
           </div>
           <div className={styles.stageBody}>
             {project.modelStatus === "valid" ? (
@@ -185,7 +191,7 @@ export function ProjectWorkspace({
               <div className={styles.stageSlot}>
                 LIVE2D
                 <br />
-                {project.modelStatus === "invalid" ? "模型校验失败" : "尚未上传模型"}
+                {project.modelStatus === "invalid" ? t("modelValidationFailed") : t("modelNotUploaded")}
               </div>
             )}
             <StageChat
@@ -231,13 +237,14 @@ function StepHeader({ title, sub, action }: { title: string; sub: string; action
 }
 
 function BasicsStep({ project }: { project: WorkspaceProject }) {
+  const t = useTranslations("workspace");
   return (
     <>
-      <StepHeader title="基本信息" sub="角色名片、人设提示词与欢迎语" />
+      <StepHeader title={t("basicInfo")} sub={t("basicsSubtitle")} />
       <div className={creatorStyles.formCard}>
         <form action={updateProjectAction.bind(null, project.id)}>
           <label>
-            名称
+            {t("fieldName")}
             <input name="name" defaultValue={project.name} required />
           </label>
           <label>
@@ -245,30 +252,30 @@ function BasicsStep({ project }: { project: WorkspaceProject }) {
             <input name="slug" defaultValue={project.slug} pattern="[a-z0-9-]+" required />
           </label>
           <label>
-            简介
+            {t("fieldIntro")}
             <textarea name="intro" defaultValue={project.intro} />
           </label>
           <label>
-            头像 URL
+            {t("fieldAvatarUrl")}
             <input name="avatarUrl" type="url" defaultValue={project.avatarUrl ?? ""} />
           </label>
           <label>
-            舞台背景图 URL
+            {t("fieldBackgroundUrl")}
             <input name="backgroundUrl" type="url" defaultValue={project.backgroundUrl ?? ""} />
           </label>
           <label>
-            系统提示词（人设）
+            {t("fieldSystemPrompt")}
             <textarea name="systemPrompt" defaultValue={project.systemPrompt} required />
           </label>
           <label>
-            欢迎语
+            {t("fieldWelcomeMessage")}
             <input name="welcomeMessage" defaultValue={project.welcomeMessage} required />
           </label>
           <label>
-            主题色
-            <input name="theme" type="color" defaultValue={project.theme} aria-label="项目主题色" />
+            {t("fieldTheme")}
+            <input name="theme" type="color" defaultValue={project.theme} aria-label={t("themeAriaLabel")} />
           </label>
-          <Button type="submit">保存基本信息</Button>
+          <Button type="submit">{t("saveBasics")}</Button>
         </form>
       </div>
     </>
@@ -276,28 +283,29 @@ function BasicsStep({ project }: { project: WorkspaceProject }) {
 }
 
 function ModelStep({ project }: { project: WorkspaceProject }) {
+  const t = useTranslations("workspace");
   const statusText =
     project.modelStatus === "valid"
-      ? "当前模型已校验通过"
+      ? t("modelStatusValid")
       : project.modelStatus === "invalid"
-        ? "当前模型校验失败，请重新上传"
+        ? t("modelStatusInvalid")
         : project.modelStatus === "pending"
-          ? "模型校验中"
-          : "尚未上传模型";
+          ? t("modelStatusPending")
+          : t("modelNotUploaded");
   return (
     <>
-      <StepHeader title="模型资源" sub="上传 Live2D zip（包含唯一 .model3.json）" />
+      <StepHeader title={t("stepModel")} sub={t("modelSubtitle")} />
       <div className={styles.panelBox}>
         <p style={{ margin: "0 0 14px", color: "var(--text-dim)", fontSize: 14 }}>
-          {statusText} · 共 {project.modelAssetCount} 个资产
+          {statusText} · {t("assetCount", { count: project.modelAssetCount })}
         </p>
         <div className={creatorStyles.formCard}>
           <ApiForm
             action={`/api/creator/projects/${project.id}/model-assets`}
-            submitLabel="上传并校验模型"
+            submitLabel={t("uploadAndValidate")}
           >
             <label>
-              Live2D 模型 zip
+              {t("modelZipLabel")}
               <input name="file" type="file" accept=".zip" required />
             </label>
           </ApiForm>
@@ -308,6 +316,7 @@ function ModelStep({ project }: { project: WorkspaceProject }) {
 }
 
 function TagToggle({ projectId, tagId, enabled }: { projectId: string; tagId: string; enabled: boolean }) {
+  const t = useTranslations("workspace");
   const router = useRouter();
   const [on, setOn] = useState(enabled);
   const [pending, setPending] = useState(false);
@@ -340,7 +349,7 @@ function TagToggle({ projectId, tagId, enabled }: { projectId: string; tagId: st
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label={on ? "停用标签" : "启用标签"}
+      aria-label={on ? t("disableTag") : t("enableTag")}
       className={`${styles.toggle} ${on ? styles.toggleOn : ""}`}
       onClick={toggle}
       disabled={pending}
@@ -351,12 +360,13 @@ function TagToggle({ projectId, tagId, enabled }: { projectId: string; tagId: st
 }
 
 function TagsStep({ project }: { project: WorkspaceProject }) {
+  const t = useTranslations("workspace");
   return (
     <>
-      <StepHeader title="触发标签" sub="文本命中关键词 → 触发对应表情与参数" />
+      <StepHeader title={t("stepTags")} sub={t("tagsSubtitle")} />
       <div className={styles.tagList}>
         {project.tags.length === 0 && (
-          <div className={creatorStyles.empty}>还没有触发标签，先新建一个让回复更有角色感。</div>
+          <div className={creatorStyles.empty}>{t("tagsEmpty")}</div>
         )}
         {project.tags.map((tag) => (
           <div key={tag.id} className={`${styles.tagRow} ${tag.enabled ? "" : styles.tagDisabled}`}>
@@ -369,21 +379,21 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
                   </span>
                 ))
               ) : (
-                <span className={styles.tagKw}>无关键词</span>
+                <span className={styles.tagKw}>{t("noKeywords")}</span>
               )}
             </div>
             {tag.live2dExpression && <span className={styles.tagMeta}>{tag.live2dExpression}</span>}
             <TagToggle projectId={project.id} tagId={tag.id} enabled={tag.enabled} />
             <details className={creatorStyles.disclosure}>
-              <summary>删除</summary>
+              <summary>{t("delete")}</summary>
               <div className={creatorStyles.formCard}>
                 <ApiForm
                   action={`/api/creator/projects/${project.id}/tags/${tag.id}`}
                   method="DELETE"
-                  submitLabel="确认删除标签"
+                  submitLabel={t("confirmDeleteTag")}
                   submitVariant="danger"
                 >
-                  <span className={creatorStyles.pageHeadSub}>删除后该标签不再参与触发。</span>
+                  <span className={creatorStyles.pageHeadSub}>{t("deleteTagHint")}</span>
                 </ApiForm>
               </div>
             </details>
@@ -392,31 +402,31 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
       </div>
 
       <details className={`${styles.panelBox} ${creatorStyles.disclosure}`}>
-        <summary>+ 新建触发标签</summary>
+        <summary>+ {t("newTriggerTag")}</summary>
         <div className={creatorStyles.formCard}>
-          <ApiForm action={`/api/creator/projects/${project.id}/tags`} submitLabel="创建标签">
+          <ApiForm action={`/api/creator/projects/${project.id}/tags`} submitLabel={t("createTag")}>
             <label>
-              名称
-              <input name="name" placeholder="害羞" required />
+              {t("fieldName")}
+              <input name="name" placeholder={t("tagNamePlaceholder")} required />
             </label>
             <label>
-              关键词（逗号分隔）
-              <input name="keywords" placeholder="可爱,喜欢,脸红" />
+              {t("fieldKeywords")}
+              <input name="keywords" placeholder={t("keywordsPlaceholder")} />
             </label>
             <label>
-              Live2D 表情文件
+              {t("fieldLive2dExpression")}
               <input name="live2dExpression" placeholder="exp_shy" />
             </label>
             <label>
-              Live2D 参数（JSON，可选）
+              {t("fieldLive2dParams")}
               <textarea name="live2dParams" placeholder='{"ParamCheek":0.8}' />
             </label>
             <label>
-              提示词片段（可选）
+              {t("fieldPromptFragment")}
               <textarea name="promptFragment" />
             </label>
             <label>
-              优先级
+              {t("fieldPriority")}
               <input name="priority" type="number" defaultValue="0" />
             </label>
           </ApiForm>
@@ -424,7 +434,7 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
       </details>
 
       <div className={styles.tester}>
-        <div className={styles.testerLabel}>⚡ 标签测试器</div>
+        <div className={styles.testerLabel}>⚡ {t("tagTester")}</div>
         <div className={creatorStyles.formCard}>
           <TriggerTagTester projectId={project.id} />
         </div>
@@ -434,12 +444,13 @@ function TagsStep({ project }: { project: WorkspaceProject }) {
 }
 
 function VoiceStep({ project }: { project: WorkspaceProject }) {
+  const t = useTranslations("workspace");
   return (
     <>
-      <StepHeader title="语音绑定" sub="预置语音通过触发标签朗读（MVP 由管理员协助上传）" />
+      <StepHeader title={t("stepVoice")} sub={t("voiceSubtitle")} />
       <div className={styles.simpleList}>
         {project.voices.length === 0 ? (
-          <div className={creatorStyles.empty}>还没有语音资源。可在「需要协助」中申请管理员上传，并绑定到触发标签。</div>
+          <div className={creatorStyles.empty}>{t("voiceEmpty")}</div>
         ) : (
           project.voices.map((voice) => (
             <div key={voice.id} className={styles.simpleRow}>
@@ -454,19 +465,20 @@ function VoiceStep({ project }: { project: WorkspaceProject }) {
 }
 
 function PublishStep({ project }: { project: WorkspaceProject }) {
-  const readinessLabels = ["基本信息", "Live2D 模型", "触发标签", "粉丝码"];
+  const t = useTranslations("workspace");
+  const readinessLabels = [t("basicInfo"), t("live2dModel"), t("stepTags"), t("fanCodes")];
   return (
     <>
-      <StepHeader title="发布设置" sub="确认就绪清单后发布，观众即可凭码进场" />
+      <StepHeader title={t("stepPublish")} sub={t("publishSubtitle")} />
       <ul className={styles.checklist}>
         {readinessLabels.map((label, index) => (
           <li key={label} className={styles.checkItem}>
             <div>
               <strong>{label}</strong>
-              <span>{project.readiness[index] ? "已就绪" : "待处理"}</span>
+              <span>{project.readiness[index] ? t("readyLong") : t("todo")}</span>
             </div>
             <Pill tone={project.readiness[index] ? "live" : "amber"}>
-              {project.readiness[index] ? "就绪" : "待处理"}
+              {project.readiness[index] ? t("readyShort") : t("todo")}
             </Pill>
           </li>
         ))}
@@ -476,7 +488,7 @@ function PublishStep({ project }: { project: WorkspaceProject }) {
         <div className={creatorStyles.formCard}>
           <ApiForm
             action={`/api/creator/projects/${project.id}/publish`}
-            submitLabel={project.status === "published" ? "暂停上演" : "发布上演"}
+            submitLabel={project.status === "published" ? t("pausePerformance") : t("publishPerformance")}
           >
             <input
               type="hidden"
@@ -484,8 +496,8 @@ function PublishStep({ project }: { project: WorkspaceProject }) {
               value={project.status === "published" ? "paused" : "published"}
             />
             <span className={creatorStyles.pageHeadSub}>
-              当前状态：{statusLabelMap[project.status]}。
-              {project.status === "published" ? "暂停后新会话将无法进场。" : "发布后观众可凭有效粉丝码进场。"}
+              {t("currentStatus", { status: t(statusLabelKey[project.status]) })}
+              {project.status === "published" ? t("pausedHint") : t("publishedHint")}
             </span>
           </ApiForm>
         </div>

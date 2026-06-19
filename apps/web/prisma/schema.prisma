@@ -315,6 +315,7 @@ model TriggerTag {
 model FanAccessCode {
   id              String          @id @default(cuid())
   projectId       String
+  code            String?
   codeHash        String          @unique
   expiresAt       DateTime
   maxMessages     Int

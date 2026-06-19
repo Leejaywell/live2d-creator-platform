@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
 import { Pill } from "@/components/ui";
@@ -16,6 +18,7 @@ export default async function AdminDiagnosticsPage() {
     return <AdminAuthRequired />;
   }
 
+  const t = await getTranslations("admin");
   const role = session.user.role;
   const [fanAccessCodes, safetyEvents] = await Promise.all([
     prisma.fanAccessCode.findMany({
@@ -30,16 +33,16 @@ export default async function AdminDiagnosticsPage() {
     <AdminShell active="diagnostics" user={session.user}>
       <div className={dash.pageHead}>
         <div>
-          <h1>诊断</h1>
-          <p className={dash.pageHeadSub}>粉丝码状态、安全事件与支持工具</p>
+          <h1>{t("diagnosticsTitle")}</h1>
+          <p className={dash.pageHeadSub}>{t("diagnosticsSubtitle")}</p>
         </div>
         {hasPermission(role, "support.notes") && (
           <details className={`${dash.disclosure}`}>
-            <summary style={{ color: "var(--teal)", cursor: "pointer" }}>+ 添加支持备注</summary>
+            <summary style={{ color: "var(--teal)", cursor: "pointer" }}>{t("addSupportNoteSummary")}</summary>
             <div className={dash.formCard} style={{ marginTop: 12, minWidth: 280 }}>
-              <ApiForm action="/api/admin/support-notes" submitLabel="保存备注">
+              <ApiForm action="/api/admin/support-notes" submitLabel={t("saveNote")}>
                 <label>
-                  目标类型
+                  {t("targetType")}
                   <select name="targetType" defaultValue="General">
                     <option value="General">General</option>
                     <option value="User">User</option>
@@ -49,11 +52,11 @@ export default async function AdminDiagnosticsPage() {
                   </select>
                 </label>
                 <label>
-                  目标 ID
+                  {t("targetId")}
                   <input name="targetId" />
                 </label>
                 <label>
-                  备注
+                  {t("note")}
                   <textarea name="note" required />
                 </label>
               </ApiForm>
@@ -65,7 +68,7 @@ export default async function AdminDiagnosticsPage() {
       <div className={dash.twoCol}>
         <section className={dash.panel}>
           <div className={dash.panelHead}>
-            <h2>粉丝码诊断</h2>
+            <h2>{t("fanCodePanel")}</h2>
           </div>
           <div className={dash.table}>
             {fanAccessCodes.map((code) => (
@@ -75,19 +78,20 @@ export default async function AdminDiagnosticsPage() {
                     {code.project.name} · {code.project.creator.username ?? "—"}
                   </strong>
                   <small>
-                    {code.usedMessages}/{code.maxMessages} 条 · {code.bindMode}
-                    {code.boundDeviceHash ? " · 已绑定" : " · 未绑定"} · {code.expiresAt.toISOString().slice(0, 10)} 到期
+                    {code.usedMessages}/{code.maxMessages} {t("fanCodeMessagesUnit")} · {code.bindMode}
+                    {code.boundDeviceHash ? t("fanCodeBoundSuffix") : t("fanCodeUnboundSuffix")} ·{" "}
+                    {t("expiresOn", { date: code.expiresAt.toISOString().slice(0, 10) })}
                   </small>
-                  <small>批次 {code.batchId}</small>
+                  <small>{t("batchLabel", { id: code.batchId })}</small>
                 </div>
                 <div className={dash.rowActions} style={{ flexDirection: "column", alignItems: "flex-end" }}>
                   <Pill tone="neutral">{fanCodeDisplayStatus(code)}</Pill>
                   {code.boundDeviceHash && hasPermission(role, "fan_codes.manage") && (
-                    <details className={dash.disclosure}>
-                      <summary>重置绑定</summary>
+                    <details>
+                      <summary>{t("resetBinding")}</summary>
                       <div className={dash.formCard}>
-                        <ApiForm action={`/api/admin/fan-codes/${code.id}/device-binding`} submitLabel="确认重置">
-                          <span className={dash.pageHeadSub}>清除已绑定浏览器并使现有观众会话失效。</span>
+                        <ApiForm action={`/api/admin/fan-codes/${code.id}/device-binding`} submitLabel={t("confirmReset")}>
+                          <span className={dash.pageHeadSub}>{t("resetBindingHint")}</span>
                         </ApiForm>
                       </div>
                     </details>
@@ -95,20 +99,20 @@ export default async function AdminDiagnosticsPage() {
                 </div>
               </div>
             ))}
-            {fanAccessCodes.length === 0 && <div className={dash.empty}>还没有粉丝码。</div>}
+            {fanAccessCodes.length === 0 && <div className={dash.empty}>{t("emptyFanCodes")}</div>}
           </div>
         </section>
 
         <section className={dash.panel}>
           <div className={dash.panelHead}>
-            <h2>安全事件</h2>
+            <h2>{t("safetyEventsPanel")}</h2>
           </div>
           <div className={dash.table}>
             {safetyEvents.map((event) => (
               <div key={event.id} className={dash.tableRow} style={{ gridTemplateColumns: "1fr auto" }}>
                 <div className={dash.cellMain}>
                   <strong>{event.projectName}</strong>
-                  <small>{event.messagePreview || "无消息预览"}</small>
+                  <small>{event.messagePreview || t("noMessagePreview")}</small>
                   <small>
                     {event.creatorUsername}
                     {event.projectSlug ? ` · /c/${event.projectSlug}` : ""} · {event.createdAt.toISOString().slice(0, 16).replace("T", " ")}
@@ -119,7 +123,7 @@ export default async function AdminDiagnosticsPage() {
                 </Pill>
               </div>
             ))}
-            {safetyEvents.length === 0 && <div className={dash.empty}>还没有被拦截的消息。</div>}
+            {safetyEvents.length === 0 && <div className={dash.empty}>{t("emptyBlockedMessages")}</div>}
           </div>
         </section>
       </div>

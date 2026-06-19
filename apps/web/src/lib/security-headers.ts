@@ -58,14 +58,13 @@ function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
     ["object-src", "'none'"],
     ["frame-ancestors", "'none'"],
     ["form-action", "'self'"],
+    /* All runtime (PixiJS / Live2D Cubism Core / pixi-live2d-display) and model
+       assets are self-hosted under /public — no third-party CDN is allowed. */
     [
       "script-src",
       "'self'",
       "'unsafe-inline'",
       ...developmentScriptSrc,
-      "https://cubism.live2d.com",
-      "https://cdnjs.cloudflare.com",
-      "https://cdn.jsdelivr.net",
       ...extraScriptSrc,
     ],
     ["style-src", "'self'", "'unsafe-inline'"],
@@ -73,8 +72,7 @@ function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
     ["img-src", "'self'", "data:", "blob:", "https:"],
     ["font-src", "'self'", "data:"],
     ["media-src", "'self'", "blob:", "data:"],
-    /* jsdelivr: landing-page demo loads the sample Live2D model3.json/motions directly from CDN */
-    ["connect-src", "'self'", "https://cdn.jsdelivr.net", ...extraConnectSrc],
+    ["connect-src", "'self'", ...extraConnectSrc],
     ["worker-src", "'self'", "blob:"],
     ["manifest-src", "'self'"],
     ["report-uri", env.CSP_REPORT_URI || "/api/csp-report"],

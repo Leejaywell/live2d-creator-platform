@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
 import { Pill } from "@/components/ui";
@@ -41,20 +43,21 @@ export default async function AdminSettingsPage() {
     return <AdminAuthRequired />;
   }
 
+  const t = await getTranslations("admin");
   const settings = await listPlatformSettings();
 
   return (
     <AdminShell active="settings" user={session.user}>
       <div className={dash.pageHead}>
         <div>
-          <h1>系统设置</h1>
-          <p className={dash.pageHeadSub}>平台级 AI、内容审查与结账模式配置</p>
+          <h1>{t("settingsTitle")}</h1>
+          <p className={dash.pageHeadSub}>{t("settingsSubtitle")}</p>
         </div>
       </div>
 
       <section className={dash.panel}>
         <div className={dash.panelHead}>
-          <h2>平台参数</h2>
+          <h2>{t("platformParams")}</h2>
         </div>
         <div className={dash.table}>
           {settings.map((setting) => (
@@ -67,7 +70,7 @@ export default async function AdminSettingsPage() {
                 <strong>{setting.label}</strong>
                 <small>
                   {setting.category} · {setting.source}
-                  {setting.updatedAt ? ` · 更新于 ${setting.updatedAt.toISOString().slice(0, 10)}` : ""}
+                  {setting.updatedAt ? ` · ${t("updatedOn", { date: setting.updatedAt.toISOString().slice(0, 10) })}` : ""}
                 </small>
               </div>
               <span className={dash.pageHeadSub}>{setting.description}</span>
@@ -78,12 +81,12 @@ export default async function AdminSettingsPage() {
               </span>
               <div className={dash.rowActions}>
                 <details>
-                  <summary>编辑</summary>
+                  <summary>{t("edit")}</summary>
                   <div className={dash.formCard}>
-                    <ApiForm action="/api/admin/platform-settings" submitLabel="保存设置">
+                    <ApiForm action="/api/admin/platform-settings" submitLabel={t("saveSettings")}>
                       <input type="hidden" name="key" value={setting.key} />
                       <label>
-                        值
+                        {t("valueLabel")}
                         <SettingValueField setting={setting} />
                       </label>
                     </ApiForm>

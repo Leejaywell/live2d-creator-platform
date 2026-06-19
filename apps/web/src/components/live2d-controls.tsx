@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import styles from "./live2d-controls.module.css";
@@ -18,6 +19,7 @@ export type ControlPanel = {
 // voice lines, model settings). Reveal-on-hover (desktop) / always-on (touch) is
 // handled by the parent stage CSS via the `.live2d-controls` global hook.
 export function Live2DControls({ panels }: { panels: ControlPanel[] }) {
+  const t = useTranslations("audience");
   const [open, setOpen] = useState<string | null>(null);
 
   return (
@@ -51,7 +53,7 @@ export function Live2DControls({ panels }: { panels: ControlPanel[] }) {
                       </button>
                     ))
                   ) : (
-                    <div className={styles.empty}>暂无</div>
+                    <div className={styles.empty}>{t("none")}</div>
                   )}
                 </div>
               ))}

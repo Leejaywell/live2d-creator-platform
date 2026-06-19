@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui";
@@ -12,6 +13,7 @@ type TestResult = {
 };
 
 export function TriggerTagTester({ projectId }: { projectId: string }) {
+  const t = useTranslations("workspace");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
@@ -31,12 +33,12 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(data.error ?? "测试失败");
+        setError(data.error ?? t("testFailed"));
         return;
       }
       setResult(data as TestResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "测试失败");
+      setError(err instanceof Error ? err.message : t("testFailed"));
     } finally {
       setPending(false);
     }
@@ -49,21 +51,21 @@ export function TriggerTagTester({ projectId }: { projectId: string }) {
   return (
     <form onSubmit={onSubmit}>
       <label>
-        示例消息
+        {t("sampleMessage")}
         <input
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          placeholder="你今天好可爱呀，我好喜欢你"
+          placeholder={t("sampleMessagePlaceholder")}
           required
         />
       </label>
       <Button type="submit" disabled={pending || !message.trim()}>
-        {pending ? "测试中…" : "测试"}
+        {pending ? t("testing") : t("test")}
       </Button>
       {error ? <p aria-live="polite">{error}</p> : null}
       {result ? (
         <p aria-live="polite">
-          命中：{result.tags.length ? result.tags.map((tag) => `#${tag}`).join(" ") : "无"}
+          {t("hit")}：{result.tags.length ? result.tags.map((tag) => `#${tag}`).join(" ") : t("none")}
           {effectText ? ` → ${effectText}` : ""}
         </p>
       ) : null}

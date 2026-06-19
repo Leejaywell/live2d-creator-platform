@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
 import { LinkButton, Pill, type Tone } from "@/components/ui";
@@ -28,9 +30,10 @@ function dateOnly(value: Date) {
 }
 
 export default async function CreatorBillingPage() {
+  const t = await getTranslations("fans");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="账单配额" />;
+    return <CreatorAuthRequired title={t("billingAuthTitle")} />;
   }
 
   const [plan, orders, ledger, runtimeSettings] = await Promise.all([
@@ -49,8 +52,8 @@ export default async function CreatorBillingPage() {
     <CreatorShell active="billing" user={session.user} planName={plan?.planName}>
       <div className={styles.pageHead}>
         <div>
-          <h1>账单与用量</h1>
-          <p className={styles.pageHeadSub}>套餐配额、订单与流水</p>
+          <h1>{t("billingHeading")}</h1>
+          <p className={styles.pageHeadSub}>{t("billingSubtitle")}</p>
         </div>
         <Pill tone={runtimeSettings.checkoutMode === "manual-only" ? "neutral" : "live"}>
           {checkoutModeLabel(runtimeSettings.checkoutMode)}
@@ -61,15 +64,15 @@ export default async function CreatorBillingPage() {
         <div className={styles.planCard}>
           <div className={styles.planHead}>
             <div>
-              <div className={styles.pageHeadSub}>当前套餐</div>
-              <div className={styles.planName}>{plan?.planName ?? "未开通"}</div>
+              <div className={styles.pageHeadSub}>{t("billingCurrentPlan")}</div>
+              <div className={styles.planName}>{plan?.planName ?? t("billingPlanNone")}</div>
             </div>
             <LinkButton href="/creator/checkout" variant="ghost" size="sm">
-              升级套餐
+              {t("billingUpgrade")}
             </LinkButton>
           </div>
           <div className={styles.planMetaRow}>
-            <span>AI 消息用量</span>
+            <span>{t("billingAiUsage")}</span>
             <span>
               {plan?.usedAiMessages ?? 0} / {plan?.monthlyAiMessageLimit ?? 0}
             </span>
@@ -78,36 +81,36 @@ export default async function CreatorBillingPage() {
             <span style={{ width: `${aiPct}%` }} />
           </div>
           <div className={styles.planMetaRow}>
-            <span>粉丝码配额</span>
+            <span>{t("billingFanCodeQuota")}</span>
             <span>
               {plan?.usedFanCodes ?? 0} / {plan?.fanCodeQuota ?? 0}
             </span>
           </div>
           <div className={styles.planFoot}>
-            {plan ? `${dateOnly(plan.expiresAt)} 到期 · 状态 ${plan.status}` : "联系管理员开通套餐"}
+            {plan ? t("billingPlanFoot", { date: dateOnly(plan.expiresAt), status: plan.status }) : t("billingPlanFootNone")}
           </div>
         </div>
 
         <div className={styles.rulesCard}>
-          <h3>套餐规则</h3>
+          <h3>{t("billingRulesTitle")}</h3>
           <ul>
-            <li>Trial 仅限少量项目，到期后转为只读</li>
-            <li>超出配额需由管理员补充或升级套餐</li>
-            <li>升级即时生效，由管理员手动确认订单</li>
+            <li>{t("billingRule1")}</li>
+            <li>{t("billingRule2")}</li>
+            <li>{t("billingRule3")}</li>
           </ul>
         </div>
       </div>
 
       <section className={styles.panel}>
         <div className={styles.panelHead}>
-          <h2>账单历史</h2>
+          <h2>{t("billingHistoryTitle")}</h2>
         </div>
         <div className={styles.tableWrap}>
           <div className={`${styles.tableRow} ${styles.tableHead}`} style={{ gridTemplateColumns: HIST_COLS }}>
-            <span>日期</span>
-            <span>项目</span>
-            <span>金额</span>
-            <span>状态</span>
+            <span>{t("billingColDate")}</span>
+            <span>{t("billingColItem")}</span>
+            <span>{t("billingColAmount")}</span>
+            <span>{t("billingColStatus")}</span>
             <span />
           </div>
           {orders.map((order) => {
@@ -126,11 +129,11 @@ export default async function CreatorBillingPage() {
                 <Pill tone={tone}>{orderStatusLabel(order.paymentStatus)}</Pill>
                 <div className={styles.rowActions}>
                   {canCancel ? (
-                    <details className={styles.disclosure}>
-                      <summary>取消</summary>
+                    <details>
+                      <summary>{t("billingCancel")}</summary>
                       <div className={styles.formCard}>
-                        <ApiForm action={`/api/creator/checkout/${order.id}`} method="DELETE" submitLabel="取消订单" submitVariant="danger">
-                          <span className={styles.pageHeadSub}>取消这笔等待管理员确认的订单。</span>
+                        <ApiForm action={`/api/creator/checkout/${order.id}`} method="DELETE" submitLabel={t("billingCancelOrder")} submitVariant="danger">
+                          <span className={styles.pageHeadSub}>{t("billingCancelHint")}</span>
                         </ApiForm>
                       </div>
                     </details>
@@ -141,20 +144,20 @@ export default async function CreatorBillingPage() {
               </div>
             );
           })}
-          {orders.length === 0 && <div className={styles.empty}>还没有订单记录。</div>}
+          {orders.length === 0 && <div className={styles.empty}>{t("billingNoOrders")}</div>}
         </div>
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHead}>
-          <h2>配额流水</h2>
+          <h2>{t("billingLedgerTitle")}</h2>
         </div>
         <div className={styles.tableWrap}>
           <div className={`${styles.tableRow} ${styles.tableHead}`} style={{ gridTemplateColumns: "1.5fr 1fr 2fr 1fr" }}>
-            <span>资源</span>
-            <span>类型</span>
-            <span>原因</span>
-            <span>时间</span>
+            <span>{t("billingColResource")}</span>
+            <span>{t("billingColType")}</span>
+            <span>{t("billingColReason")}</span>
+            <span>{t("billingColTime")}</span>
           </div>
           {ledger.map((entry) => (
             <div key={entry.id} className={styles.tableRow} style={{ gridTemplateColumns: "1.5fr 1fr 2fr 1fr" }}>
@@ -166,7 +169,7 @@ export default async function CreatorBillingPage() {
               <span className={styles.mono}>{dateOnly(entry.createdAt)}</span>
             </div>
           ))}
-          {ledger.length === 0 && <div className={styles.empty}>还没有配额流水。</div>}
+          {ledger.length === 0 && <div className={styles.empty}>{t("billingNoLedger")}</div>}
         </div>
       </section>
     </CreatorShell>

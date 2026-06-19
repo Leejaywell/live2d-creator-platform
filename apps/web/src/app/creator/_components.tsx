@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 
 import { Brand } from "@/components/ui";
@@ -8,13 +9,13 @@ import styles from "./creator.module.css";
 type NavKey = "overview" | "projects" | "billing" | "account";
 
 const creatorLinks: ReadonlyArray<readonly [NavKey, string, string, string]> = [
-  ["overview", "/creator", "工作台", "◎"],
-  ["projects", "/creator/projects", "模型", "▤"],
-  ["billing", "/creator/billing", "账单", "⊟"],
-  ["account", "/creator/account", "账户", "⚙"],
+  ["overview", "/creator", "navOverview", "◎"],
+  ["projects", "/creator/projects", "navProjects", "▤"],
+  ["billing", "/creator/billing", "navBilling", "⊟"],
+  ["account", "/creator/account", "navAccount", "⚙"],
 ];
 
-export function CreatorShell({
+export async function CreatorShell({
   active,
   user,
   planName,
@@ -25,14 +26,15 @@ export function CreatorShell({
   planName?: string | null;
   children: ReactNode;
 }) {
+  const t = await getTranslations("creator");
   const displayName = user.username ?? "creator";
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar} aria-label="创作者工作台导航">
+      <aside className={styles.sidebar} aria-label={t("sidebarNavLabel")}>
         <div className={styles.sidebarBrand}>
           <Brand small />
         </div>
-        <div className={styles.sidebarLabel}>创作者</div>
+        <div className={styles.sidebarLabel}>{t("sidebarRole")}</div>
         <nav>
           {creatorLinks.map(([key, href, label, icon]) => (
             <Link
@@ -43,7 +45,7 @@ export function CreatorShell({
               <span className={styles.navIcon} aria-hidden>
                 {icon}
               </span>
-              {label}
+              {t(label)}
             </Link>
           ))}
         </nav>
@@ -51,7 +53,7 @@ export function CreatorShell({
           <div className={styles.sidebarAvatar} aria-hidden />
           <div className={styles.sidebarFootText}>
             <div className={styles.sidebarFootName}>{displayName}</div>
-            <div className={styles.sidebarFootPlan}>{planName ?? "未开通套餐"}</div>
+            <div className={styles.sidebarFootPlan}>{planName ?? t("noPlan")}</div>
           </div>
         </div>
       </aside>
@@ -60,39 +62,45 @@ export function CreatorShell({
   );
 }
 
-export function CreatorAuthRequired({ title }: { title: string }) {
+export async function CreatorAuthRequired({ title }: { title: string }) {
+  const t = await getTranslations("creator");
   return (
     <main className={styles.authShell}>
       <div className={styles.authCard}>
         <p className={styles.kicker}>STAGE DOOR</p>
         <h1>{title}</h1>
-        <p>请使用有效的创作者账号登录后继续。</p>
+        <p>{t("authPrompt")}</p>
         <div className={styles.authActions}>
-          <Link href="/sign-in">去登录</Link>
-          <Link href="/">回首页</Link>
+          <Link href="/sign-in">{t("authGoSignIn")}</Link>
+          <Link href="/">{t("authBackHome")}</Link>
         </div>
       </div>
     </main>
   );
 }
 
-export function UsageBar({ used, limit }: { used: number; limit: number }) {
+export async function UsageBar({ used, limit }: { used: number; limit: number }) {
+  const t = await getTranslations("creator");
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   return (
-    <div className={styles.progress} aria-label={`已使用 ${pct}%`}>
+    <div className={styles.progress} aria-label={t("usageBarLabel", { pct })}>
       <span style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-export function UsageTrend({ daily }: { daily: Array<{ date: string; messages: number; tokens: number }> }) {
+export async function UsageTrend({ daily }: { daily: Array<{ date: string; messages: number; tokens: number }> }) {
+  const t = await getTranslations("creator");
   const maxMessages = Math.max(1, ...daily.map((day) => day.messages));
   return (
     <ol className={styles.trend}>
       {daily.map((day) => (
         <li key={day.date}>
           <span>{day.date.slice(5)}</span>
-          <div className={styles.progress} aria-label={`${day.date} 有 ${day.messages} 条消息`}>
+          <div
+            className={styles.progress}
+            aria-label={t("usageTrendDayLabel", { date: day.date, messages: day.messages })}
+          >
             <span style={{ width: `${Math.round((day.messages / maxMessages) * 100)}%` }} />
           </div>
           <strong>{day.messages}</strong>
@@ -103,9 +111,9 @@ export function UsageTrend({ daily }: { daily: Array<{ date: string; messages: n
 }
 
 export function projectStatusLabel(status: string) {
-  if (status === "published") return "上演中";
-  if (status === "paused") return "已暂停";
-  return "草稿";
+  if (status === "published") return "statusPublished";
+  if (status === "paused") return "statusPaused";
+  return "statusDraft";
 }
 
 export function projectStatusTone(status: string): "live" | "amber" | "danger" | "neutral" {
@@ -122,12 +130,12 @@ type ProjectStepInput = {
 
 export function nextProjectStep(project: ProjectStepInput) {
   const validation = project.currentModelAsset?.validationStatus;
-  if (!validation || validation === "pending") return "上传 Live2D 模型";
-  if (validation === "invalid") return "修复模型校验错误";
-  if (!project.triggerTags || project.triggerTags.length === 0) return "配置触发标签";
-  if (project.status === "draft") return "发布上演";
-  if (project.status === "paused") return "恢复上演";
-  return "运营中 · 可发放粉丝码";
+  if (!validation || validation === "pending") return "stepUploadModel";
+  if (validation === "invalid") return "stepFixValidation";
+  if (!project.triggerTags || project.triggerTags.length === 0) return "stepConfigTags";
+  if (project.status === "draft") return "stepPublish";
+  if (project.status === "paused") return "stepResume";
+  return "stepRunning";
 }
 
 export { styles as creatorStyles };

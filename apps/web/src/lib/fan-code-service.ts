@@ -71,6 +71,7 @@ export async function generateFanCodeBatch(input: {
         tx.fanAccessCode.create({
           data: {
             projectId: input.projectId,
+            code: item.code,
             codeHash: item.codeHash,
             expiresAt: input.expiresAt,
             maxMessages: input.maxMessages,
@@ -113,15 +114,22 @@ export async function generateFanCodeBatch(input: {
   });
 }
 
+// Soft-revoke (停用): sets status to revoked, keeping the record + its usage/session
+// history. Creators may only revoke their own codes (creatorId scopes the lookup);
+// admins with fan_codes.manage may revoke any code (no creatorId scope).
 export async function revokeFanAccessCode(input: {
   codeId: string;
-  creatorId: string;
+  actor: { id: string; role: UserRole };
+  creatorId?: string;
 }) {
+  if (input.actor.role === "creator" && !input.creatorId) {
+    throw new Error("creatorId is required when a creator revokes a fan code");
+  }
   return prisma.$transaction(async (tx) => {
     const before = await tx.fanAccessCode.findFirstOrThrow({
       where: {
         id: input.codeId,
-        project: { creatorId: input.creatorId },
+        ...(input.creatorId ? { project: { creatorId: input.creatorId } } : {}),
       },
       include: { project: true },
     });
@@ -137,8 +145,8 @@ export async function revokeFanAccessCode(input: {
 
     await tx.auditLog.create({
       data: {
-        actorUserId: input.creatorId,
-        actorRole: "creator",
+        actorUserId: input.actor.id,
+        actorRole: input.actor.role,
         action: "fan_code.revoked",
         targetType: "FanAccessCode",
         targetId: code.id,

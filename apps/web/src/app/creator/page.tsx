@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { LinkButton, Pill } from "@/components/ui";
@@ -21,18 +22,24 @@ export const dynamic = "force-dynamic";
 
 function greeting(date = new Date()) {
   const h = date.getHours();
-  if (h < 6) return "夜深了";
-  if (h < 12) return "早上好";
-  if (h < 18) return "下午好";
-  return "晚上好";
+  if (h < 6) return "greetingLateNight";
+  if (h < 12) return "greetingMorning";
+  if (h < 18) return "greetingAfternoon";
+  return "greetingEvening";
 }
 
-const onboardingSteps = ["上传模型", "配置标签", "绑定语音", "发布"] as const;
+const onboardingSteps = [
+  "onboardingStepUpload",
+  "onboardingStepTags",
+  "onboardingStepVoice",
+  "onboardingStepPublish",
+] as const;
 
 export default async function CreatorPage() {
+  const t = await getTranslations("creator");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="创作者工作台" />;
+    return <CreatorAuthRequired title={t("authTitleOverview")} />;
   }
 
   const usageDays = 7;
@@ -69,7 +76,7 @@ export default async function CreatorPage() {
     plan && plan.monthlyAiMessageLimit > 0
       ? Math.min(100, Math.round((plan.usedAiMessages / plan.monthlyAiMessageLimit) * 100))
       : 0;
-  const studio = session.user.username ?? "创作者";
+  const studio = session.user.username ?? t("defaultStudioName");
 
   // pick the most recent project still being prepared for the onboarding strip
   const onboarding = projects.find((p) => p.status !== "published");
@@ -87,34 +94,30 @@ export default async function CreatorPage() {
     <CreatorShell active="overview" user={session.user} planName={plan?.planName}>
       <div className={styles.pageHead}>
         <div>
-          <h1>
-            {greeting()}，{studio}
-          </h1>
-          <p className={styles.pageHeadSub}>
-            {liveCount} 位角色正在演 · 平台运行正常
-          </p>
+          <h1>{t("greetingHeading", { greeting: t(greeting()), name: studio })}</h1>
+          <p className={styles.pageHeadSub}>{t("subStatus", { count: liveCount })}</p>
         </div>
-        <LinkButton href="/creator/projects">管理模型 →</LinkButton>
+        <LinkButton href="/creator/projects">{t("manageModels")}</LinkButton>
       </div>
 
       <div className={styles.metrics}>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>模型总数</div>
+          <div className={styles.metricLabel}>{t("metricTotalModels")}</div>
           <div className={styles.metricValue}>{projects.length}</div>
         </div>
         <div className={`${styles.metric} ${styles.metricLive}`}>
-          <div className={styles.metricLabel}>在演中</div>
+          <div className={styles.metricLabel}>{t("metricLive")}</div>
           <div className={styles.metricValue}>
             {liveCount}
             {liveCount > 0 && <span className={styles.liveDot} aria-hidden />}
           </div>
         </div>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>近 {usageDays} 天对话</div>
+          <div className={styles.metricLabel}>{t("metricRecentChats", { days: usageDays })}</div>
           <div className={styles.metricValue}>{usage.totalMessages}</div>
         </div>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>AI 消息配额</div>
+          <div className={styles.metricLabel}>{t("metricAiQuota")}</div>
           <div className={styles.metricValue}>
             {quotaPct}
             <span className={styles.metricUnit}>%</span>
@@ -126,9 +129,9 @@ export default async function CreatorPage() {
       {onboarding && (
         <div className={styles.panel}>
           <div className={styles.panelHead}>
-            <h2>完成「{onboarding.name}」的开演准备</h2>
+            <h2>{t("onboardingTitle", { name: onboarding.name })}</h2>
             <span className={styles.panelMeta}>
-              {onboardingDone} / {onboardingSteps.length} 步
+              {t("onboardingProgress", { done: onboardingDone, total: onboardingSteps.length })}
             </span>
           </div>
           <div className={styles.steps}>
@@ -143,7 +146,7 @@ export default async function CreatorPage() {
                   <span className={styles.stepMark} aria-hidden>
                     {done ? "✓" : index + 1}
                   </span>
-                  {label}
+                  {t(label)}
                 </div>
               );
             })}
@@ -156,45 +159,48 @@ export default async function CreatorPage() {
           <div className={styles.quickIcon} aria-hidden>
             ＋
           </div>
-          <div className={styles.quickTitle}>管理我的模型</div>
-          <div className={styles.quickSub}>从模型上传开始</div>
+          <div className={styles.quickTitle}>{t("quickManageTitle")}</div>
+          <div className={styles.quickSub}>{t("quickManageSub")}</div>
         </Link>
-        <Link href="/creator/projects" className={styles.quickCard}>
+        <Link
+          href={projects[0] ? `/creator/projects/${projects[0].id}/fan-codes` : "/creator/projects"}
+          className={styles.quickCard}
+        >
           <div className={styles.quickIcon} aria-hidden>
             ⊞
           </div>
-          <div className={styles.quickTitle}>生成粉丝码</div>
-          <div className={styles.quickSub}>批量发放访问码</div>
+          <div className={styles.quickTitle}>{t("quickFanCodeTitle")}</div>
+          <div className={styles.quickSub}>{t("quickFanCodeSub")}</div>
         </Link>
         <Link href="/creator/billing" className={styles.quickCard}>
           <div className={styles.quickIcon} aria-hidden>
             ⊟
           </div>
-          <div className={styles.quickTitle}>查看账单</div>
-          <div className={styles.quickSub}>用量与套餐</div>
+          <div className={styles.quickTitle}>{t("quickBillingTitle")}</div>
+          <div className={styles.quickSub}>{t("quickBillingSub")}</div>
         </Link>
       </div>
 
       <div className={styles.twoCol}>
         <section className={styles.panel}>
           <div className={styles.panelHead}>
-            <h2>近 {usageDays} 天用量</h2>
+            <h2>{t("usageTitle", { days: usageDays })}</h2>
           </div>
           <div className={styles.metaGrid}>
             <div className={styles.metaItem}>
-              <span>消息数</span>
+              <span>{t("usageMessages")}</span>
               <strong>{usage.totalMessages}</strong>
             </div>
             <div className={styles.metaItem}>
-              <span>Token 估算</span>
+              <span>{t("usageTokens")}</span>
               <strong>{usage.totalTokens}</strong>
             </div>
             <div className={styles.metaItem}>
-              <span>活跃模型</span>
+              <span>{t("usageActiveModels")}</span>
               <strong>{usage.activeProjects}</strong>
             </div>
             <div className={styles.metaItem}>
-              <span>今日</span>
+              <span>{t("usageToday")}</span>
               <strong>{usage.daily.at(-1)?.messages ?? 0}</strong>
             </div>
           </div>
@@ -203,9 +209,9 @@ export default async function CreatorPage() {
 
         <section className={styles.panel}>
           <div className={styles.panelHead}>
-            <h2>我的模型</h2>
+            <h2>{t("myModels")}</h2>
             <Link href="/creator/projects" className={styles.panelMeta}>
-              全部 →
+              {t("viewAll")}
             </Link>
           </div>
           <div className={styles.table}>
@@ -217,15 +223,15 @@ export default async function CreatorPage() {
               >
                 <div className={styles.cellMain}>
                   <strong>{project.name}</strong>
-                  <small>{nextProjectStep(project)}</small>
+                  <small>{t(nextProjectStep(project))}</small>
                 </div>
-                <Pill tone={projectStatusTone(project.status)}>{projectStatusLabel(project.status)}</Pill>
+                <Pill tone={projectStatusTone(project.status)}>{t(projectStatusLabel(project.status))}</Pill>
                 <div className={styles.rowActions}>
-                  <Link href={`/creator/projects/${project.id}`}>管理</Link>
+                  <Link href={`/creator/projects/${project.id}`}>{t("manage")}</Link>
                 </div>
               </div>
             ))}
-            {projects.length === 0 && <div className={styles.empty}>还没有模型，点右上角「管理模型」开始。</div>}
+            {projects.length === 0 && <div className={styles.empty}>{t("emptyModelsDashboard")}</div>}
           </div>
         </section>
       </div>

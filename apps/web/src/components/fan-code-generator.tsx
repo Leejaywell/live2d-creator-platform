@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui";
@@ -13,22 +14,30 @@ function defaultExpiry() {
   return new Date(future.getTime() - offset).toISOString().slice(0, 16);
 }
 
-export function FanCodeGenerator({ projectId }: { projectId: string }) {
+export function FanCodeGenerator({
+  projectId,
+  onDone,
+  endpoint = "/api/creator/fan-codes",
+}: {
+  projectId: string;
+  onDone?: () => void;
+  endpoint?: string;
+}) {
+  const t = useTranslations("fans");
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
-  const [codes, setCodes] = useState<GeneratedCode[]>([]);
   const [expiresAt, setExpiresAt] = useState(defaultExpiry);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
     setPending(true);
-    setStatus("生成中…");
+    setStatus(t("genGenerating"));
     const formData = new FormData(event.currentTarget);
     const raw = String(formData.get("expiresAt") ?? "");
     try {
-      const response = await fetch("/api/creator/fan-codes", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,16 +50,15 @@ export function FanCodeGenerator({ projectId }: { projectId: string }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.error ?? "生成失败");
+        setStatus(data.error ?? t("genFailed"));
         return;
       }
       const generated = (data.codes ?? []) as GeneratedCode[];
-      setCodes(generated);
-      setStatus(`已生成 ${generated.length} 个粉丝码，纯文本仅本次展示`);
-      downloadCsv(generated);
+      setStatus(t("genSuccess", { n: generated.length }));
       router.refresh();
+      onDone?.();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "生成失败");
+      setStatus(error instanceof Error ? error.message : t("genFailed"));
     } finally {
       setPending(false);
     }
@@ -59,46 +67,28 @@ export function FanCodeGenerator({ projectId }: { projectId: string }) {
   return (
     <form onSubmit={onSubmit} aria-busy={pending}>
       <label>
-        生成数量
+        {t("genQuantity")}
         <input name="quantity" type="number" min="1" max="500" defaultValue="5" />
       </label>
       <label>
-        过期时间
+        {t("genExpiry")}
         <input name="expiresAt" type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} suppressHydrationWarning />
       </label>
       <label>
-        单码消息上限
+        {t("genMaxMessages")}
         <input name="maxMessages" type="number" min="1" defaultValue="20" />
       </label>
       <label>
-        设备绑定
+        {t("genBindMode")}
         <select name="bindMode" defaultValue="browserDevice">
-          <option value="browserDevice">绑定首个浏览器设备</option>
-          <option value="none">不绑定</option>
+          <option value="browserDevice">{t("genBindBrowser")}</option>
+          <option value="none">{t("genBindNone")}</option>
         </select>
       </label>
       <Button type="submit" disabled={pending}>
-        {pending ? "生成中…" : "生成并导出 CSV"}
+        {pending ? t("genGenerating") : t("genGenerate")}
       </Button>
       {status ? <p aria-live="polite">{status}</p> : null}
-      {codes.length ? (
-        <textarea readOnly rows={Math.min(codes.length, 8)} value={codes.map((c) => c.code).join("\n")} aria-label="本次生成的粉丝码" />
-      ) : null}
     </form>
   );
-}
-
-function downloadCsv(codes: GeneratedCode[]) {
-  if (!codes.length) return;
-  const rows = [
-    ["id", "batchId", "code", "expiresAt", "maxMessages"],
-    ...codes.map((c) => [c.id, c.batchId, c.code, c.expiresAt, String(c.maxMessages)]),
-  ];
-  const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `fan-codes-${new Date().toISOString().slice(0, 10)}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }

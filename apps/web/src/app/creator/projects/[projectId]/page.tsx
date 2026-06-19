@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { fanCodeDisplayStatus } from "@/lib/fan-code-status";
@@ -13,9 +14,10 @@ import { ProjectWorkspace, type WorkspaceProject } from "./project-workspace";
 export const dynamic = "force-dynamic";
 
 export default async function CreatorProjectPage({ params }: PageProps<"/creator/projects/[projectId]">) {
+  const t = await getTranslations("workspace");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
-    return <CreatorAuthRequired title="项目工作区" />;
+    return <CreatorAuthRequired title={t("authRequiredTitle")} />;
   }
 
   const { projectId } = await params;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui";
@@ -11,6 +12,7 @@ import styles from "./checkout-flow.module.css";
 const methodIcon: Record<string, string> = { wechat: "💳", alipay: "🏦", other: "🧾" };
 
 export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[] }) {
+  const t = useTranslations("fans");
   const router = useRouter();
   const [sku, setSku] = useState(products[0]?.sku ?? "");
   const selected = useMemo(() => products.find((p) => p.sku === sku) ?? products[0], [products, sku]);
@@ -24,7 +26,7 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
   const [error, setError] = useState("");
 
   if (!selected) {
-    return <p className={styles.stepLabel}>暂未配置可购买的套餐。</p>;
+    return <p className={styles.stepLabel}>{t("checkoutNoProducts")}</p>;
   }
 
   async function confirm() {
@@ -40,14 +42,14 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setStatus("error");
-        setError(data.error ?? "下单失败");
+        setError(data.error ?? t("checkoutFailed"));
         return;
       }
       setStatus("waiting");
       router.refresh();
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "下单失败");
+      setError(err instanceof Error ? err.message : t("checkoutFailed"));
     } finally {
       setPending(false);
     }
@@ -56,7 +58,7 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
   return (
     <div className={styles.layout}>
       <div>
-        <p className={styles.stepLabel}>① 选择套餐</p>
+        <p className={styles.stepLabel}>{t("checkoutStep1")}</p>
         <div className={styles.planGrid}>
           {products.map((product) => {
             const active = product.sku === sku;
@@ -68,21 +70,21 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
                 onClick={() => setSku(product.sku)}
                 aria-pressed={active}
               >
-                {active ? <span className={styles.planBadge}>已选</span> : null}
+                {active ? <span className={styles.planBadge}>{t("checkoutSelected")}</span> : null}
                 <div className={styles.planName}>{product.label}</div>
                 <div className={styles.planPrice}>
                   ¥{product.amount}
-                  {product.periodDays ? <span>/{product.periodDays}天</span> : null}
+                  {product.periodDays ? <span>{t("checkoutPerDays", { days: product.periodDays })}</span> : null}
                 </div>
                 <div className={styles.planDesc}>
-                  {product.projectQuotaDelta} 项目 · {product.aiMessageQuotaDelta} 对话
+                  {t("checkoutPlanDesc", { projects: product.projectQuotaDelta, ai: product.aiMessageQuotaDelta })}
                 </div>
               </button>
             );
           })}
         </div>
 
-        <p className={styles.stepLabel}>② 支付方式</p>
+        <p className={styles.stepLabel}>{t("checkoutStep2")}</p>
         <div className={styles.payRow}>
           {paymentMethods.map((m) => (
             <button
@@ -99,35 +101,35 @@ export function CheckoutFlow({ products }: { products: readonly CheckoutProduct[
       </div>
 
       <aside className={styles.summary}>
-        <h2>订单摘要</h2>
+        <h2>{t("checkoutSummary")}</h2>
         <div className={styles.summaryRow}>
           <span>{selected.label}</span>
           <span>¥{selected.amount}</span>
         </div>
         <div className={styles.summaryRow}>
-          <span>配额</span>
-          <span>AI {selected.aiMessageQuotaDelta} · 码 {selected.fanCodeQuotaDelta}</span>
+          <span>{t("checkoutQuota")}</span>
+          <span>{t("checkoutQuotaSummary", { ai: selected.aiMessageQuotaDelta, code: selected.fanCodeQuotaDelta })}</span>
         </div>
         <div className={styles.summaryTotal}>
-          <span>应付</span>
+          <span>{t("checkoutPayable")}</span>
           <span className={styles.amount}>
             ¥{selected.amount} {selected.currency}
           </span>
         </div>
         <Button className={styles.payBtn} block size="lg" type="button" onClick={confirm} disabled={pending}>
-          {pending ? "创建中…" : "确认支付"}
+          {pending ? t("checkoutCreating") : t("checkoutConfirm")}
         </Button>
         {status === "waiting" ? (
           <div className={`${styles.payHint} ${styles.done}`}>
             <span />
-            订单已创建，等待管理员确认后生效
+            {t("checkoutWaiting")}
           </div>
         ) : status === "error" ? (
           <div className={styles.payHint}>{error}</div>
         ) : (
           <div className={styles.payHint}>
             <span />
-            手动收款 · 下单后由管理员确认
+            {t("checkoutManualHint")}
           </div>
         )}
       </aside>

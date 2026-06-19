@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type FormEvent, type ReactNode, useState } from "react";
 
 import { Button, type ButtonVariant } from "@/components/ui";
@@ -17,6 +18,7 @@ type ApiFormProps = {
 // input is present), surfaces status text, and refreshes server data on success.
 export function ApiForm({ action, method = "POST", submitLabel, submitVariant = "primary", children }: ApiFormProps) {
   const router = useRouter();
+  const t = useTranslations("workspace");
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -24,7 +26,7 @@ export function ApiForm({ action, method = "POST", submitLabel, submitVariant = 
     event.preventDefault();
     if (pending) return;
     setPending(true);
-    setStatus("提交中…");
+    setStatus(t("submitting"));
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -45,13 +47,13 @@ export function ApiForm({ action, method = "POST", submitLabel, submitVariant = 
           });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.error ?? "请求失败");
+        setStatus(data.error ?? t("requestFailed"));
         return;
       }
-      setStatus("已保存");
+      setStatus(t("saved"));
       router.refresh();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "请求失败");
+      setStatus(error instanceof Error ? error.message : t("requestFailed"));
     } finally {
       setPending(false);
     }
@@ -61,7 +63,7 @@ export function ApiForm({ action, method = "POST", submitLabel, submitVariant = 
     <form onSubmit={onSubmit} aria-busy={pending}>
       {children}
       <Button type="submit" variant={submitVariant} disabled={pending}>
-        {pending ? "提交中…" : submitLabel}
+        {pending ? t("submitting") : submitLabel}
       </Button>
       {status ? <p aria-live="polite">{status}</p> : null}
     </form>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
 
 import styles from "./workspace.module.css";
@@ -17,6 +18,7 @@ export function StageChat({
   welcomeMessage: string;
   onEffects?: (tags: string[], effects: Array<{ tag: string; params: Array<{ id: string; value: number }> }>) => void;
 }) {
+  const t = useTranslations("workspace");
   const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", content: welcomeMessage }]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -52,7 +54,7 @@ export function StageChat({
         }),
       });
       if (!res.ok || !res.body) {
-        setMessages((c) => [...c, { role: "assistant", content: "（预览聊天失败，请稍后重试）" }]);
+        setMessages((c) => [...c, { role: "assistant", content: t("previewChatFailed") }]);
         return;
       }
       const reader = res.body.getReader();
@@ -89,7 +91,7 @@ export function StageChat({
         }
       }
     } catch {
-      setMessages((c) => [...c, { role: "assistant", content: "（网络异常）" }]);
+      setMessages((c) => [...c, { role: "assistant", content: t("networkError") }]);
     } finally {
       setPending(false);
       scroll();
@@ -110,10 +112,10 @@ export function StageChat({
           className={styles.stageInput}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="在此试聊，预览动作与表情…"
-          aria-label="预览聊天"
+          placeholder={t("stageChatPlaceholder")}
+          aria-label={t("previewChat")}
         />
-        <button className={styles.stageSend} type="submit" disabled={pending || !input.trim()} aria-label="发送">
+        <button className={styles.stageSend} type="submit" disabled={pending || !input.trim()} aria-label={t("send")}>
           {pending ? "…" : "→"}
         </button>
       </form>
