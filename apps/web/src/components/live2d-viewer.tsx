@@ -11,14 +11,18 @@ import styles from "./live2d-viewer.module.css";
 
 export type Live2DEffect = { tag: string; params: Array<{ id: string; value: number }> };
 
+export type Live2DVoice = { name: string; audioUrl?: string; tags?: string[] };
+
 type Props = {
   projectSlug: string;
   viewerSessionId?: string;
   activeTags: string[];
   activeEffects: Live2DEffect[];
   isSpeaking: boolean;
-  voices?: Array<{ name: string; audioUrl?: string }>;
+  voices?: Live2DVoice[];
   backgroundUrl?: string | null;
+  /** Shown as the greeting subtitle when the model finishes loading. */
+  welcomeMessage?: string;
 };
 
 // Self-hosted runtime — PixiJS + Live2D Cubism Core + pixi-live2d-display (cubism4
@@ -31,13 +35,15 @@ const SCRIPTS = [
 
 type CoreModel = { setParameterValueById(id: string, value: number): void };
 type MotionManager = { definitions?: Record<string, unknown[]>; motionGroups?: Record<string, unknown[]> };
+type MotionDef = { File?: string; file?: string };
 type InternalModel = {
   coreModel?: CoreModel;
   motionManager?: MotionManager;
   eyeBlink?: unknown;
   physics?: unknown;
-  settings?: { expressions?: Array<{ Name?: string; name?: string }> };
+  settings?: { expressions?: Array<{ Name?: string; name?: string }>; motions?: Record<string, MotionDef[]> };
 };
+type Bounds = { x: number; y: number; width: number; height: number };
 type Live2DModelInstance = {
   scale: { set(x: number, y?: number): void };
   position: { set(x: number, y: number): void };
@@ -48,6 +54,8 @@ type Live2DModelInstance = {
   motion?: (group: string, index?: number) => void;
   expression?: (name?: string) => void;
   focus?: (x: number, y: number) => void;
+  hitTest?: (x: number, y: number) => string[];
+  getBounds?: () => Bounds;
   destroy(): void;
 };
 type PixiApp = {
@@ -98,6 +106,7 @@ export function Live2DViewer({
   isSpeaking,
   voices = [],
   backgroundUrl,
+  welcomeMessage,
 }: Props) {
   const t = useTranslations("audience");
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,11 +116,25 @@ export function Live2DViewer({
   const eyeBlinkRef = useRef<unknown>(undefined);
   const physicsRef = useRef<unknown>(undefined);
   const gazeRef = useRef(true);
+  const tapIdx = useRef(0);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
+  const subtitleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest props the imperative tap-reaction handler needs, kept in refs so the
+  // pointer callbacks stay stable and never read stale closures.
+  const voicesRef = useRef<Live2DVoice[]>(voices);
+  const welcomeRef = useRef<string | undefined>(welcomeMessage);
+  useEffect(() => {
+    voicesRef.current = voices;
+    welcomeRef.current = welcomeMessage;
+  }, [voices, welcomeMessage]);
 
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [motionGroups, setMotionGroups] = useState<string[]>([]);
   const [expressions, setExpressions] = useState<string[]>([]);
+  const [subtitle, setSubtitle] = useState<{ title: string; text: string } | null>(null);
+  const [bgmOn, setBgmOn] = useState(false);
 
   // Model-setting controls (parity with the landing showcase).
   const [scaleMul, setScaleMul] = useState(1);
@@ -123,7 +146,6 @@ export function Live2DViewer({
   const [idle, setIdle] = useState(true);
   const [lipSync, setLipSync] = useState(true);
   const [bgIdx, setBgIdx] = useState(0);
-  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Background options: the creator's uploaded background (if any) first, then
   // the shared stage presets — same set as the landing showcase.
@@ -133,13 +155,71 @@ export function Live2DViewer({
   ];
   const currentBg = bgOptions[bgIdx] ?? bgOptions[0];
 
-  const playVoice = (url?: string) => {
-    if (!url) return;
+  // Show a speech-bubble subtitle for a few seconds (auto-clears, or on audio end).
+  const showSubtitle = useCallback((title: string, text: string) => {
+    if (subtitleTimerRef.current) clearTimeout(subtitleTimerRef.current);
+    setSubtitle({ title, text });
+    subtitleTimerRef.current = setTimeout(() => setSubtitle(null), 6000);
+  }, []);
+
+  // Play a project voice line. Optionally surface a subtitle (title + the voice
+  // name, since VoiceAssets carry no transcript text).
+  const playVoice = useCallback((voice?: Live2DVoice, subtitleTitle?: string) => {
+    if (subtitleTitle) showSubtitle(subtitleTitle, voice?.name ?? "");
+    if (!voice?.audioUrl) return;
     voiceAudioRef.current?.pause();
-    const audio = new Audio(url);
+    const audio = new Audio(voice.audioUrl);
     voiceAudioRef.current = audio;
+    audio.onended = () => setSubtitle(null);
     void audio.play().catch(() => {});
-  };
+  }, [showSubtitle]);
+
+  // Drive a motion that best matches a named reaction (e.g. "touch_head"),
+  // falling back to a tap-cycled motion when the model has no named group.
+  const playReactionMotion = useCallback((motionName: string) => {
+    const model = modelRef.current;
+    if (!model) return;
+    const motions = model.internalModel?.settings?.motions;
+    if (motions) {
+      for (const [group, list] of Object.entries(motions)) {
+        const index = list.findIndex((m) => (m.File ?? m.file ?? "").includes(motionName));
+        if (index !== -1) {
+          model.motion?.(group, index);
+          return;
+        }
+      }
+    }
+    model.motion?.("", tapIdx.current++ % 4);
+  }, []);
+
+  // Pick a project voice whose bound trigger tag matches the reaction keyword;
+  // otherwise any voice at random. Returns undefined when the project has none.
+  const voiceForReaction = useCallback((keyword: string): Live2DVoice | undefined => {
+    const list = voicesRef.current;
+    if (list.length === 0) return undefined;
+    const matched = list.find((v) => v.tags?.some((tag) => tag.includes(keyword) || keyword.includes(tag)));
+    return matched ?? list[Math.floor(Math.random() * list.length)];
+  }, []);
+
+  // Map a tapped hit-area to a reaction: motion + voice + subtitle.
+  const reactToArea = useCallback(
+    (areas: string[]) => {
+      const has = (k: string) => areas.some((a) => a.toLowerCase().includes(k));
+      let motion = "touch_body";
+      let keyword = "touch";
+      let title = t("reactTouchBody");
+      if (has("special")) {
+        [motion, keyword, title] = ["touch_special", "special", t("reactTouchSpecial")];
+      } else if (has("head")) {
+        [motion, keyword, title] = ["touch_head", "head", t("reactTouchHead")];
+      } else if (has("body")) {
+        [motion, keyword, title] = ["touch_body", "body", t("reactTouchBody")];
+      }
+      playReactionMotion(motion);
+      playVoice(voiceForReaction(keyword), title);
+    },
+    [t, playReactionMotion, playVoice, voiceForReaction],
+  );
 
   const init = useCallback(async () => {
     try {
@@ -266,6 +346,34 @@ export function Live2DViewer({
     return () => cancelAnimationFrame(raf);
   }, [isSpeaking, lipSync]);
 
+  // Greeting: once the model is ready, play a login/home motion and the project's
+  // first voice line, with the welcome message as the on-screen subtitle.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const timer = setTimeout(() => {
+      playReactionMotion("login");
+      const first = voicesRef.current[0];
+      const greeting = welcomeRef.current;
+      if (greeting) showSubtitle(t("reactGreeting"), greeting);
+      if (first?.audioUrl) playVoice(first);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [phase, playReactionMotion, playVoice, showSubtitle, t]);
+
+  // Background music — looped ambient track, gated behind a user toggle so it
+  // never autoplays (browsers block that anyway).
+  useEffect(() => {
+    const player = bgmRef.current;
+    if (!player) return;
+    if (bgmOn) void player.play().catch(() => {});
+    else player.pause();
+  }, [bgmOn]);
+
+  // Clear any pending subtitle timer on unmount.
+  useEffect(() => () => {
+    if (subtitleTimerRef.current) clearTimeout(subtitleTimerRef.current);
+  }, []);
+
   const onPointerMove = useCallback((e: ReactPointerEvent) => {
     const model = modelRef.current;
     const canvas = canvasRef.current;
@@ -273,10 +381,35 @@ export function Live2DViewer({
     const rect = canvas.getBoundingClientRect();
     model.focus(e.clientX - rect.left, e.clientY - rect.top);
   }, []);
-  const tapIdx = useRef(0);
-  const onPointerDown = useCallback(() => {
-    modelRef.current?.motion?.("", tapIdx.current++ % 4);
-  }, []);
+
+  // Tap reaction: hit-test the tapped point against the model's named areas
+  // (head / body / special) and react with motion + voice + subtitle. pixi-live2d
+  // -display 0.4's built-in hit event relies on Pixi 6's InteractionManager, which
+  // Pixi 7 removed, so we hit-test manually on pointer down (mouse + touch alike).
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent) => {
+      const model = modelRef.current;
+      const canvas = canvasRef.current;
+      if (!model || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const hits = model.hitTest?.(x, y) ?? [];
+      if (hits.length > 0) {
+        reactToArea(hits);
+        return;
+      }
+      // No named area hit — if the tap still landed on the silhouette, react as a
+      // body touch; otherwise just cycle a tap motion.
+      const bounds = model.getBounds?.();
+      if (bounds && x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height) {
+        reactToArea([]);
+      } else {
+        model.motion?.("", tapIdx.current++ % 4);
+      }
+    },
+    [reactToArea],
+  );
 
   const motionNames = motionGroups.length ? motionGroups : [""];
   const panels: ControlPanel[] = [
@@ -286,14 +419,16 @@ export function Live2DViewer({
       icon: "act",
       sections: [
         {
-          title: t("sectionMotion"),
+          title: t("sectionPose"),
           items: motionNames.map((g, i) => ({
             label: g || t("motionN", { n: i + 1 }),
             onSelect: () => modelRef.current?.motion?.(g, g ? undefined : i),
           })),
         },
         {
-          title: t("sectionExpression"),
+          // A single uploaded model has no alternate costume data, so its
+          // expressions are the closest "look / skin" the viewer can offer.
+          title: t("sectionSkin"),
           items: expressions.map((name) => ({ label: name, onSelect: () => modelRef.current?.expression?.(name) })),
         },
       ],
@@ -307,11 +442,15 @@ export function Live2DViewer({
           title: t("sectionPresetVoice"),
           items: voices.map((v) => ({
             label: v.name,
-            onSelect: () => {
-              if (v.audioUrl) playVoice(v.audioUrl);
-              else modelRef.current?.motion?.("", 0);
-            },
+            onSelect: () => playVoice(v, v.name),
           })),
+        },
+        {
+          title: t("sectionAmbience"),
+          items: [
+            { label: t("randomInteract"), onSelect: () => reactToArea([]) },
+            { label: `${t("bgm")} · ${bgmOn ? t("on") : t("off")}`, active: bgmOn, onSelect: () => setBgmOn((v) => !v) },
+          ],
         },
       ],
     },
@@ -391,7 +530,15 @@ export function Live2DViewer({
         }
       />
       <canvas ref={canvasRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
+      {phase === "ready" && subtitle ? (
+        <div className={styles.subtitle} aria-live="polite">
+          <span className={styles.subtitleTitle}>⚓ {subtitle.title}</span>
+          {subtitle.text ? <span className={styles.subtitleText}>{subtitle.text}</span> : null}
+        </div>
+      ) : null}
       {phase === "ready" ? <Live2DControls panels={panels} /> : null}
+      {/* Self-hosted looped ambient track; never autoplays (toggle-gated). */}
+      <audio ref={bgmRef} loop preload="none" src="/audio/ambient.ogg" />
       {phase === "loading" ? (
         <div className={styles.status}>
           <div className={styles.spinner} aria-hidden />

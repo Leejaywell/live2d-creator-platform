@@ -39,6 +39,11 @@ export default async function AudiencePage({ params }: PageProps<"/c/[slug]">) {
       welcomeMessage={project.welcomeMessage}
       hasLive2DModel={project.currentModelAsset?.validationStatus === "valid"}
       tagNames={project.triggerTags.map((tag) => tag.name)}
+      voices={project.voiceAssets.map((voice) => ({
+        name: voice.name,
+        audioUrl: voice.audioUrl,
+        tags: voice.triggerTags.map((tag) => tag.name),
+      }))}
     />
   );
 }

@@ -47,7 +47,7 @@ export type WorkspaceProject = {
   modelStatus: string | null;
   modelAssetCount: number;
   tags: WorkspaceTag[];
-  voices: Array<{ id: string; name: string; status: string }>;
+  voices: Array<{ id: string; name: string; status: string; audioUrl?: string; tags?: string[] }>;
   codes: WorkspaceCode[];
   readiness: boolean[];
 };
@@ -185,7 +185,9 @@ export function ProjectWorkspace({
                 activeTags={chatTags}
                 activeEffects={chatEffects}
                 isSpeaking={false}
-                voices={project.voices.map((v) => ({ name: v.name }))}
+                voices={project.voices.map((v) => ({ name: v.name, audioUrl: v.audioUrl, tags: v.tags }))}
+                backgroundUrl={project.backgroundUrl}
+                welcomeMessage={project.welcomeMessage}
               />
             ) : (
               <div className={styles.stageSlot}>

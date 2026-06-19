@@ -26,7 +26,7 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
     include: {
       currentModelAsset: true,
       triggerTags: { orderBy: [{ priority: "desc" }, { createdAt: "desc" }] },
-      voiceAssets: { orderBy: { createdAt: "desc" } },
+      voiceAssets: { orderBy: { createdAt: "desc" }, include: { triggerTags: { select: { name: true } } } },
       fanAccessCodes: { orderBy: { createdAt: "desc" }, take: 12 },
       _count: { select: { modelAssets: true } },
     },
@@ -83,7 +83,13 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
       priority: tag.priority,
       enabled: tag.enabled,
     })),
-    voices: project.voiceAssets.map((voice) => ({ id: voice.id, name: voice.name, status: voice.status })),
+    voices: project.voiceAssets.map((voice) => ({
+      id: voice.id,
+      name: voice.name,
+      status: voice.status,
+      audioUrl: voice.audioUrl,
+      tags: voice.triggerTags.map((tag) => tag.name),
+    })),
     codes: project.fanAccessCodes.map((code) => ({
       id: code.id,
       status: fanCodeDisplayStatus(code),

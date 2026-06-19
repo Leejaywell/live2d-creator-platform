@@ -81,6 +81,62 @@
   margin-top: 4px;
 }
 
+/* Speech-bubble subtitle for tap reactions and the greeting line. */
+.subtitle {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  max-width: min(78%, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(28, 18, 38, 0.92), rgba(16, 10, 24, 0.92));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  pointer-events: none;
+  animation: subtitleIn 0.28s var(--ease, ease-out);
+}
+.subtitle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(16, 10, 24, 0.92);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+.subtitleTitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pink);
+}
+.subtitleText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f4eef8;
+}
+
+@keyframes subtitleIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

@@ -33,6 +33,11 @@ export function findPublicAudienceProject(slug: string) {
         where: { enabled: true },
         orderBy: { priority: "desc" },
       },
+      voiceAssets: {
+        where: { status: "active" },
+        orderBy: { createdAt: "desc" },
+        include: { triggerTags: { select: { name: true } } },
+      },
     },
   });
 }

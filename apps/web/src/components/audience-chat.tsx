@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
-import { type Live2DEffect, Live2DViewer } from "@/components/live2d-viewer";
+import { type Live2DEffect, type Live2DVoice, Live2DViewer } from "@/components/live2d-viewer";
 
 import styles from "./audience-chat.module.css";
 
@@ -22,6 +22,7 @@ type Props = {
   welcomeMessage: string;
   hasLive2DModel: boolean;
   tagNames: string[];
+  voices?: Live2DVoice[];
   initialViewerSessionId?: string;
 };
 
@@ -56,6 +57,7 @@ export function AudienceChat({
   backgroundUrl,
   welcomeMessage,
   hasLive2DModel,
+  voices = [],
   initialViewerSessionId,
 }: Props) {
   const t = useTranslations("audience");
@@ -232,6 +234,9 @@ export function AudienceChat({
                 activeTags={activeTags}
                 activeEffects={activeEffects}
                 isSpeaking={pending}
+                voices={voices}
+                backgroundUrl={backgroundUrl}
+                welcomeMessage={welcomeMessage}
               />
             </div>
           ) : avatarUrl ? (
