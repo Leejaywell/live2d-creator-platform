@@ -12,6 +12,7 @@ export async function createProject(input: {
   avatarUrl?: string | null;
   backgroundUrl?: string | null;
   systemPrompt: string;
+  characterSetting?: string | null;
   welcomeMessage: string;
   theme?: string;
 }) {
@@ -29,7 +30,7 @@ export async function createProject(input: {
           const projectCount = await tx.project.count({
             where: { creatorId: input.creatorId },
           });
-          if (projectCount >= 1) {
+          if (projectCount >= plan.maxProjects) {
             throw new Error("Creator model slot already exists");
           }
 
@@ -42,6 +43,7 @@ export async function createProject(input: {
               avatarUrl: input.avatarUrl,
               backgroundUrl: input.backgroundUrl,
               systemPrompt: input.systemPrompt,
+              characterSetting: input.characterSetting,
               welcomeMessage: input.welcomeMessage,
               theme: input.theme ?? "#0f766e",
             },
@@ -77,6 +79,42 @@ function isSerializationConflict(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
 }
 
+/**
+ * Admin-side edit of a project's AI system prompt and/or public character setting,
+ * for ANY project (not creator-scoped). Gated by the projects.pause capability.
+ */
+export async function adminUpdateProjectPrompt(input: {
+  projectId: string;
+  actorId: string;
+  actorRole: UserRole;
+  systemPrompt?: string;
+  characterSetting?: string | null;
+}) {
+  assertPermission(input.actorRole, "projects.pause");
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.project.findUniqueOrThrow({ where: { id: input.projectId } });
+    const project = await tx.project.update({
+      where: { id: input.projectId },
+      data: {
+        systemPrompt: input.systemPrompt,
+        characterSetting: input.characterSetting,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorId,
+        actorRole: input.actorRole,
+        action: "project.prompt_updated",
+        targetType: "Project",
+        targetId: project.id,
+        before: before as unknown as Prisma.InputJsonValue,
+        after: project as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return project;
+  });
+}
+
 export async function updateProject(input: {
   projectId: string;
   creatorId: string;
@@ -86,6 +124,7 @@ export async function updateProject(input: {
   avatarUrl?: string | null;
   backgroundUrl?: string | null;
   systemPrompt?: string;
+  characterSetting?: string | null;
   welcomeMessage?: string;
   theme?: string;
 }) {
@@ -103,6 +142,7 @@ export async function updateProject(input: {
         avatarUrl: input.avatarUrl,
         backgroundUrl: input.backgroundUrl,
         systemPrompt: input.systemPrompt,
+        characterSetting: input.characterSetting,
         welcomeMessage: input.welcomeMessage,
         theme: input.theme,
       },
@@ -143,7 +183,7 @@ export async function setProjectStatus(input: {
           select: { enabled: true },
         },
         fanAccessCodes: {
-          select: { status: true, expiresAt: true },
+          select: { status: true, expiresAt: true, batchId: true },
         },
       },
     });
@@ -274,11 +314,23 @@ export async function createTriggerTag(input: {
   live2dParams?: Prisma.InputJsonValue;
   priority?: number;
   enabled?: boolean;
+  voiceAssetIds?: string[];
 }) {
   return prisma.$transaction(async (tx) => {
     await tx.project.findFirstOrThrow({
       where: { id: input.projectId, creatorId: input.creatorId },
     });
+
+    // Only bind voices that actually belong to this project (defends against a
+    // crafted request connecting another project's voice).
+    const voiceIds = input.voiceAssetIds?.length
+      ? (
+          await tx.voiceAsset.findMany({
+            where: { projectId: input.projectId, id: { in: input.voiceAssetIds } },
+            select: { id: true },
+          })
+        ).map((v) => v.id)
+      : [];
 
     const tag = await tx.triggerTag.create({
       data: {
@@ -291,6 +343,7 @@ export async function createTriggerTag(input: {
         live2dParams: input.live2dParams,
         priority: input.priority ?? 0,
         enabled: input.enabled ?? true,
+        ...(voiceIds.length ? { voiceAssets: { connect: voiceIds.map((id) => ({ id })) } } : {}),
       },
     });
 

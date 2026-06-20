@@ -3,19 +3,15 @@ export type HeaderEntry = {
   value: string;
 };
 
-export function securityHeaders(env: NodeJS.ProcessEnv = process.env): HeaderEntry[] {
+/** Static, request-independent security headers (no CSP — the CSP is emitted
+ *  per-request by src/proxy.ts so it can carry a fresh nonce). */
+export function staticSecurityHeaders(env: NodeJS.ProcessEnv = process.env): HeaderEntry[] {
   const headers: HeaderEntry[] = [
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
     { key: "X-Frame-Options", value: "DENY" },
   ];
-
-  const csp = contentSecurityPolicy(env);
-  headers.push({
-    key: env.CSP_REPORT_ONLY === "true" ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy",
-    value: csp,
-  });
 
   if (env.NODE_ENV === "production" || env.ENABLE_HSTS === "true") {
     headers.push({
@@ -25,6 +21,19 @@ export function securityHeaders(env: NodeJS.ProcessEnv = process.env): HeaderEnt
   }
 
   return headers;
+}
+
+export function cspHeaderName(env: NodeJS.ProcessEnv = process.env) {
+  return env.CSP_REPORT_ONLY === "true" ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy";
+}
+
+/** Full header set including CSP. Used by tests/readiness; pass a nonce to get
+ *  the nonce-based script-src (no 'unsafe-inline'). */
+export function securityHeaders(env: NodeJS.ProcessEnv = process.env, nonce?: string): HeaderEntry[] {
+  return [
+    ...staticSecurityHeaders(env),
+    { key: cspHeaderName(env), value: contentSecurityPolicy(env, nonce) },
+  ];
 }
 
 export function securityHeaderReadiness(env: NodeJS.ProcessEnv = process.env) {
@@ -48,10 +57,20 @@ export function securityHeaderReadiness(env: NodeJS.ProcessEnv = process.env) {
   }
 }
 
-function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
+export function contentSecurityPolicy(env: NodeJS.ProcessEnv, nonce?: string) {
   const extraConnectSrc = splitSources(env.CSP_CONNECT_SRC);
   const extraScriptSrc = splitSources(env.CSP_SCRIPT_SRC);
   const developmentScriptSrc = env.NODE_ENV === "development" ? ["'unsafe-eval'"] : [];
+  // With a per-request nonce, script-src uses 'nonce-…' + 'strict-dynamic' instead
+  // of 'unsafe-inline', so injected inline scripts can't execute. The self-hosted
+  // PixiJS / Cubism Core / pixi-live2d-display files are appended by trusted
+  // (nonced) bundle code at runtime, which 'strict-dynamic' propagates trust to.
+  // Without a nonce (legacy/static callers) we fall back to 'unsafe-inline'.
+  // NOTE: style-src keeps 'unsafe-inline' because the app uses inline `style=`
+  // attributes (e.g. dynamic stage backgrounds) that a nonce cannot cover.
+  const scriptSrc = nonce
+    ? ["script-src", "'self'", `'nonce-${nonce}'`, "'strict-dynamic'", ...developmentScriptSrc, ...extraScriptSrc]
+    : ["script-src", "'self'", "'unsafe-inline'", ...developmentScriptSrc, ...extraScriptSrc];
   const directives = [
     ["default-src", "'self'"],
     ["base-uri", "'self'"],
@@ -60,13 +79,7 @@ function contentSecurityPolicy(env: NodeJS.ProcessEnv) {
     ["form-action", "'self'"],
     /* All runtime (PixiJS / Live2D Cubism Core / pixi-live2d-display) and model
        assets are self-hosted under /public — no third-party CDN is allowed. */
-    [
-      "script-src",
-      "'self'",
-      "'unsafe-inline'",
-      ...developmentScriptSrc,
-      ...extraScriptSrc,
-    ],
+    scriptSrc,
     ["style-src", "'self'", "'unsafe-inline'"],
     /* https: 允许创作者配置外链头像与舞台背景图;仅图片资源,不放宽脚本与连接 */
     ["img-src", "'self'", "data:", "blob:", "https:"],

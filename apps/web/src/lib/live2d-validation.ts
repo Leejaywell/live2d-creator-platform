@@ -132,24 +132,49 @@ export async function validateLive2DZip(input: Buffer | ArrayBuffer, maxBytes = 
       };
 }
 
+// Decompressed-size caps guard against zip bombs (a small archive of highly
+// compressible entries inflating to many GB in memory).
+const MAX_TOTAL_UNCOMPRESSED_BYTES = 300 * 1024 * 1024;
+const MAX_FILE_UNCOMPRESSED_BYTES = 150 * 1024 * 1024;
+
+function declaredUncompressedSize(file: JSZip.JSZipObject) {
+  return (file as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0;
+}
+
 export async function extractLive2DZipFiles(input: Buffer | ArrayBuffer): Promise<Live2DZipFile[]> {
   const data = Buffer.isBuffer(input) ? input : Buffer.from(new Uint8Array(input));
   const zip = await JSZip.loadAsync(data);
   const files = Object.values(zip.files).filter((file) => !file.dir);
 
-  return Promise.all(
-    files.map(async (file) => {
-      const filePath = normalizeZipPath(file.name);
-      if (isUnsafeZipPath(filePath) || !isAllowedLive2DExtension(filePath)) {
-        throw new Error(`Unsafe or disallowed Live2D asset path: ${file.name}`);
-      }
-      return {
-        path: filePath,
-        data: await file.async("nodebuffer"),
-        contentType: contentTypeForPath(filePath),
-      };
-    }),
-  );
+  // Pre-flight on declared sizes, then decompress sequentially with a running
+  // total so peak memory stays bounded even if declared sizes lie.
+  let declaredTotal = 0;
+  for (const file of files) {
+    const declared = declaredUncompressedSize(file);
+    if (declared > MAX_FILE_UNCOMPRESSED_BYTES) {
+      throw new Error(`Live2D asset is too large when decompressed: ${file.name}`);
+    }
+    declaredTotal += declared;
+  }
+  if (declaredTotal > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+    throw new Error("Live2D archive decompresses to an unsafe size");
+  }
+
+  const out: Live2DZipFile[] = [];
+  let total = 0;
+  for (const file of files) {
+    const filePath = normalizeZipPath(file.name);
+    if (isUnsafeZipPath(filePath) || !isAllowedLive2DExtension(filePath)) {
+      throw new Error(`Unsafe or disallowed Live2D asset path: ${file.name}`);
+    }
+    const buffer = await file.async("nodebuffer");
+    total += buffer.byteLength;
+    if (total > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+      throw new Error("Live2D archive decompresses to an unsafe size");
+    }
+    out.push({ path: filePath, data: buffer, contentType: contentTypeForPath(filePath) });
+  }
+  return out;
 }
 
 function collectModelReferences(fileReferences: z.infer<typeof model3Schema>["FileReferences"]) {

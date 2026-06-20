@@ -25,6 +25,23 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     options: ["openai-compatible", "disabled"],
   },
   {
+    key: "ai.baseUrl",
+    category: "ai",
+    label: "AI base URL",
+    description: "OpenAI-compatible base URL of the chosen provider.",
+    valueType: "string",
+    defaultValue: "https://api.openai.com/v1",
+  },
+  {
+    key: "ai.apiKey",
+    category: "ai",
+    label: "AI API key",
+    description: "Secret API key for the chosen provider (stored server-side only).",
+    valueType: "string",
+    defaultValue: "",
+    isSecret: true,
+  },
+  {
     key: "ai.chatModel",
     category: "ai",
     label: "Chat model",
@@ -58,15 +75,9 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     valueType: "number",
     defaultValue: 1200,
   },
-  {
-    key: "payments.checkout",
-    category: "payments",
-    label: "Checkout mode",
-    description: "Commercial source of truth for creator plans and fan-code packages.",
-    valueType: "enum",
-    defaultValue: "manual-only",
-    options: ["manual-only", "provider-sandbox", "provider-live"],
-  },
+  // NOTE: the "payments.checkout" setting was removed from the admin UI. The
+  // runtime `checkoutMode` still exists (see getPlatformRuntimeSettings) and
+  // defaults to "manual-only" — billing/webhook logic depends on it.
 ];
 
 export function platformSettingDefinitionFor(key: string) {

@@ -23,13 +23,15 @@ export async function callAiProxy(input: {
   userMessage: string;
   aiProvider?: "openai-compatible" | "disabled";
   chatModel?: string;
+  baseUrl?: string;
+  apiKey?: string;
 }): Promise<AiProxyResult> {
   if (input.aiProvider === "disabled") {
     return localFallback(input);
   }
 
-  const baseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL;
-  const apiKey = process.env.OPENAI_COMPATIBLE_API_KEY;
+  const baseUrl = input.baseUrl || process.env.OPENAI_COMPATIBLE_BASE_URL;
+  const apiKey = input.apiKey || process.env.OPENAI_COMPATIBLE_API_KEY;
   const model = input.chatModel || process.env.OPENAI_COMPATIBLE_MODEL;
 
   if (!baseUrl || !apiKey || !model) {
@@ -94,47 +96,56 @@ export async function callAiProxyStream(input: {
   userMessage: string;
   aiProvider?: "openai-compatible" | "disabled";
   chatModel?: string;
+  baseUrl?: string;
+  apiKey?: string;
 }): Promise<ReadableStream<string>> {
   if (input.aiProvider === "disabled") {
     return localFallbackStream(input);
   }
 
-  const baseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL;
-  const apiKey = process.env.OPENAI_COMPATIBLE_API_KEY;
+  const baseUrl = input.baseUrl || process.env.OPENAI_COMPATIBLE_BASE_URL;
+  const apiKey = input.apiKey || process.env.OPENAI_COMPATIBLE_API_KEY;
   const model = input.chatModel || process.env.OPENAI_COMPATIBLE_MODEL;
 
   if (!baseUrl || !apiKey || !model) {
     return localFallbackStream(input);
   }
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-      stream: true,
-      messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(input.systemPrompt, input.enabledTags),
-        },
-        ...input.recentMessages,
-        { role: "user", content: input.userMessage },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI proxy failed with status ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content: buildSystemPrompt(input.systemPrompt, input.enabledTags),
+          },
+          ...input.recentMessages,
+          { role: "user", content: input.userMessage },
+        ],
+      }),
+    });
+  } catch (error) {
+    // Provider unreachable (network/DNS) — keep the companion responsive with
+    // the local keyword reply instead of failing the chat.
+    console.error("AI provider unreachable; using local fallback:", error);
+    return localFallbackStream(input);
   }
 
-  if (!response.body) {
-    throw new Error("No response body received from AI provider");
+  if (!response.ok || !response.body) {
+    // Provider rejected the request (e.g. 401 invalid key) or returned no body —
+    // fall back rather than surfacing an error to the fan.
+    console.error(`AI provider returned ${response.status}; using local fallback`);
+    return localFallbackStream(input);
   }
 
   return new ReadableStream({
@@ -174,7 +185,7 @@ export async function callAiProxyStream(input: {
                     controller.enqueue(JSON.stringify({ type: "content", content: delta }));
                   }
                 }
-              } catch (err) {
+              } catch {
                 // Ignore parse errors for individual malformed lines
               }
             }
@@ -193,10 +204,10 @@ export async function callAiProxyStream(input: {
           const allowedTags = new Set(input.enabledTags.map((tag) => tag.name));
           finalTags = (parsed.tags || []).filter((t: string) => allowedTags.has(t));
         } catch {
-          // If JSON parse fails, match keywords from whatever reply we got
-          const allowedTags = new Set(input.enabledTags.map((tag) => tag.name));
-          const matched = input.enabledTags.find((tag) => tag.keywords.some((keyword) => finalReply.includes(keyword)));
-          finalTags = matched ? [matched.name] : [];
+          // JSON parse failed — fall back to the SAME keyword match the
+          // non-streaming path (and the creator's tag tester) uses, against the
+          // user message, so tester and live chat resolve identical tags.
+          finalTags = matchLocalTags(input.enabledTags, input.userMessage);
         }
 
         controller.enqueue(JSON.stringify({ type: "done", reply: finalReply, tags: finalTags }));
@@ -269,9 +280,19 @@ function parseAiResponseContent(content: unknown) {
   }
 }
 
+/** Shared keyword→tag matcher used by every fallback path so tag resolution is
+ *  identical between the creator's tester and the live audience chat. */
+function matchLocalTags(
+  enabledTags: Parameters<typeof callAiProxy>[0]["enabledTags"],
+  text: string,
+): string[] {
+  const matched = enabledTags.find((tag) => tag.keywords.some((keyword) => text.includes(keyword)));
+  return matched ? [matched.name] : [];
+}
+
 function localFallback(input: Parameters<typeof callAiProxy>[0]) {
-  const matched = input.enabledTags.find((tag) => tag.keywords.some((keyword) => input.userMessage.includes(keyword)));
-  const tags = matched ? [matched.name] : [];
+  const tags = matchLocalTags(input.enabledTags, input.userMessage);
+  const matched = input.enabledTags.find((tag) => tag.name === tags[0]);
   return {
     reply: matched?.promptFragment ? `${matched.promptFragment} 我听见了，会陪你慢慢处理。` : "我听见了，会认真陪你把这句话说完。",
     tags,

@@ -22,6 +22,8 @@ export type PlatformSettingView = PlatformSettingDefinition & {
 export type PlatformRuntimeSettings = {
   aiProvider: "openai-compatible" | "disabled";
   aiChatModel: string;
+  aiBaseUrl: string;
+  aiApiKey: string;
   contentModeration: "off" | "basic" | "strict";
   maxFanMessageLength: number;
   assetDeliveryMode: "app-proxy" | "signed-redirect";
@@ -54,6 +56,9 @@ export async function getPlatformRuntimeSettings(): Promise<PlatformRuntimeSetti
   const result: PlatformRuntimeSettings = {
     aiProvider: parseRuntimeEnum(byKey.get("ai.provider"), ["openai-compatible", "disabled"], "openai-compatible"),
     aiChatModel: parseRuntimeString(byKey.get("ai.chatModel"), "gpt-4.1-mini"),
+    // Settings take precedence over env vars (legacy/bootstrap fallback).
+    aiBaseUrl: parseRuntimeString(byKey.get("ai.baseUrl"), process.env.OPENAI_COMPATIBLE_BASE_URL ?? ""),
+    aiApiKey: parseRuntimeString(byKey.get("ai.apiKey"), process.env.OPENAI_COMPATIBLE_API_KEY ?? ""),
     contentModeration: parseRuntimeEnum(byKey.get("security.contentModeration"), ["off", "basic", "strict"], "basic"),
     maxFanMessageLength: parseRuntimeNumber(byKey.get("security.maxFanMessageLength"), 1200),
     assetDeliveryMode: parseRuntimeEnum(byKey.get("storage.deliveryMode"), ["app-proxy", "signed-redirect"], "app-proxy"),

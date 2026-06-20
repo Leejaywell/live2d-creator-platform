@@ -1,3 +1,8 @@
+// Internal preview/admin-preview codes are auto-minted so creators (and admins)
+// can chat with an unpublished model. They are never distributable, so they must
+// not count toward the "real fan code exists" publish gate.
+export const PREVIEW_FAN_CODE_BATCH_IDS: readonly string[] = ["preview", "admin-preview"];
+
 export type ProjectPublishReadinessInput = {
   name?: string | null;
   slug?: string | null;
@@ -6,7 +11,7 @@ export type ProjectPublishReadinessInput = {
   welcomeMessage?: string | null;
   currentModelAsset?: { validationStatus: string } | null;
   triggerTags: Array<{ enabled: boolean }>;
-  fanAccessCodes: Array<{ status: string; expiresAt: Date }>;
+  fanAccessCodes: Array<{ status: string; expiresAt: Date; batchId?: string | null }>;
 };
 
 export type ProjectReadinessItem = {
@@ -16,7 +21,12 @@ export type ProjectReadinessItem = {
 };
 
 export function projectPublishReadiness(input: ProjectPublishReadinessInput, now = new Date()): ProjectReadinessItem[] {
-  const activeFanCodes = input.fanAccessCodes.filter((code) => code.status === "active" && code.expiresAt > now).length;
+  const activeFanCodes = input.fanAccessCodes.filter(
+    (code) =>
+      code.status === "active" &&
+      code.expiresAt > now &&
+      !(code.batchId != null && PREVIEW_FAN_CODE_BATCH_IDS.includes(code.batchId)),
+  ).length;
   const enabledTags = input.triggerTags.filter((tag) => tag.enabled).length;
 
   return [

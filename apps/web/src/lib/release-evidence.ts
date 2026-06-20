@@ -355,8 +355,8 @@ function verifyDatabaseMigrationEvidence(
     return { name: "database_migration_evidence", ok: false, detail: `${path} must report status=applied` };
   }
 
-  if (manifest.command !== "prisma migrate deploy") {
-    return { name: "database_migration_evidence", ok: false, detail: `${path} must report prisma migrate deploy` };
+  if (manifest.command !== "prisma db push") {
+    return { name: "database_migration_evidence", ok: false, detail: `${path} must report prisma db push` };
   }
 
   if (manifest.schema !== "prisma/schema.prisma") {
@@ -387,7 +387,7 @@ function verifyDatabaseMigrationEvidence(
     return freshnessFailure;
   }
 
-  return { name: "database_migration_evidence", ok: true, detail: `${path} proves prisma migrate deploy succeeded` };
+  return { name: "database_migration_evidence", ok: true, detail: `${path} proves prisma db push succeeded` };
 }
 
 function readJson(path: string): { ok: true; value: unknown } | { ok: false; detail: string } {

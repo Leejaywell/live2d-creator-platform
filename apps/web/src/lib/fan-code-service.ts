@@ -25,11 +25,15 @@ export async function generateFanCodeBatch(input: {
   if (input.quantity < 1 || input.quantity > 500) {
     throw new Error("Fan code quantity must be between 1 and 500");
   }
-  if (input.maxMessages < 1) {
-    throw new Error("Fan code maxMessages must be greater than zero");
+  if (input.maxMessages < 1 || input.maxMessages > 100000) {
+    throw new Error("Fan code maxMessages must be between 1 and 100000");
   }
-  if (input.expiresAt <= new Date()) {
+  const now = new Date();
+  if (input.expiresAt <= now) {
     throw new Error("Fan code expiration must be in the future");
+  }
+  if (input.expiresAt.getTime() > now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000) {
+    throw new Error("Fan code expiration can be at most 2 years out");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -58,13 +62,21 @@ export async function generateFanCodeBatch(input: {
     }
 
     const batchId = crypto.randomUUID();
-    const generated = Array.from({ length: input.quantity }, () => {
+    // Generate unique codes within the batch so two equal codes can't collide on
+    // the unique codeHash and roll the whole batch back.
+    const seen = new Set<string>();
+    const generated: { code: string; codeHash: string }[] = [];
+    let guard = 0;
+    while (generated.length < input.quantity) {
       const code = generateFanCode(project.slug.toUpperCase().slice(0, 8));
-      return {
-        code,
-        codeHash: hashFanCode(code),
-      };
-    });
+      if (!seen.has(code)) {
+        seen.add(code);
+        generated.push({ code, codeHash: hashFanCode(code) });
+      }
+      if (++guard > input.quantity * 50) {
+        throw new Error("Unable to generate unique fan codes");
+      }
+    }
 
     const rows = await Promise.all(
       generated.map((item) =>
@@ -351,14 +363,16 @@ export async function validateFanCode(input: {
   });
 }
 
-export async function deductSuccessfulChatQuota(
+/**
+ * Atomically RESERVE one message of quota (fan code + creator plan) BEFORE the
+ * paid AI call. Both increments are count-guarded so concurrent requests cannot
+ * exceed limits, and the AI provider is only invoked once a slot is secured.
+ * Throws if either quota is exhausted. Pair every successful reserve with either
+ * recordChatUsage (on success) or refundChatQuota (on failure).
+ */
+export async function reserveChatQuota(
   tx: Prisma.TransactionClient,
-  input: {
-    creatorId: string;
-    projectId: string;
-    fanAccessCodeId: string;
-    tokenEstimate: number;
-  },
+  input: { creatorId: string; fanAccessCodeId: string },
 ) {
   const code = await tx.fanAccessCode.findUniqueOrThrow({
     where: { id: input.fanAccessCodeId },
@@ -391,17 +405,33 @@ export async function deductSuccessfulChatQuota(
     data: { usedAiMessages: { increment: 1 } },
   });
   if (planQuota.count !== 1) {
+    // Roll back the fan-code increment we just made so the slot isn't lost.
+    await tx.fanAccessCode.update({
+      where: { id: input.fanAccessCodeId },
+      data: { usedMessages: { decrement: 1 } },
+    });
     throw new Error("Creator AI quota is not available");
   }
 
   const updatedCode = await tx.fanAccessCode.findUniqueOrThrow({
     where: { id: input.fanAccessCodeId },
-    select: {
-      maxMessages: true,
-      usedMessages: true,
-    },
+    select: { maxMessages: true, usedMessages: true },
   });
+  return {
+    remainingMessages: Math.max(0, updatedCode.maxMessages - updatedCode.usedMessages),
+  };
+}
 
+/** Write accounting rows (usage + ledger) after a reserved message succeeds. */
+export async function recordChatUsage(
+  tx: Prisma.TransactionClient,
+  input: {
+    creatorId: string;
+    projectId: string;
+    fanAccessCodeId: string;
+    tokenEstimate: number;
+  },
+) {
   await tx.chatUsage.create({
     data: {
       creatorId: input.creatorId,
@@ -411,7 +441,6 @@ export async function deductSuccessfulChatQuota(
       tokenEstimate: input.tokenEstimate,
     },
   });
-
   await tx.quotaLedgerEntry.create({
     data: {
       creatorId: input.creatorId,
@@ -421,8 +450,46 @@ export async function deductSuccessfulChatQuota(
       reason: `Audience chat for project ${input.projectId}`,
     },
   });
+}
 
-  return {
-    remainingMessages: Math.max(0, updatedCode.maxMessages - updatedCode.usedMessages),
-  };
+/**
+ * Reserve + record in one call — the full successful-chat path. The live chat
+ * route splits these (reserve before the AI call, record after) but integration
+ * tests and any synchronous flow can use this combined helper.
+ */
+export async function deductSuccessfulChatQuota(
+  tx: Prisma.TransactionClient,
+  input: {
+    creatorId: string;
+    projectId: string;
+    fanAccessCodeId: string;
+    tokenEstimate: number;
+  },
+) {
+  const reserved = await reserveChatQuota(tx, {
+    creatorId: input.creatorId,
+    fanAccessCodeId: input.fanAccessCodeId,
+  });
+  await recordChatUsage(tx, {
+    creatorId: input.creatorId,
+    projectId: input.projectId,
+    fanAccessCodeId: input.fanAccessCodeId,
+    tokenEstimate: input.tokenEstimate,
+  });
+  return reserved;
+}
+
+/** Refund a reserved message when the AI call fails (so the fan isn't charged). */
+export async function refundChatQuota(
+  tx: Prisma.TransactionClient,
+  input: { creatorId: string; fanAccessCodeId: string },
+) {
+  await tx.fanAccessCode.updateMany({
+    where: { id: input.fanAccessCodeId, usedMessages: { gt: 0 } },
+    data: { usedMessages: { decrement: 1 } },
+  });
+  await tx.creatorPlan.updateMany({
+    where: { creatorId: input.creatorId, usedAiMessages: { gt: 0 } },
+    data: { usedAiMessages: { decrement: 1 } },
+  });
 }

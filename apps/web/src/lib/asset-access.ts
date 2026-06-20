@@ -96,8 +96,11 @@ export async function authorizeViewerAssetAccess(viewerSessionId: string, key: s
 
   const allowedModelPrefix = viewerSession.project.currentModelAsset?.assetBasePath;
   const canAccessModel = Boolean(allowedModelPrefix && parsedKey.startsWith(`${allowedModelPrefix}/`));
+  // Creator-uploaded voice lines live under projects/<id>/voices/ and are served
+  // to the audience the same way (per-session authorized proxy).
+  const canAccessVoice = parsedKey.startsWith(`projects/${viewerSession.projectId}/voices/`);
 
-  if (!canAccessModel) {
+  if (!canAccessModel && !canAccessVoice) {
     throw new Error("Asset is not available for this viewer session");
   }
 

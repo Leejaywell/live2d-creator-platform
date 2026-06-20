@@ -7,7 +7,7 @@ import { parseModelCapabilities } from "@/lib/model-capabilities";
 import { hasPermission, isAdminRole } from "@/lib/permissions";
 import { assertCreatorPlanActive } from "@/lib/plan-rules";
 import { prisma } from "@/lib/prisma";
-import { modelAssetBaseKey, putObject } from "@/lib/storage";
+import { deleteObject, modelAssetBaseKey, putObject } from "@/lib/storage";
 
 export async function uploadModelAsset(input: {
   projectId: string;
@@ -32,82 +32,100 @@ export async function uploadModelAsset(input: {
     ? parseModelCapabilities(JSON.parse(modelJsonFile.data.toString("utf8")))
     : null;
 
-  return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findFirstOrThrow({
-      where: { id: input.projectId, creatorId: input.creatorId },
-    });
-
-    const plan = await tx.creatorPlan.findUniqueOrThrow({
-      where: { creatorId: input.creatorId },
-    });
-    if (!isAdminEmergencyModelUpload(input)) {
-      assertCreatorPlanActive(plan);
-    }
-
-    const version = 1;
-    const baseKey = modelAssetBaseKey(project.id, version);
-    const sourceZip = await putObject({
-      key: `${baseKey}/source/${sanitizeFileName(input.fileName)}`,
-      body: input.data,
-      contentType: "application/zip",
-      cacheControl: "private, max-age=0",
-    });
-
-    if (validation.ok) {
-      await Promise.all(
-        extractedFiles.map((file) =>
-          putObject({
-            key: `${baseKey}/extracted/${file.path}`,
-            body: file.data,
-            contentType: file.contentType,
-            cacheControl: "private, max-age=31536000, immutable",
-          }),
-        ),
-      );
-    }
-
-    await tx.project.update({
-      where: { id: project.id },
-      data: { currentModelAssetId: null },
-    });
-    await tx.modelAsset.deleteMany({
-      where: { projectId: project.id },
-    });
-
-    const modelAsset = await tx.modelAsset.create({
-      data: {
-        projectId: project.id,
-        sourceZipUrl: sourceZip.url,
-        modelJsonPath: validation.ok ? `${baseKey}/extracted/${validation.modelJsonPath}` : null,
-        assetBasePath: validation.ok ? `${baseKey}/extracted` : null,
-        validationStatus: validation.ok ? "valid" : "invalid",
-        validationErrors: validation.ok ? validation.warnings : validation.errors,
-        capabilities: capabilities as Prisma.InputJsonValue | undefined,
-        uploadedBy: input.uploadedBy ?? "creator",
-        version,
-      },
-    });
-
-    if (validation.ok) {
-      await tx.project.update({
-        where: { id: project.id },
-        data: { currentModelAssetId: modelAsset.id },
-      });
-    }
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: input.actorId ?? input.creatorId,
-        actorRole: input.actorRole ?? "creator",
-        action: "model_asset.uploaded",
-        targetType: "ModelAsset",
-        targetId: modelAsset.id,
-        after: modelAsset as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    return modelAsset;
+  // Authorization + plan gating happen up front (read-only) so we never write
+  // storage objects for projects the caller doesn't own or for inactive plans.
+  const project = await prisma.project.findFirstOrThrow({
+    where: { id: input.projectId, creatorId: input.creatorId },
   });
+  const plan = await prisma.creatorPlan.findUniqueOrThrow({
+    where: { creatorId: input.creatorId },
+  });
+  if (!isAdminEmergencyModelUpload(input)) {
+    assertCreatorPlanActive(plan);
+  }
+
+  const version = 1;
+  const baseKey = modelAssetBaseKey(project.id, version);
+
+  // Storage writes run OUTSIDE the DB transaction. We track every object key so
+  // we can best-effort clean them up if the transaction later rolls back.
+  const uploadedKeys: string[] = [];
+  const sourceZip = await putObject({
+    key: `${baseKey}/source/${sanitizeFileName(input.fileName)}`,
+    body: input.data,
+    contentType: "application/zip",
+    cacheControl: "private, max-age=0",
+  });
+  uploadedKeys.push(sourceZip.key);
+
+  if (validation.ok) {
+    const extracted = await Promise.all(
+      extractedFiles.map((file) =>
+        putObject({
+          key: `${baseKey}/extracted/${file.path}`,
+          body: file.data,
+          contentType: file.contentType,
+          cacheControl: "private, max-age=31536000, immutable",
+        }),
+      ),
+    );
+    uploadedKeys.push(...extracted.map((object) => object.key));
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Only a valid upload swaps the live model: drop the prior assets and
+      // clear the pointer before creating the replacement. An invalid upload
+      // leaves the existing current asset and project untouched.
+      if (validation.ok) {
+        await tx.project.update({
+          where: { id: project.id },
+          data: { currentModelAssetId: null },
+        });
+        await tx.modelAsset.deleteMany({
+          where: { projectId: project.id },
+        });
+      }
+
+      const modelAsset = await tx.modelAsset.create({
+        data: {
+          projectId: project.id,
+          sourceZipUrl: sourceZip.url,
+          modelJsonPath: validation.ok ? `${baseKey}/extracted/${validation.modelJsonPath}` : null,
+          assetBasePath: validation.ok ? `${baseKey}/extracted` : null,
+          validationStatus: validation.ok ? "valid" : "invalid",
+          validationErrors: validation.ok ? validation.warnings : validation.errors,
+          capabilities: capabilities as Prisma.InputJsonValue | undefined,
+          uploadedBy: input.uploadedBy ?? "creator",
+          version,
+        },
+      });
+
+      if (validation.ok) {
+        await tx.project.update({
+          where: { id: project.id },
+          data: { currentModelAssetId: modelAsset.id },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: input.actorId ?? input.creatorId,
+          actorRole: input.actorRole ?? "creator",
+          action: "model_asset.uploaded",
+          targetType: "ModelAsset",
+          targetId: modelAsset.id,
+          after: modelAsset as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      return modelAsset;
+    });
+  } catch (error) {
+    // Best-effort cleanup of the objects we wrote before the failed transaction.
+    await Promise.allSettled(uploadedKeys.map((key) => deleteObject(key)));
+    throw error;
+  }
 }
 
 export async function deleteModelAsset(input: {

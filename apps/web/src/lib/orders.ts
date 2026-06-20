@@ -173,8 +173,12 @@ async function confirmManualOrderInternal(input: {
       include: { creator: true },
     });
 
-    if (order.paymentStatus === PaymentStatus.confirmed) {
-      throw new Error("Order is already confirmed");
+    if (order.paymentStatus !== PaymentStatus.pending) {
+      throw new Error(
+        order.paymentStatus === PaymentStatus.confirmed
+          ? "Order is already confirmed"
+          : "Only pending orders can be confirmed",
+      );
     }
     if (order.creator.role !== "creator") {
       throw new Error("Manual orders can only be confirmed for creator accounts");
