@@ -36,6 +36,8 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/cre
       userMessage: body.message,
       aiProvider: runtime.aiProvider,
       chatModel: runtime.aiChatModel,
+      baseUrl: runtime.aiBaseUrl,
+      apiKey: runtime.aiApiKey,
     });
 
     const live2dEffects = buildTriggeredLive2DEffects({ tags: result.tags, triggerTags: project.triggerTags });

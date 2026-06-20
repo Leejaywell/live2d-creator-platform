@@ -6,10 +6,14 @@ import { generateFanCodeBatch } from "@/lib/fan-code-service";
 import { prisma } from "@/lib/prisma";
 import { jsonError, parseBody } from "@/lib/request";
 
+const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+
 const schema = z.object({
   quantity: z.coerce.number().int().min(1).max(500),
-  expiresAt: z.coerce.date(),
-  maxMessages: z.coerce.number().int().min(1),
+  expiresAt: z.coerce
+    .date()
+    .refine((d) => d.getTime() <= Date.now() + TWO_YEARS_MS, "Expiry can be at most 2 years out"),
+  maxMessages: z.coerce.number().int().min(1).max(100000),
   bindMode: z.enum(["none", "browserDevice"]).default("browserDevice"),
 });
 

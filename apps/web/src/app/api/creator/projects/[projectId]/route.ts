@@ -11,14 +11,15 @@ const optionalUrl = z.preprocess(
 );
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
-  slug: z.string().min(1).optional(),
-  intro: z.string().optional(),
+  name: z.string().min(1).max(200).optional(),
+  slug: z.string().min(1).max(80).optional(),
+  intro: z.string().max(2000).optional(),
   avatarUrl: optionalUrl,
   backgroundUrl: optionalUrl,
-  systemPrompt: z.string().min(1).optional(),
-  welcomeMessage: z.string().min(1).optional(),
-  theme: z.string().min(1).optional(),
+  systemPrompt: z.string().min(1).max(8000).optional(),
+  characterSetting: z.string().max(8000).optional(),
+  welcomeMessage: z.string().min(1).max(2000).optional(),
+  theme: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
 
 async function requireCreator() {

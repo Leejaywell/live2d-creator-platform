@@ -4,15 +4,19 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/authz";
 import { createCreatorCheckoutOrder } from "@/lib/checkout-requests";
+import { rateLimit } from "@/lib/rate-limit";
 import { jsonError, parseBody } from "@/lib/request";
 
 const schema = z.object({
-  sku: z.string().min(1),
+  sku: z.string().min(1).max(120),
   paymentMethod: z.nativeEnum(PaymentMethod),
 });
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = await rateLimit(request, { key: "checkout-create", limit: 10, windowMs: 60_000 });
+    if (limited) return limited;
+
     const session = await requireSession();
     if (session.user.role !== "creator") {
       return NextResponse.json({ error: "Only creators can checkout" }, { status: 403 });

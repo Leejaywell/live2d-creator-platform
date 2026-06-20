@@ -9,8 +9,8 @@ import { jsonError, parseBody } from "@/lib/request";
 const schema = z.object({
   creatorId: z.string().min(1),
   resource: z.nativeEnum(QuotaResource),
-  amount: z.coerce.number().int().min(1),
-  reason: z.string().optional(),
+  amount: z.coerce.number().int().min(1).max(10000000),
+  reason: z.string().max(500).optional(),
 });
 
 export async function POST(request: NextRequest) {

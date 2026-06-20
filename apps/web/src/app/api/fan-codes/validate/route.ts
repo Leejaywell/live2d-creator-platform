@@ -42,7 +42,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError || isInvalidRequestError(error)) {
       return jsonError(error, "Invalid request");
     }
-    recordFanCodeFailure(ip);
+    // Only a genuinely unknown project/code looks like brute-force guessing.
+    // Valid-but-rejected codes (expired/revoked, quota exhausted, device-bound,
+    // unpublished project, inactive creator/plan) belong to real users and must
+    // not trip the IP-level failure counter.
+    if (error instanceof Error && error.message === "Invalid project or access code") {
+      recordFanCodeFailure(ip);
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Access denied" },
       { status: 403 },

@@ -6,9 +6,9 @@ import { requirePermission } from "@/lib/authz";
 import { jsonError, parseBody } from "@/lib/request";
 
 const schema = z.object({
-  targetType: z.string().min(1),
-  targetId: z.string().optional(),
-  note: z.string().min(1),
+  targetType: z.string().min(1).max(64),
+  targetId: z.string().max(64).optional(),
+  note: z.string().min(1).max(2000),
 });
 
 export async function POST(request: NextRequest) {

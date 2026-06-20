@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/authz";
+import { projectCreatorId } from "@/lib/admin-project";
+import { requirePermission } from "@/lib/authz";
 import { optionalJsonString } from "@/lib/json-field";
 import { createTriggerTag } from "@/lib/projects";
-import { rateLimit } from "@/lib/rate-limit";
 import { jsonError, parseBody } from "@/lib/request";
 
-const csv = z.union([z.string(), z.array(z.string())]).transform((value) =>
-  Array.isArray(value) ? value : value.split(",").map((item) => item.trim()).filter(Boolean),
-).pipe(z.array(z.string().max(50)).max(50));
+const csv = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => (Array.isArray(value) ? value : value.split(",").map((item) => item.trim()).filter(Boolean)))
+  .pipe(z.array(z.string().max(50)).max(50));
 
 const schema = z.object({
   name: z.string().min(1).max(100),
@@ -27,18 +28,13 @@ const schema = z.object({
     .pipe(z.array(z.string().min(1).max(40)).max(50)),
 });
 
-export async function POST(request: NextRequest, context: RouteContext<"/api/creator/projects/[projectId]/tags">) {
+export async function POST(request: NextRequest, context: RouteContext<"/api/admin/projects/[projectId]/tags">) {
   try {
-    const limited = await rateLimit(request, { key: "tag-create", limit: 30, windowMs: 60_000 });
-    if (limited) return limited;
-
-    const session = await requireSession();
-    if (session.user.role !== "creator") {
-      return NextResponse.json({ error: "Only creators can create tags" }, { status: 403 });
-    }
+    await requirePermission("assets.assist");
     const { projectId } = await context.params;
+    const creatorId = await projectCreatorId(projectId);
     const body = await parseBody(request, schema);
-    const tag = await createTriggerTag({ projectId, creatorId: session.user.id, ...body });
+    const tag = await createTriggerTag({ projectId, creatorId, ...body });
     return NextResponse.json({ tag }, { status: 201 });
   } catch (error) {
     return jsonError(error, "Tag creation failed");
