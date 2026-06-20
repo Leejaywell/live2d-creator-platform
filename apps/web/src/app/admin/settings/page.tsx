@@ -7,6 +7,7 @@ import { isAdminRole } from "@/lib/permissions";
 import { listPlatformSettings, type PlatformSettingView } from "@/lib/platform-settings";
 
 import { AdminAuthRequired, AdminShell, dash } from "../_components";
+import { AiProviderConfig } from "./ai-provider-config";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,24 @@ export default async function AdminSettingsPage() {
   const t = await getTranslations("admin");
   const settings = await listPlatformSettings();
 
+  // The AI connection (provider / base URL / API key / model) is handled by the
+  // dedicated card below; everything else renders in the generic table. The API
+  // key value is never sent to the client — only whether one is configured.
+  const find = (key: string) => settings.find((s) => s.key === key);
+  const aiProvider = String(find("ai.provider")?.value ?? "openai-compatible") === "disabled" ? "disabled" : "openai-compatible";
+  const aiBaseUrl = String(find("ai.baseUrl")?.value ?? "");
+  const aiModel = String(find("ai.chatModel")?.value ?? "");
+  const aiApiKeySet = find("ai.apiKey")?.source === "database";
+  const genericSettings = settings.filter((s) => !s.key.startsWith("ai."));
+
+  // Maps each setting key to its i18n id under admin.settingItem. Values (right-side
+  // badge + enum options) stay literal — only labels/descriptions are translated.
+  const SETTING_I18N: Record<string, string> = {
+    "storage.deliveryMode": "assetDelivery",
+    "security.contentModeration": "contentModeration",
+    "security.maxFanMessageLength": "maxFanMessageLength",
+  };
+
   return (
     <AdminShell active="settings" user={session.user}>
       <div className={dash.pageHead}>
@@ -55,25 +74,36 @@ export default async function AdminSettingsPage() {
         </div>
       </div>
 
+      <AiProviderConfig
+        initialProvider={aiProvider}
+        initialBaseUrl={aiBaseUrl}
+        initialModel={aiModel}
+        apiKeySet={aiApiKeySet}
+      />
+
       <section className={dash.panel}>
         <div className={dash.panelHead}>
           <h2>{t("platformParams")}</h2>
         </div>
         <div className={dash.table}>
-          {settings.map((setting) => (
+          {genericSettings.map((setting) => {
+            const i18nId = SETTING_I18N[setting.key];
+            const label = i18nId ? t(`settingItem.${i18nId}.label`) : setting.label;
+            const description = i18nId ? t(`settingItem.${i18nId}.description`) : setting.description;
+            return (
             <div
               key={setting.key}
               className={dash.tableRow}
               style={{ gridTemplateColumns: "1.4fr 1.8fr 150px 60px", alignItems: "center" }}
             >
               <div className={dash.cellMain}>
-                <strong>{setting.label}</strong>
+                <strong>{label}</strong>
                 <small>
-                  {setting.category} · {setting.source}
+                  {t(`settingCategory.${setting.category}`)} · {t(`settingSource.${setting.source}`)}
                   {setting.updatedAt ? ` · ${t("updatedOn", { date: setting.updatedAt.toISOString().slice(0, 10) })}` : ""}
                 </small>
               </div>
-              <span className={dash.pageHeadSub}>{setting.description}</span>
+              <span className={dash.pageHeadSub}>{description}</span>
               <span style={{ justifySelf: "end" }}>
                 <Pill tone="neutral" mono>
                   {String(setting.value)}
@@ -94,7 +124,8 @@ export default async function AdminSettingsPage() {
                 </details>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </AdminShell>

@@ -1,7 +1,8 @@
 /* Audience stage (A3) — gate / chat / boundary, faithful to the Backstage prototype. */
 
 .stage {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -525,4 +526,32 @@
     width: 150px;
     height: 210px;
   }
+}
+
+/* Public character setting (角色设定) shown on the entry gate. */
+.characterSetting {
+  width: 100%;
+  margin: 4px 0 6px;
+  padding: 12px 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+
+.characterSettingLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--teal, #6fe7da);
+  margin-bottom: 6px;
+}
+
+.characterSettingText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(245, 245, 247, 0.82);
+  white-space: pre-wrap;
 }

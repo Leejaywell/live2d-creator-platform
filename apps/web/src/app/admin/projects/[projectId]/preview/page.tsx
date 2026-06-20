@@ -6,8 +6,11 @@ import { notFound } from "next/navigation";
 
 import { getCurrentSession } from "@/auth";
 import { AudienceChat } from "@/components/audience-chat";
+import { MobilePreview } from "@/components/mobile-preview";
+import { getLanBaseUrl } from "@/lib/lan-url";
 import { isAdminRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { qrPngDataUrl } from "@/lib/qr";
 
 import { AdminAuthRequired } from "../../../_components";
 import styles from "../../../../creator/projects/[projectId]/preview/preview.module.css";
@@ -57,6 +60,9 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
       data: { projectId, fanAccessCodeId: code.id, deviceHash },
     }));
 
+  const mobileUrl = `${getLanBaseUrl()}/c/${project.slug}`;
+  const mobileQr = await qrPngDataUrl(mobileUrl);
+
   return (
     <main>
       <div className={styles.banner}>
@@ -65,11 +71,15 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
         <Link href="/admin/projects" className={styles.bannerLink}>
           {t("backToReview")}
         </Link>
+        <span style={{ marginLeft: "auto" }}>
+          <MobilePreview qr={mobileQr} url={mobileUrl} label={t("mobilePreview")} />
+        </span>
       </div>
       <AudienceChat
         projectSlug={project.slug}
         projectName={project.name}
         intro={project.intro ?? ""}
+        characterSetting={project.characterSetting ?? ""}
         theme={project.theme}
         avatarUrl={project.avatarUrl}
         backgroundUrl={project.backgroundUrl}

@@ -57,7 +57,15 @@ export async function CreatorShell({
           </div>
         </div>
       </aside>
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        <Link href="/" className={styles.homeFab} title={t("backHome")} aria-label={t("backHome")}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 11.5 12 4l9 7.5" />
+            <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+          </svg>
+        </Link>
+        {children}
+      </main>
     </div>
   );
 }

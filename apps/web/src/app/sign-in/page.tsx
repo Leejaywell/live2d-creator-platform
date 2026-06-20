@@ -26,20 +26,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         <h1 className={styles.title}>{t("title")}</h1>
         <p className={styles.subtitle}>{t("subtitle")}</p>
 
-        <div className={styles.tabs} role="tablist" aria-label={t("loginMethod")}>
-          <span className={`${styles.tab} ${styles.tabActive}`} role="tab" aria-selected="true">
-            {t("tabPassword")}
-          </span>
-          <span
-            className={`${styles.tab} ${styles.tabDisabled}`}
-            role="tab"
-            aria-selected="false"
-            aria-disabled="true"
-            title={t("comingSoon")}
-          >
-            {t("tabMagic")}
-          </span>
-        </div>
+        {/* Magic-link (email) login removed for now — to be reconsidered later.
+            The i18n keys (tabMagic / comingSoon) are kept so it can be restored. */}
 
         <form className={styles.form} action="/api/auth/signin" method="post">
           <label className={styles.label} htmlFor="username">

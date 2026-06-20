@@ -4,11 +4,14 @@ import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { ApiForm } from "@/components/api-form";
+import { MobilePreview } from "@/components/mobile-preview";
 import { ProjectCreateForm } from "@/components/project-create-form";
 import { ShareLinkCopyButton } from "@/components/share-link-copy-button";
 import { Pill } from "@/components/ui";
 import { ensureCreatorPlan } from "@/lib/creator-onboarding";
+import { getLanBaseUrl } from "@/lib/lan-url";
 import { prisma } from "@/lib/prisma";
+import { qrPngDataUrl } from "@/lib/qr";
 import { usageWindowStart } from "@/lib/usage-analytics";
 
 import {
@@ -59,6 +62,16 @@ export default async function CreatorModelsPage() {
 
   const canCreate = projects.length < maxModels;
   const usageByProject = new Map(usageGroups.map((g) => [g.projectId, g._sum.messageCount ?? 0]));
+
+  const lanBase = getLanBaseUrl();
+  const mobileByProject = new Map(
+    await Promise.all(
+      projects.map(async (project) => {
+        const url = `${lanBase}/c/${project.slug}`;
+        return [project.id, { url, qr: await qrPngDataUrl(url) }] as const;
+      }),
+    ),
+  );
 
   return (
     <CreatorShell active="projects" user={session.user} planName={plan?.planName}>
@@ -121,6 +134,11 @@ export default async function CreatorModelsPage() {
               </span>
               <span className={styles.mono}>{t("fanCodesCount", { count: project._count.fanAccessCodes })}</span>
               <div className={styles.rowActions}>
+                <MobilePreview
+                  qr={mobileByProject.get(project.id)!.qr}
+                  url={mobileByProject.get(project.id)!.url}
+                  label={t("mobilePreview")}
+                />
                 <Link href={`/creator/projects/${project.id}`}>{t("actionEdit")}</Link>
                 <Link href={`/creator/projects/${project.id}/fan-codes`}>{t("actionFanCodes")}</Link>
                 <ShareLinkCopyButton path={`/c/${project.slug}`} />

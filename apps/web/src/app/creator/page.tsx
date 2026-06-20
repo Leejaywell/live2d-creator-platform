@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
-import { LinkButton, Pill } from "@/components/ui";
+import { Pill } from "@/components/ui";
 import { ensureCreatorPlan } from "@/lib/creator-onboarding";
 import { prisma } from "@/lib/prisma";
 import { summarizeUsageAnalytics, usageWindowStart } from "@/lib/usage-analytics";
@@ -97,7 +97,6 @@ export default async function CreatorPage() {
           <h1>{t("greetingHeading", { greeting: t(greeting()), name: studio })}</h1>
           <p className={styles.pageHeadSub}>{t("subStatus", { count: liveCount })}</p>
         </div>
-        <LinkButton href="/creator/projects">{t("manageModels")}</LinkButton>
       </div>
 
       <div className={styles.metrics}>

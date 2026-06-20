@@ -5,6 +5,72 @@
   align-items: center;
   justify-content: center;
 }
+/* Desktop-pet mode: float the viewer as a small draggable window. */
+.petFloat {
+  --dock-bottom: 12px;
+  position: fixed;
+  inset: auto;
+  width: 400px;
+  height: 400px;
+  /* No frame/box — a true desktop pet: just the transparent character plus the
+     floating control buttons in the side gaps. */
+  overflow: visible;
+  z-index: 1000;
+  background: transparent;
+}
+/* The model occupies the centered column; the 56px side gaps hold the control
+   buttons, so they sit beside the model rather than over it. */
+.petFloat .canvas {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+}
+/* Drop the stage backdrop in pet mode so the character floats over the page. */
+.petFloat .bg {
+  display: none;
+}
+.petBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 12px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+  cursor: grab;
+  z-index: 30;
+  touch-action: none;
+}
+.petBar:active {
+  cursor: grabbing;
+}
+.petBarLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.petClose {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+.petClose:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
 /* Desktop: reveal the viewer control bar only while hovering the stage. */
 @media (hover: hover) and (pointer: fine) {
   .root:hover :global(.live2d-controls) {
@@ -27,8 +93,19 @@
   opacity: 0;
   transition: opacity 0.8s var(--ease);
 }
+/* Pixi mounts its own <canvas> inside this host div; make it fill the host. */
+.canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .canvasReady {
   opacity: 1;
+}
+/* Wrapper for the controls — no box of its own, so it never shifts the flex
+   layout, but still sits in the DOM tree to intercept bubbling pointer events. */
+.controlsLayer {
+  display: contents;
 }
 .status {
   position: absolute;

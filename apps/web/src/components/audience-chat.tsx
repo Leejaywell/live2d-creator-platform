@@ -16,6 +16,7 @@ type Props = {
   projectSlug: string;
   projectName: string;
   intro: string;
+  characterSetting: string;
   theme: string;
   avatarUrl: string | null;
   backgroundUrl: string | null;
@@ -52,6 +53,7 @@ function describeAccessError(message: string, t: (key: string) => string): Acces
 export function AudienceChat({
   projectSlug,
   projectName,
+  characterSetting,
   theme,
   avatarUrl,
   backgroundUrl,
@@ -72,6 +74,10 @@ export function AudienceChat({
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage }]);
   const transcriptRef = useRef<HTMLOListElement>(null);
   const replyRef = useRef("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight chat stream when the component unmounts.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const unlocked = Boolean(viewerSessionId);
   const quotaExhausted = unlocked && remaining === 0;
@@ -122,11 +128,20 @@ export function AudienceChat({
     replyRef.current = "";
     let assistantInserted = false;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 60_000);
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ viewerSessionId, message: content, recentMessages: recent }),
+        body: JSON.stringify({
+          viewerSessionId,
+          browserDeviceId: deviceId(),
+          message: content,
+          recentMessages: recent,
+        }),
+        signal: controller.signal,
       });
       if (!response.ok || !response.body) {
         const data = await response.json().catch(() => ({}));
@@ -183,9 +198,13 @@ export function AudienceChat({
         }
       }
     } catch {
-      setNotice({ tone: "bad", title: t("sendFailTitle"), detail: t("sendFailDetail") });
-      setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
+      if (!controller.signal.aborted) {
+        setNotice({ tone: "bad", title: t("sendFailTitle"), detail: t("sendFailDetail") });
+        setMessages((current) => current.map((m) => (m.role === "user" && m.content === content ? { ...m, failed: true } : m)));
+      }
     } finally {
+      clearTimeout(timeout);
+      if (abortRef.current === controller) abortRef.current = null;
       setPending(false);
     }
   }
@@ -282,6 +301,12 @@ export function AudienceChat({
                 </div>
                 <h2>{t("gateTitle")}</h2>
                 <p>{t("gateDesc", { name: projectName })}</p>
+                {characterSetting.trim() ? (
+                  <div className={styles.characterSetting}>
+                    <span className={styles.characterSettingLabel}>{t("characterSetting")}</span>
+                    <p className={styles.characterSettingText}>{characterSetting}</p>
+                  </div>
+                ) : null}
                 <form onSubmit={onValidate} data-testid="fan-code-form">
                   <input
                     data-testid="fan-code-input"

@@ -23,8 +23,11 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   return (
-    <html lang={locale}>
-      <body>
+    // suppressHydrationWarning: browser extensions (Grammarly, etc.) inject
+    // attributes onto <html>/<body> before React hydrates, which would otherwise
+    // trip a one-level attribute hydration mismatch warning.
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <NextIntlClientProvider>
           <GlobalPetProvider>
             <DetailsDismissOnOutsideClick />

@@ -1,5 +1,9 @@
 .wrap {
-  min-height: 100vh;
+  /* dvh tracks the *visible* viewport (excludes browser/OS chrome) so the chat
+     composer + dock at the bottom never hide behind system UI. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg-raised);
@@ -73,19 +77,90 @@
 }
 
 /* layout */
+/* Flex (not grid) so the rail + step center can animate their width when the
+   配置 toggle expands / collapses the configuration panel. */
 .layout {
   flex: 1;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) minmax(400px, 0.92fr);
+  display: flex;
   min-height: 0;
+  position: relative;
+}
+
+/* Floating 配置 toggle (top-left). Expands the rail + step panel; toggles back. */
+.homeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.homeBtn:hover {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: var(--surface);
+}
+
+.configToggle {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: 13px;
+  border: 1px solid var(--pink-line);
+  background: linear-gradient(180deg, rgba(255, 108, 158, 0.95), rgba(212, 70, 127, 0.95));
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(255, 108, 158, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+.configToggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 36px rgba(255, 108, 158, 0.45);
+}
+.configToggle svg {
+  transition: transform 0.4s var(--ease);
+}
+.configToggleOpen {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.configToggleOpen svg {
+  transform: rotate(90deg);
 }
 
 /* step rail */
 .rail {
+  flex: 0 0 220px;
   border-right: 1px solid var(--hairline);
-  padding: 22px 16px;
+  /* extra top padding clears the floating 配置 toggle button */
+  padding: 64px 16px 22px;
   background: #0b0913;
   overflow-y: auto;
+  overflow-x: hidden;
+  opacity: 1;
+  transition: flex-basis 0.34s var(--ease), opacity 0.26s var(--ease), padding 0.34s var(--ease),
+    border-color 0.3s ease;
+}
+.layoutFocus .rail {
+  flex-basis: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  border-right-color: transparent;
+  pointer-events: none;
 }
 .railLabel {
   font-family: var(--font-mono);
@@ -185,12 +260,41 @@
 
 /* center config */
 .center {
+  flex: 1 1 0;
   padding: 26px 28px 40px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  opacity: 1;
+  transition: flex-grow 0.34s var(--ease), flex-basis 0.34s var(--ease), opacity 0.26s var(--ease),
+    padding 0.34s var(--ease);
+}
+.layoutFocus .center {
+  flex-grow: 0;
+  flex-basis: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.railCollapse {
+  float: right;
+  margin-top: -2px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.railCollapse:hover {
+  color: var(--text);
+  border-color: var(--border);
 }
 .stepHead {
   display: flex;
@@ -309,11 +413,25 @@
 
 /* persistent stage */
 .stage {
+  /* dock sits above the chat composer (see live2d-stage-controls) */
+  --dock-bottom: 74px;
+  flex: 1 1 440px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border-left: 1px solid var(--hairline);
   position: relative;
   background: radial-gradient(50% 46% at 50% 30%, rgba(255, 108, 158, 0.3), transparent 62%), #0b0913;
   display: flex;
   flex-direction: column;
+  transition: flex-basis 0.34s var(--ease), border-color 0.3s ease;
+}
+.layoutFocus .stage {
+  border-left-color: transparent;
+}
+/* Focus mode: hide the "常驻预览" header so the model + chat own the stage. */
+.layoutFocus .stageHead {
+  display: none;
 }
 .stageHead {
   padding: 14px 18px;
@@ -346,6 +464,8 @@
 .stageBody {
   flex: 1;
   position: relative;
+  min-height: 0;
+  overflow: hidden;
 }
 .stageSlot {
   position: absolute;
@@ -438,15 +558,25 @@
 }
 
 @media (max-width: 1100px) {
+  .wrap {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
   .layout {
-    grid-template-columns: 1fr;
-    grid-auto-rows: min-content;
+    flex-direction: column;
   }
   .rail {
+    flex-basis: auto;
     border-right: none;
     border-bottom: 1px solid var(--hairline);
   }
+  .layoutFocus .rail {
+    flex-basis: 0;
+    border-bottom-color: transparent;
+  }
   .stage {
+    flex-basis: auto;
     border-left: none;
     border-top: 1px solid var(--hairline);
     min-height: 320px;
@@ -464,6 +594,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   max-height: 56%;
   background: linear-gradient(180deg, transparent, rgba(9, 7, 17, 0.55) 30%);
 }
@@ -526,4 +657,202 @@
 .stageSend:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Model step: default (collapsed) centered view ───────────────────────── */
+.modelManage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 34px 20px;
+  text-align: center;
+}
+
+.modelGlyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  color: var(--pink);
+  background: var(--pink-fill);
+  border: 1px solid var(--pink-line);
+}
+
+.modelManageName {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.modelManageHint {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Styled upload panel (replaces the native file input) ────────────────── */
+.uploadPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fileField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.fileFieldLabel {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.filePicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px 7px 7px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.filePickerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur), border-color var(--dur), background var(--dur);
+}
+
+.filePickerBtn:hover {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: var(--pink-fill);
+}
+
+.fileInputHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.fileNameText {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cancelUpload {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur);
+}
+
+.cancelUpload:hover {
+  color: var(--text);
+}
+
+/* model capability reference + voice binding (tags step) */
+.capRef {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+.capRow {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.capLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  flex: none;
+  min-width: 56px;
+}
+.capChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.capChip {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+}
+.voiceBind {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+.voiceBind legend {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 0 4px;
+}
+.voiceBindItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+/* voice step rows */
+.voiceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+.voiceRowName {
+  font-weight: 600;
+}
+.voiceRowTags {
+  font-size: 11px;
+  color: var(--teal);
+  font-family: var(--font-mono);
+}
+.voiceRowAudio {
+  height: 30px;
+  max-width: 220px;
 }

@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 
 import { getCurrentSession } from "@/auth";
 import { AudienceChat } from "@/components/audience-chat";
+import { MobilePreview } from "@/components/mobile-preview";
+import { getLanBaseUrl } from "@/lib/lan-url";
 import { prisma } from "@/lib/prisma";
+import { qrPngDataUrl } from "@/lib/qr";
 
 import { CreatorAuthRequired } from "../../../_components";
 import styles from "./preview.module.css";
@@ -54,6 +57,9 @@ export default async function CreatorProjectPreviewPage({ params }: PageProps<"/
       data: { projectId, fanAccessCodeId: code.id, deviceHash },
     }));
 
+  const mobileUrl = `${getLanBaseUrl()}/c/${project.slug}`;
+  const mobileQr = await qrPngDataUrl(mobileUrl);
+
   return (
     <main>
       <div className={styles.banner}>
@@ -62,11 +68,15 @@ export default async function CreatorProjectPreviewPage({ params }: PageProps<"/
         <Link href={`/creator/projects/${projectId}`} className={styles.bannerLink}>
           返回工作区 →
         </Link>
+        <span style={{ marginLeft: "auto" }}>
+          <MobilePreview qr={mobileQr} url={mobileUrl} label="手机预览" />
+        </span>
       </div>
       <AudienceChat
         projectSlug={project.slug}
         projectName={project.name}
         intro={project.intro ?? ""}
+        characterSetting={project.characterSetting ?? ""}
         theme={project.theme}
         avatarUrl={project.avatarUrl}
         backgroundUrl={project.backgroundUrl}

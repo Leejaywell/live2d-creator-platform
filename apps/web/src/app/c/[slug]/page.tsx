@@ -33,6 +33,7 @@ export default async function AudiencePage({ params }: PageProps<"/c/[slug]">) {
       projectSlug={project.slug}
       projectName={project.name}
       intro={project.intro ?? ""}
+      characterSetting={project.characterSetting ?? ""}
       theme={project.theme}
       avatarUrl={project.avatarUrl}
       backgroundUrl={project.backgroundUrl}

@@ -42,6 +42,7 @@ export async function updateProjectAction(projectId: string, formData: FormData)
     avatarUrl: text(formData.get("avatarUrl")) ?? null,
     backgroundUrl: text(formData.get("backgroundUrl")) ?? null,
     systemPrompt: text(formData.get("systemPrompt")),
+    characterSetting: text(formData.get("characterSetting")) ?? null,
     welcomeMessage: text(formData.get("welcomeMessage")),
     theme: text(formData.get("theme")),
   });

@@ -2,8 +2,16 @@
 
 import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from "react";
 
+import { CHARACTERS } from "./landing-demo";
+
+/** Keep a persisted character index within the valid range (stale localStorage). */
+function clampCharIdx(idx: number) {
+  if (!Number.isFinite(idx) || idx < 0) return 0;
+  return Math.min(idx, CHARACTERS.length - 1);
+}
+
 export type LayoutMode = "sidebar" | "widget";
-export type TabType = "skins" | "motions" | "expressions" | "audio" | "scenes";
+export type TabType = "motions" | "expressions" | "audio" | "scenes";
 
 export interface WidgetPosition {
   x: number;
@@ -80,6 +88,10 @@ export function GlobalPetProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     try {
+      // layoutMode persists EXCEPT on the homepage: a fresh visit to "/" always
+      // starts on the sidebar stage (never auto-opens the pet), while other pages
+      // (e.g. admin) restore the persisted pet mode across reloads.
+      const onHomePage = typeof window !== "undefined" && window.location.pathname === "/";
       const storedLayout = localStorage.getItem("pet_layout_mode") as LayoutMode | null;
       const storedPetOpen = localStorage.getItem("pet_open");
       const storedCharIdx = localStorage.getItem("pet_char_idx");
@@ -101,9 +113,9 @@ export function GlobalPetProvider({ children }: { children: React.ReactNode }) {
       const storedRandomMotion = localStorage.getItem("pet_random_motion");
       const storedRandomVoice = localStorage.getItem("pet_random_voice");
 
-      if (storedLayout) setLayoutModeState(storedLayout);
+      if (storedLayout && !onHomePage) setLayoutModeState(storedLayout);
       if (storedPetOpen !== null) setPetOpenState(storedPetOpen === "true");
-      if (storedCharIdx !== null) setCharIdxState(parseInt(storedCharIdx, 10));
+      if (storedCharIdx !== null) setCharIdxState(clampCharIdx(parseInt(storedCharIdx, 10)));
       if (storedBgm !== null) setBgmPlayingState(storedBgm === "true");
       if (storedVolume !== null) setVoiceVolumeState(parseFloat(storedVolume));
       if (storedPos) setWidgetPosState(JSON.parse(storedPos));
@@ -127,6 +139,8 @@ export function GlobalPetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Setter wrappers that also save to localStorage.
+  // Persisted so non-home pages (e.g. admin) keep pet mode across reloads; the
+  // homepage deliberately ignores this value on load (see the restore effect).
   const setLayoutMode = useCallback((mode: LayoutMode) => {
     setLayoutModeState(mode);
     if (typeof window !== "undefined") {
@@ -141,7 +155,8 @@ export function GlobalPetProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const setCharIdx = useCallback((idx: number) => {
+  const setCharIdx = useCallback((rawIdx: number) => {
+    const idx = clampCharIdx(rawIdx);
     setCharIdxState(idx);
     if (typeof window !== "undefined") {
       localStorage.setItem("pet_char_idx", String(idx));

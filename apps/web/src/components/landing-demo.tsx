@@ -76,32 +76,6 @@ export const CHARACTERS: CharacterConfig[] = [
   }
 ];
 
-export interface SkinConfig {
-  id: string;
-  name: string;
-  active: boolean;
-}
-
-export const CHARACTER_SKINS: Record<string, SkinConfig[]> = {
-  "shengluyisi_3": [
-    { id: "skin1", name: "春之华", active: true },
-    { id: "skin2", name: "默认装扮", active: true },
-    { id: "skin3", name: "雪下之誓", active: true }
-  ],
-  "beierfasite_2": [
-    { id: "skin1", name: "凉夏之歌", active: true },
-    { id: "skin2", name: "默认装扮", active: true }
-  ],
-  "aidang_2": [
-    { id: "skin1", name: "深夏游园", active: true },
-    { id: "skin2", name: "默认装扮", active: true }
-  ],
-  "aijier_3": [
-    { id: "skin1", name: "铁血之翼", active: true },
-    { id: "skin2", name: "默认装扮", active: true }
-  ]
-};
-
 // All scenes are token-aligned CSS gradients — no external imagery, so the stage
 // always matches the site palette and never waits on a remote photo to load.
 export const BACKGROUNDS = [
@@ -207,9 +181,6 @@ export function LandingDemo() {
   const charMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sidebarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const isDraggingRef = useRef(false);
-  const widgetOffsetRef = useRef({ x: 0, y: 0 });
 
   const {
     layoutMode,
@@ -236,12 +207,6 @@ export function LandingDemo() {
   const [motionsList, setMotionsList] = useState<string[]>([]);
   const [expressionsList, setExpressionsList] = useState<string[]>([]);
   const [charMenuOpen, setCharMenuOpen] = useState(false);
-  const [selectedSkinIdMap, setSelectedSkinIdMap] = useState<Record<string, string>>({
-    "shengluyisi_3": "skin1",
-    "beierfasite_2": "skin1",
-    "aidang_2": "skin1",
-    "aijier_3": "skin1"
-  });
 
   // model parameter settings
   const scaleMul = 1;
@@ -257,6 +222,13 @@ export function LandingDemo() {
   useEffect(() => {
     charIdxRef.current = charIdx;
   }, [charIdx]);
+  // Volatile values read by playVoice via refs so its identity (and therefore
+  // loadModel's) stays stable — otherwise dragging the volume slider or switching
+  // characters would tear down and rebuild the whole Pixi stage.
+  const voiceVolumeRef = useRef(voiceVolume);
+  useEffect(() => {
+    voiceVolumeRef.current = voiceVolume;
+  }, [voiceVolume]);
   const loadedCharIdxRef = useRef<number | null>(null);
 
   // Stop current voice line audio
@@ -298,7 +270,7 @@ export function LandingDemo() {
   // Play character voice line
   const playVoice = useCallback((eventKey: string) => {
     if (!audioConfig) return;
-    const charKey = CHARACTERS[charIdx].key;
+    const charKey = CHARACTERS[charIdxRef.current].key;
     const charMeta = audioConfig[charKey];
     if (!charMeta) return;
 
@@ -328,9 +300,9 @@ export function LandingDemo() {
     });
 
     const audio = new Audio(voiceData.audio);
-    audio.volume = voiceVolume;
+    audio.volume = voiceVolumeRef.current;
     voicePlayerRef.current = audio;
-    
+
     audio.play().catch((e) => console.warn("Voice autoplay blocked:", e));
 
     audio.onended = () => {
@@ -341,7 +313,7 @@ export function LandingDemo() {
     subtitleTimeoutRef.current = setTimeout(() => {
       setSubtitle(null);
     }, 8000);
-  }, [audioConfig, charIdx, voiceVolume, stopCurrentVoice, locale]);
+  }, [audioConfig, stopCurrentVoice, locale]);
 
   // Trigger motions
   const triggerMotion = useCallback((motionName: string) => {
@@ -459,9 +431,13 @@ export function LandingDemo() {
       stopCurrentVoice();
 
       const model = await Live2DModel.from(url);
-      if (app.destroyed || !app.stage) return;
+      if (app.destroyed || !app.stage) {
+        // App was torn down while the model was loading — destroy the orphan.
+        try { model.destroy(); } catch {}
+        return;
+      }
       modelRef.current = model;
-      
+
       // Auto-focus on pointer (gaze tracking)
       model.trackPointer = gaze;
       model.anchor.set(0.5, 0.5);
@@ -635,16 +611,17 @@ export function LandingDemo() {
     };
   }, [layoutMode, loadModel, setBgTheme, stopCurrentVoice]);
 
-  // Hot-swap character when selection changes
+  // Hot-swap character when selection changes. Note: we deliberately do NOT reset
+  // the background here — only the initial load applies a character's default
+  // scene, so a user's chosen scene survives character switches.
   useEffect(() => {
     if (layoutMode !== "sidebar") return;
     if (loadedCharIdxRef.current === charIdx) return;
-    
+
     const char = CHARACTERS[charIdx];
-    setBgTheme(char.bgTheme);
     loadModel(char.modelPath, char);
     loadedCharIdxRef.current = charIdx;
-  }, [charIdx, loadModel, setBgTheme, layoutMode]);
+  }, [charIdx, loadModel, layoutMode]);
 
   // Handle transformations
   useEffect(() => {
@@ -695,82 +672,12 @@ export function LandingDemo() {
     model.focus(e.clientX - rect.left, e.clientY - rect.top);
   }, [gaze]);
 
-  // Drag widget event handlers
+  // Stage tap/click → model touch reaction. (The widget/desktop-pet branch
+  // renders a placeholder card and never mounts this stage, so there is no
+  // in-stage drag handling here — dragging lives in desktop-pet.)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (layoutMode !== "widget") {
-      // On the stage: tap/click the model to trigger a touch reaction.
-      handleStageTap(e.clientX, e.clientY);
-      return;
-    }
-    isDraggingRef.current = true;
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-    
-    const stageEl = stageRef.current;
-    if (stageEl) {
-      const rect = stageEl.getBoundingClientRect();
-      widgetOffsetRef.current = { x: rect.left, y: rect.top };
-      stageEl.style.right = 'auto';
-      stageEl.style.bottom = 'auto';
-      stageEl.style.left = `${rect.left}px`;
-      stageEl.style.top = `${rect.top}px`;
-      stageEl.style.margin = '0';
-    }
+    handleStageTap(e.clientX, e.clientY);
   };
-
-  // Draggable widget updates
-  useEffect(() => {
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!isDraggingRef.current) return;
-      const stageEl = stageRef.current;
-      if (stageEl) {
-        const dx = e.clientX - dragStartRef.current.x;
-        const dy = e.clientY - dragStartRef.current.y;
-        const newLeft = widgetOffsetRef.current.x + dx;
-        const newTop = widgetOffsetRef.current.y + dy;
-        stageEl.style.left = `${newLeft}px`;
-        stageEl.style.top = `${newTop}px`;
-
-        const ringEl = document.getElementById("ring-menu");
-        if (ringEl) {
-          const rect = stageEl.getBoundingClientRect();
-          ringEl.style.left = `${rect.left + rect.width / 2 - 120}px`;
-          ringEl.style.top = `${rect.top + rect.height - 66}px`;
-        }
-      }
-    };
-
-    const handlePointerUp = () => {
-      isDraggingRef.current = false;
-    };
-
-    if (layoutMode === 'widget') {
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerup', handlePointerUp);
-    }
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [layoutMode]);
-
-  // Position ring menu on layout or character changes
-  useEffect(() => {
-    if (layoutMode !== 'widget') return;
-    
-    const positionRingMenu = () => {
-      const stageEl = stageRef.current;
-      const ringEl = document.getElementById("ring-menu");
-      if (stageEl && ringEl) {
-        const rect = stageEl.getBoundingClientRect();
-        ringEl.style.left = `${rect.left + rect.width / 2 - 120}px`;
-        ringEl.style.top = `${rect.top + rect.height - 66}px`;
-      }
-    };
-
-    const timeout = setTimeout(positionRingMenu, 100);
-    return () => clearTimeout(timeout);
-  }, [layoutMode, charIdx]);
 
   // Handle window resizing
   useEffect(() => {
@@ -876,11 +783,11 @@ export function LandingDemo() {
     { key: "motions", label: t("demo.tabMotions"), icon: "motions" },
     { key: "expressions", label: t("demo.tabExpressions"), icon: "expressions" },
     { key: "audio", label: t("demo.tabAudio"), icon: "audio" },
-    { key: "skins", label: t("demo.tabSkins"), icon: "shirt" },
     { key: "scenes", label: t("demo.tabScenes"), icon: "scenes" },
   ];
 
-  const tab: TabType = activeTab;
+  // Normalize any stale persisted tab (e.g. the removed "skins"/"characters").
+  const tab: TabType = CATS.some((c) => c.key === activeTab) ? activeTab : "motions";
 
   const onTabClick = (key: TabType) => {
     if (sidebarOpen && tab === key) {
@@ -1124,31 +1031,6 @@ export function LandingDemo() {
                         {bgmPlaying ? t("demo.bgmOn") : t("demo.bgmOff")}
                       </span>
                     </div>
-                  </div>
-                )}
-
-                {/* Skins */}
-                {tab === "skins" && (
-                  <div className={styles.chipGrid}>
-                    {CHARACTER_SKINS[CHARACTERS[charIdx].key]?.map((skin) => {
-                      const charKey = CHARACTERS[charIdx].key;
-                      const activeSkinId = selectedSkinIdMap[charKey] || "skin1";
-                      return (
-                        <button
-                          key={skin.id}
-                          type="button"
-                          className={cx(styles.chip, activeSkinId === skin.id && styles.chipActive)}
-                          onClick={() => {
-                            setSelectedSkinIdMap((prev) => ({
-                              ...prev,
-                              [charKey]: skin.id
-                            }));
-                          }}
-                        >
-                          {skin.name}
-                        </button>
-                      );
-                    })}
                   </div>
                 )}
 

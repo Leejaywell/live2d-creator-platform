@@ -3,13 +3,14 @@
 import { useTranslations } from "next-intl";
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { Live2DControls, type ControlPanel } from "@/components/live2d-controls";
+import { Live2DStageControls } from "@/components/live2d-stage-controls";
 import { Button } from "@/components/ui";
+import { motionLabel } from "@/lib/live2d-motion-names";
 import { STAGE_BACKGROUNDS } from "@/lib/stage-backgrounds";
 
 import styles from "./live2d-viewer.module.css";
 
-export type Live2DEffect = { tag: string; params: Array<{ id: string; value: number }> };
+export type Live2DEffect = { tag: string; params: Array<{ id: string; value: number }>; expression?: string };
 
 export type Live2DVoice = { name: string; audioUrl?: string; tags?: string[] };
 
@@ -60,15 +61,35 @@ type Live2DModelInstance = {
 };
 type PixiApp = {
   stage: { addChild(child: unknown): void };
-  renderer: { width: number; height: number };
+  renderer: { width: number; height: number; resize(width: number, height: number): void };
+  view: HTMLCanvasElement;
   destroy(removeView?: boolean, options?: { children?: boolean }): void;
 };
-type Live2DWindow = {
-  PIXI?: {
-    Application: new (options: Record<string, unknown>) => PixiApp;
-    live2d?: { Live2DModel: { from(url: string): Promise<Live2DModelInstance> } };
+type Cubism4InternalModelCtor = {
+  prototype: {
+    updateWebGLContext: (
+      this: { renderer?: { _clippingManager?: unknown } },
+      gl: unknown,
+      glContextID: unknown,
+    ) => void;
   };
 };
+type Live2DWindow = {
+  Live2DCubismCore?: { Memory?: { initializeAmountOfMemory(size: number): void } };
+  PIXI?: {
+    Application: new (options: Record<string, unknown>) => PixiApp;
+    Ticker: unknown;
+    live2d?: {
+      Live2DModel: { from(url: string): Promise<Live2DModelInstance>; registerTicker(ticker: unknown): void };
+      Cubism4InternalModel?: Cubism4InternalModelCtor;
+    };
+  };
+};
+
+// Pet float is a square window; the model sits in the centered column and the
+// control buttons sit in the side gaps (outside the model). Keep in sync with
+// .petFloat in the stylesheet.
+const PET_FLOAT_SIZE = 400;
 
 const scriptCache = new Map<string, Promise<void>>();
 
@@ -109,10 +130,17 @@ export function Live2DViewer({
   welcomeMessage,
 }: Props) {
   const t = useTranslations("audience");
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // React owns this host <div> only — Pixi creates and owns the real <canvas>
+  // inside it. Destroying the Pixi app then never touches a React-managed node,
+  // avoiding removeChild crashes and stale-WebGL-context reuse under StrictMode.
+  const stageHostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<Live2DModelInstance | null>(null);
   const baseScaleRef = useRef(0.2);
+  // The model's intrinsic (unscaled) size, captured once. Refitting must divide
+  // the host size by THIS — not model.width, which is already scaled and would
+  // compound the zoom on every resize.
+  const naturalRef = useRef({ w: 0, h: 0 });
   const eyeBlinkRef = useRef<unknown>(undefined);
   const physicsRef = useRef<unknown>(undefined);
   const gazeRef = useRef(true);
@@ -132,11 +160,14 @@ export function Live2DViewer({
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [motionGroups, setMotionGroups] = useState<string[]>([]);
+  // Every individual motion (group + index + label), so the panel lists each
+  // motion like the landing demo — not just one button per motion group.
+  const [motionList, setMotionList] = useState<Array<{ group: string; index: number; label: string }>>([]);
   const [expressions, setExpressions] = useState<string[]>([]);
   const [subtitle, setSubtitle] = useState<{ title: string; text: string } | null>(null);
   const [bgmOn, setBgmOn] = useState(false);
 
-  // Model-setting controls (parity with the landing showcase).
+  // Model-setting controls, exposed via the dock's "设置" tab.
   const [scaleMul, setScaleMul] = useState(1);
   const [posOff, setPosOff] = useState(0);
   const [flip, setFlip] = useState(false);
@@ -146,6 +177,18 @@ export function Live2DViewer({
   const [idle, setIdle] = useState(true);
   const [lipSync, setLipSync] = useState(true);
   const [bgIdx, setBgIdx] = useState(0);
+  const [voiceVolume, setVoiceVolume] = useState(1);
+  const voiceVolumeRef = useRef(1);
+  // Desktop-pet mode: float the whole viewer as a small draggable window.
+  const [petMode, setPetMode] = useState(false);
+  const [petPos, setPetPos] = useState<{ x: number; y: number }>(() =>
+    typeof window !== "undefined"
+      ? { x: Math.max(8, Math.round((window.innerWidth - PET_FLOAT_SIZE) / 2)), y: Math.max(8, Math.round((window.innerHeight - PET_FLOAT_SIZE) / 2)) }
+      : { x: 120, y: 80 },
+  );
+  const petDragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const petModeRef = useRef(false);
+  const petPosRef = useRef({ x: 0, y: 0 });
 
   // Background options: the creator's uploaded background (if any) first, then
   // the shared stage presets — same set as the landing showcase.
@@ -167,12 +210,27 @@ export function Live2DViewer({
   const playVoice = useCallback((voice?: Live2DVoice, subtitleTitle?: string) => {
     if (subtitleTitle) showSubtitle(subtitleTitle, voice?.name ?? "");
     if (!voice?.audioUrl) return;
+    // Seeded voices are static public paths; creator uploads are protected
+    // storage keys served through the per-session authorized asset proxy.
+    const isStatic = /^(https?:)?\/\//.test(voice.audioUrl) || voice.audioUrl.startsWith("/");
+    const src = isStatic
+      ? voice.audioUrl
+      : `/api/assets/proxy?key=${encodeURIComponent(voice.audioUrl)}${
+          viewerSessionId ? `&viewerSessionId=${encodeURIComponent(viewerSessionId)}` : ""
+        }`;
     voiceAudioRef.current?.pause();
-    const audio = new Audio(voice.audioUrl);
+    const audio = new Audio(src);
+    audio.volume = voiceVolumeRef.current;
     voiceAudioRef.current = audio;
     audio.onended = () => setSubtitle(null);
     void audio.play().catch(() => {});
-  }, [showSubtitle]);
+  }, [showSubtitle, viewerSessionId]);
+
+  // Keep the voice volume ref in sync and live-apply to any playing line.
+  useEffect(() => {
+    voiceVolumeRef.current = voiceVolume;
+    if (voiceAudioRef.current) voiceAudioRef.current.volume = voiceVolume;
+  }, [voiceVolume]);
 
   // Drive a motion that best matches a named reaction (e.g. "touch_head"),
   // falling back to a tap-cycled motion when the model has no named group.
@@ -229,17 +287,67 @@ export function Live2DViewer({
       const w = window as unknown as Live2DWindow;
       const PIXI = w.PIXI;
       const Live2DModel = PIXI?.live2d?.Live2DModel;
-      const canvas = canvasRef.current;
-      if (!PIXI || !Live2DModel || !canvas) throw new Error("Live2D runtime unavailable");
+      const host = stageHostRef.current;
+      if (!PIXI || !Live2DModel || !host) throw new Error("Live2D runtime unavailable");
+
+      // Cubism4 models with clipping masks crash under Pixi 7 without these two
+      // patches: a memory-allocator mock and a no-op clipping-context manager.
+      w.Live2DCubismCore = w.Live2DCubismCore ?? {};
+      w.Live2DCubismCore.Memory = w.Live2DCubismCore.Memory ?? {
+        initializeAmountOfMemory(size: number) {
+          console.log("Mocked Live2DCubismCore.Memory.initializeAmountOfMemory called with size:", size);
+        },
+      };
+
+      const Cubism4InternalModel = PIXI.live2d?.Cubism4InternalModel;
+      if (Cubism4InternalModel) {
+        const proto = Cubism4InternalModel.prototype;
+        const originalUpdateWebGLContext = proto.updateWebGLContext;
+        proto.updateWebGLContext = function (
+          this: { renderer?: { _clippingManager?: unknown } },
+          gl: unknown,
+          glContextID: unknown,
+        ) {
+          if (this.renderer && !this.renderer._clippingManager) {
+            this.renderer._clippingManager = new Proxy({} as Record<string | symbol, unknown>, {
+              get(target, prop) {
+                if (prop === "_currentFrameNo" || prop === "_maskTexture") {
+                  return target[prop];
+                }
+                return function () {
+                  if (prop === "getRenderTextureCount" || prop === "getClippingMaskBufferSize") {
+                    return 0;
+                  }
+                  if (prop === "getClippingContextListForDraw") {
+                    return [];
+                  }
+                  return undefined;
+                };
+              },
+              set(target, prop, value) {
+                target[prop] = value;
+                return true;
+              },
+            });
+          }
+          originalUpdateWebGLContext.call(this, gl, glContextID);
+        };
+      }
+
+      // Register the Pixi ticker — without it the model is frozen: blink,
+      // physics, idle, and motions never advance.
+      Live2DModel.registerTicker(PIXI.Ticker);
 
       const app = new PIXI.Application({
-        view: canvas,
         autoStart: true,
         backgroundAlpha: 0,
-        resizeTo: canvas.parentElement ?? undefined,
+        resizeTo: host,
         antialias: true,
       });
       appRef.current = app;
+
+      // Pixi owns this canvas; mount it into the React host exactly once.
+      host.replaceChildren(app.view);
 
       const manifestUrl = `/api/assets/live2d-model?projectSlug=${encodeURIComponent(projectSlug)}${
         viewerSessionId ? `&viewerSessionId=${encodeURIComponent(viewerSessionId)}` : ""
@@ -248,8 +356,10 @@ export function Live2DViewer({
       modelRef.current = model;
 
       model.anchor.set(0.5, 0.5);
+      // Capture intrinsic size BEFORE scaling (default scale is 1 here).
+      naturalRef.current = { w: model.width || 1, h: model.height || 1 };
       const { width, height } = app.renderer;
-      const base = Math.min(width / (model.width || width), height / (model.height || height)) * 0.9 || 0.2;
+      const base = Math.min(width / naturalRef.current.w, height / naturalRef.current.h) * 0.9 || 0.2;
       baseScaleRef.current = base;
       model.scale.set(base, base);
       model.position.set(width / 2, height / 2);
@@ -261,6 +371,16 @@ export function Live2DViewer({
       const mm = im?.motionManager;
       const defs = mm?.definitions ?? mm?.motionGroups;
       setMotionGroups(defs ? Object.keys(defs) : []);
+      // Flatten every motion into an individually playable entry (parity with the
+      // landing demo, which lists each motion rather than just group names).
+      const settingsMotions = im?.settings?.motions ?? {};
+      const flatMotions: Array<{ group: string; index: number; label: string }> = [];
+      for (const [group, list] of Object.entries(settingsMotions)) {
+        (list ?? []).forEach((m, index) => {
+          flatMotions.push({ group, index, label: motionLabel(m.File ?? m.file ?? `${group || ""}-${index + 1}`) });
+        });
+      }
+      setMotionList(flatMotions);
       setExpressions((im?.settings?.expressions ?? []).map((e, i) => e.Name ?? e.name ?? t("expressionN", { n: i + 1 })));
       setPhase("ready");
     } catch (error) {
@@ -271,30 +391,43 @@ export function Live2DViewer({
 
   useEffect(() => {
     // init() only setStates after awaiting CDN + model load (no sync cascade).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     init();
     return () => {
       modelRef.current?.destroy();
       modelRef.current = null;
-      appRef.current?.destroy(false, { children: true });
+      // Pixi owns the canvas, so removeView is safe — it detaches its own node.
+      appRef.current?.destroy(true, { children: true });
       appRef.current = null;
     };
   }, [init, attempt]);
 
-  // Triggered Live2D parameters from chat tags.
+  // Triggered Live2D effects from chat tags: parameters + expression + voice.
   useEffect(() => {
-    const core = modelRef.current?.internalModel?.coreModel;
-    if (!core) return;
+    const model = modelRef.current;
+    const core = model?.internalModel?.coreModel;
     for (const effect of activeEffects) {
-      for (const param of effect.params) {
-        try {
-          core.setParameterValueById(param.id, param.value);
-        } catch {
-          // unknown parameter id — ignore
+      if (core) {
+        for (const param of effect.params) {
+          try {
+            core.setParameterValueById(param.id, param.value);
+          } catch {
+            // unknown parameter id — ignore
+          }
         }
       }
+      // Apply the tag's expression, if it binds one.
+      if (effect.expression) {
+        try {
+          model?.expression?.(effect.expression);
+        } catch {
+          // unknown expression — ignore
+        }
+      }
+      // Play the project voice bound to this tag (same path as tap reactions).
+      const voice = voiceForReaction(effect.tag);
+      if (voice) playVoice(voice, effect.tag);
     }
-  }, [activeEffects]);
+  }, [activeEffects, playVoice, voiceForReaction]);
 
   // Transform: scale / horizontal flip / vertical offset.
   useEffect(() => {
@@ -375,10 +508,16 @@ export function Live2DViewer({
   }, []);
 
   const onPointerMove = useCallback((e: ReactPointerEvent) => {
+    // While dragging the pet float, move the window instead of tracking gaze.
+    const drag = petDragRef.current;
+    if (drag) {
+      setPetPos({ x: Math.max(8, e.clientX - drag.dx), y: Math.max(8, e.clientY - drag.dy) });
+      return;
+    }
     const model = modelRef.current;
-    const canvas = canvasRef.current;
-    if (!model?.focus || !canvas || !gazeRef.current) return;
-    const rect = canvas.getBoundingClientRect();
+    const host = stageHostRef.current;
+    if (!model?.focus || !host || !gazeRef.current) return;
+    const rect = host.getBoundingClientRect();
     model.focus(e.clientX - rect.left, e.clientY - rect.top);
   }, []);
 
@@ -388,10 +527,19 @@ export function Live2DViewer({
   // Pixi 7 removed, so we hit-test manually on pointer down (mouse + touch alike).
   const onPointerDown = useCallback(
     (e: ReactPointerEvent) => {
+      // In pet mode, dragging the window takes over from tap reactions (matches
+      // the landing desktop-pet: grab anywhere on the float to move it).
+      if (petModeRef.current) {
+        e.preventDefault();
+        const pos = petPosRef.current;
+        petDragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        return;
+      }
       const model = modelRef.current;
-      const canvas = canvasRef.current;
-      if (!model || !canvas) return;
-      const rect = canvas.getBoundingClientRect();
+      const host = stageHostRef.current;
+      if (!model || !host) return;
+      const rect = host.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const hits = model.hitTest?.(x, y) ?? [];
@@ -411,115 +559,122 @@ export function Live2DViewer({
     [reactToArea],
   );
 
-  const motionNames = motionGroups.length ? motionGroups : [""];
-  const panels: ControlPanel[] = [
+  const motionItems = motionList.length
+    ? motionList.map((m, i) => ({
+        label: m.label || t("motionN", { n: i + 1 }),
+        onSelect: () => modelRef.current?.motion?.(m.group, m.index),
+      }))
+    : (motionGroups.length ? motionGroups : [""]).map((g, i) => ({
+        label: g || t("motionN", { n: i + 1 }),
+        onSelect: () => modelRef.current?.motion?.(g, g ? undefined : i),
+      }));
+  const expressionItems = expressions.map((name) => ({
+    label: name,
+    onSelect: () => modelRef.current?.expression?.(name),
+  }));
+  const sceneItems = bgOptions.map((b, i) => ({
+    label: b.kind === "image" ? t("creatorBackground") : t(b.labelKey),
+    active: bgIdx === i,
+    onSelect: () => setBgIdx(i),
+  }));
+  const settingsSections = [
     {
-      key: "act",
-      title: t("panelActTitle"),
-      icon: "act",
-      sections: [
-        {
-          title: t("sectionPose"),
-          items: motionNames.map((g, i) => ({
-            label: g || t("motionN", { n: i + 1 }),
-            onSelect: () => modelRef.current?.motion?.(g, g ? undefined : i),
-          })),
-        },
-        {
-          // A single uploaded model has no alternate costume data, so its
-          // expressions are the closest "look / skin" the viewer can offer.
-          title: t("sectionSkin"),
-          items: expressions.map((name) => ({ label: name, onSelect: () => modelRef.current?.expression?.(name) })),
-        },
+      title: t("sectionScale"),
+      items: [
+        { label: t("scaleUp"), active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
+        { label: t("scaleNormal"), active: scaleMul === 1, onSelect: () => setScaleMul(1) },
+        { label: t("scaleDown"), active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
       ],
     },
     {
-      key: "voice",
-      title: t("panelVoiceTitle"),
-      icon: "voice",
-      sections: [
-        {
-          title: t("sectionPresetVoice"),
-          items: voices.map((v) => ({
-            label: v.name,
-            onSelect: () => playVoice(v, v.name),
-          })),
-        },
-        {
-          title: t("sectionAmbience"),
-          items: [
-            { label: t("randomInteract"), onSelect: () => reactToArea([]) },
-            { label: `${t("bgm")} · ${bgmOn ? t("on") : t("off")}`, active: bgmOn, onSelect: () => setBgmOn((v) => !v) },
-          ],
-        },
+      title: t("sectionPosition"),
+      items: [
+        { label: t("moveUp"), active: posOff < 0, onSelect: () => setPosOff(-40) },
+        { label: t("center"), active: posOff === 0, onSelect: () => setPosOff(0) },
+        { label: t("moveDown"), active: posOff > 0, onSelect: () => setPosOff(40) },
+        { label: t("mirror"), active: flip, onSelect: () => setFlip((v) => !v) },
       ],
     },
     {
-      key: "settings",
-      title: t("panelSettingsTitle"),
-      icon: "settings",
-      sections: [
+      title: t("sectionDynamic"),
+      items: [
+        { label: t("gaze"), active: gaze, onSelect: () => setGaze((v) => !v) },
+        { label: t("blink"), active: blink, onSelect: () => setBlink((v) => !v) },
+        { label: t("physics"), active: physics, onSelect: () => setPhysics((v) => !v) },
+        { label: t("idle"), active: idle, onSelect: () => setIdle((v) => !v) },
+        { label: t("lipSync"), active: lipSync, onSelect: () => setLipSync((v) => !v) },
+      ],
+    },
+    {
+      title: t("sectionOps"),
+      items: [
+        { label: t("randomMotion"), onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
         {
-          title: t("sectionScale"),
-          items: [
-            { label: t("scaleUp"), active: scaleMul > 1, onSelect: () => setScaleMul(1.25) },
-            { label: t("scaleNormal"), active: scaleMul === 1, onSelect: () => setScaleMul(1) },
-            { label: t("scaleDown"), active: scaleMul < 1, onSelect: () => setScaleMul(0.8) },
-          ],
-        },
-        {
-          title: t("sectionPosition"),
-          items: [
-            { label: t("moveUp"), active: posOff < 0, onSelect: () => setPosOff(-40) },
-            { label: t("center"), active: posOff === 0, onSelect: () => setPosOff(0) },
-            { label: t("moveDown"), active: posOff > 0, onSelect: () => setPosOff(40) },
-            { label: t("mirror"), active: flip, onSelect: () => setFlip((v) => !v) },
-          ],
-        },
-        {
-          title: t("sectionDynamic"),
-          items: [
-            { label: `${t("gaze")} · ${gaze ? t("on") : t("off")}`, active: gaze, onSelect: () => setGaze((v) => !v) },
-            { label: `${t("blink")} · ${blink ? t("on") : t("off")}`, active: blink, onSelect: () => setBlink((v) => !v) },
-            { label: `${t("physics")} · ${physics ? t("on") : t("off")}`, active: physics, onSelect: () => setPhysics((v) => !v) },
-            { label: `${t("idle")} · ${idle ? t("on") : t("off")}`, active: idle, onSelect: () => setIdle((v) => !v) },
-            { label: `${t("lipSync")} · ${lipSync ? t("on") : t("off")}`, active: lipSync, onSelect: () => setLipSync((v) => !v) },
-          ],
-        },
-        {
-          title: t("sectionBackground"),
-          items: bgOptions.map((b, i) => ({
-            label: b.kind === "image" ? t("creatorBackground") : t(b.labelKey),
-            active: bgIdx === i,
-            onSelect: () => setBgIdx(i),
-          })),
-        },
-        {
-          title: t("sectionOps"),
-          items: [
-            { label: t("randomMotion"), onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
-            {
-              label: t("resetAll"),
-              onSelect: () => {
-                setScaleMul(1);
-                setPosOff(0);
-                setFlip(false);
-                setGaze(true);
-                setBlink(true);
-                setPhysics(true);
-                setIdle(true);
-                setLipSync(true);
-                setBgIdx(0);
-              },
-            },
-          ],
+          label: t("resetAll"),
+          onSelect: () => {
+            setScaleMul(1);
+            setPosOff(0);
+            setFlip(false);
+            setGaze(true);
+            setBlink(true);
+            setPhysics(true);
+            setIdle(true);
+            setLipSync(true);
+            setBgIdx(0);
+          },
         },
       ],
     },
   ];
 
+  // Refit the model whenever the host resizes (layout toggle, pet float, window).
+  // Resize the Pixi renderer to the host explicitly (CSS-driven size changes
+  // don't fire a window resize), then rescale from the INTRINSIC model size.
+  const refitModel = useCallback(() => {
+    const model = modelRef.current;
+    const app = appRef.current;
+    const host = stageHostRef.current;
+    if (!model || !app || !host) return;
+    const w = host.clientWidth;
+    const h = host.clientHeight;
+    if (w === 0 || h === 0) return;
+    app.renderer.resize(w, h);
+    const nat = naturalRef.current;
+    const base = Math.min(w / (nat.w || w), h / (nat.h || h)) * 0.9 || 0.2;
+    baseScaleRef.current = base;
+    const s = base * scaleMul;
+    model.scale.set(flip ? -s : s, s);
+    model.position.set(w / 2, h / 2 + posOff);
+  }, [scaleMul, flip, posOff]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const host = stageHostRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => refitModel());
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [phase, refitModel]);
+
+  // Keep pet state in refs so the (stable) pointer handlers read fresh values.
+  useEffect(() => {
+    petModeRef.current = petMode;
+  }, [petMode]);
+  useEffect(() => {
+    petPosRef.current = petPos;
+  }, [petPos]);
+  const onPetPointerUp = useCallback(() => {
+    petDragRef.current = null;
+  }, []);
+
   return (
-    <div className={styles.root} onPointerMove={onPointerMove} onPointerDown={onPointerDown}>
+    <div
+      className={`${styles.root} ${petMode ? styles.petFloat : ""}`}
+      style={petMode ? { left: petPos.x, top: petPos.y } : undefined}
+      onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPetPointerUp}
+    >
       <div
         className={styles.bg}
         aria-hidden
@@ -529,14 +684,38 @@ export function Live2DViewer({
             : { background: currentBg?.css }
         }
       />
-      <canvas ref={canvasRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
+      <div ref={stageHostRef} className={`${styles.canvas} ${phase === "ready" ? styles.canvasReady : ""}`} />
       {phase === "ready" && subtitle ? (
         <div className={styles.subtitle} aria-live="polite">
           <span className={styles.subtitleTitle}>⚓ {subtitle.title}</span>
           {subtitle.text ? <span className={styles.subtitleText}>{subtitle.text}</span> : null}
         </div>
       ) : null}
-      {phase === "ready" ? <Live2DControls panels={panels} /> : null}
+      {phase === "ready" ? (
+        // Controls render inside the stage root, so their pointer events would
+        // bubble up to onPointerDown and fire a stray model tap reaction. Stop
+        // propagation here so clicking a control never triggers a motion/voice.
+        <div
+          className={styles.controlsLayer}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+        >
+          <Live2DStageControls
+            motions={motionItems}
+            expressions={expressionItems}
+            scenes={sceneItems}
+            settings={settingsSections}
+            voiceVolume={voiceVolume}
+            onVoiceVolume={setVoiceVolume}
+            onRandom={() => reactToArea([])}
+            bgmOn={bgmOn}
+            onToggleBgm={() => setBgmOn((v) => !v)}
+            petActive={petMode}
+            onTogglePet={() => setPetMode((v) => !v)}
+            variant={petMode ? "pet" : "dock"}
+          />
+        </div>
+      ) : null}
       {/* Self-hosted looped ambient track; never autoplays (toggle-gated). */}
       <audio ref={bgmRef} loop preload="none" src="/audio/ambient.ogg" />
       {phase === "loading" ? (

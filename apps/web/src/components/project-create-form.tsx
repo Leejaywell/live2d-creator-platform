@@ -46,6 +46,10 @@ export function ProjectCreateForm() {
         <textarea name="systemPrompt" placeholder={t("systemPromptPlaceholder")} required />
       </label>
       <label>
+        {t("fieldCharacterSetting")}
+        <textarea name="characterSetting" placeholder={t("characterSettingPlaceholder")} />
+      </label>
+      <label>
         {t("fieldWelcomeMessage")}
         <input name="welcomeMessage" placeholder={t("welcomeMessagePlaceholder")} required />
       </label>

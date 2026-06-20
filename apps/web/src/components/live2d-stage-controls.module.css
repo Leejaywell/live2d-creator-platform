@@ -1,0 +1,406 @@
+/* Replicated landing-demo control bar for the real Live2D viewer. */
+.controls {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+.controls :global(button) {
+  pointer-events: auto;
+}
+
+:root {
+  --demo-glass: rgba(14, 12, 21, 0.72);
+}
+
+/* Round glass icon button (corner) */
+.cornerBtn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--demo-glass);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.cornerBtn:hover {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: rgba(255, 108, 158, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(255, 108, 158, 0.24);
+}
+.cornerBtn:active {
+  transform: translateY(0);
+}
+.cornerBtnActive {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: rgba(255, 108, 158, 0.18);
+}
+.cornerTR {
+  top: 14px;
+  right: 14px;
+}
+
+/* ---- Pet variant: side-split icon columns (mirrors the desktop-pet) ---- */
+.petSideLeft,
+.petSideRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  pointer-events: none;
+}
+.petSideLeft > *,
+.petSideRight > * {
+  pointer-events: auto;
+}
+.petSideLeft {
+  left: 8px;
+}
+.petSideRight {
+  right: 8px;
+}
+.petBtnWrap {
+  position: relative;
+}
+.petIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--demo-glass);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.petIconBtn:hover {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: rgba(255, 108, 158, 0.12);
+  transform: translateY(-1px);
+}
+.petIconBtnActive {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: rgba(255, 108, 158, 0.18);
+}
+.petList {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 168px;
+  max-height: 260px;
+  display: flex;
+  flex-direction: column;
+  background: var(--demo-glass);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  z-index: 26;
+}
+.petListLeft {
+  left: 46px;
+}
+.petListRight {
+  right: 46px;
+}
+.petListHead {
+  padding: 8px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--hairline);
+}
+.petListBody {
+  padding: 10px 11px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dockWrapper {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 28px));
+  z-index: 22;
+  pointer-events: none;
+}
+.dockWrapper > * {
+  pointer-events: auto;
+}
+
+/* Bottom dock (icon-only) */
+.dock {
+  position: absolute;
+  bottom: var(--dock-bottom, 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+  background: var(--demo-glass);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-pill);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+}
+.dockTab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, transform 0.2s;
+}
+.dockTab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+.dockTabActive,
+.dockTabActive:hover {
+  color: #fff;
+  background: linear-gradient(180deg, var(--pink-soft, #ff7ba6), var(--pink-deep, #d4467f));
+  box-shadow: 0 4px 14px rgba(255, 108, 158, 0.4);
+}
+
+/* Popover panel (floats above the dock) */
+.panel {
+  position: absolute;
+  bottom: calc(var(--dock-bottom, 14px) + 52px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 28px));
+  max-height: min(54vh, 340px);
+  display: flex;
+  flex-direction: column;
+  z-index: 19;
+  background: var(--demo-glass);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(26px) saturate(160%);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  animation: panelIn 0.24s var(--ease);
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.panelTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+.panelTitle {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.panelClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.panelClose:hover {
+  color: #fff;
+  background: var(--surface-hover);
+}
+.panelBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 13px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.panelBody::-webkit-scrollbar {
+  width: 4px;
+}
+.panelBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settingSection {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.settingTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.settingRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.settingRow .chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 6px 11px;
+}
+.emptyHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Chip grid (motions / expressions / scenes) */
+.chipGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 8px;
+}
+.chip {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.chip:hover {
+  color: #fff;
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+.chipMuted {
+  background: var(--surface-2);
+}
+.chipActive {
+  color: #fff;
+  border-color: var(--pink, #ff6c9e);
+  background: var(--pink-fill, rgba(255, 108, 158, 0.18));
+}
+
+/* Audio controls */
+.sliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sliderLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.sliderRow input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-hover);
+  outline: none;
+}
+.sliderRow input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--pink, #ff6c9e);
+  cursor: pointer;
+}
+.sliderRow input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: none;
+  border-radius: 50%;
+  background: var(--pink, #ff6c9e);
+  cursor: pointer;
+}
+.audioButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.actionBtn {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.actionBtn:hover {
+  color: #fff;
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+.actionBtnActive {
+  color: #fff;
+  border-color: var(--pink-line);
+  background: var(--pink-fill, rgba(255, 108, 158, 0.18));
+}
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.statusVal {
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.statusOn {
+  color: var(--teal);
+}

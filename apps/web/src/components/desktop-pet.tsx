@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import { useGlobalPet } from "./global-pet-context";
-import { CHARACTERS, SCRIPTS, loadScript, CharacterConfig, Icon, CHARACTER_SKINS } from "./landing-demo";
+import { CHARACTERS, SCRIPTS, loadScript, CharacterConfig, Icon } from "./landing-demo";
 import styles from "./desktop-pet.module.css";
 
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs, react-hooks/immutability */
@@ -101,13 +101,7 @@ export function DesktopPet() {
 
   // Expanded lists / settings states
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeList, setActiveList] = useState<"expressions" | "motions" | "voices" | "skins" | "characters" | null>(null);
-  const [selectedSkinIdMap, setSelectedSkinIdMap] = useState<Record<string, string>>({
-    "shengluyisi_3": "skin1",
-    "beierfasite_2": "skin1",
-    "aidang_2": "skin1",
-    "aijier_3": "skin1"
-  });
+  const [activeList, setActiveList] = useState<"expressions" | "motions" | "voices" | "characters" | null>(null);
 
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
@@ -117,10 +111,17 @@ export function DesktopPet() {
   const resizeStartScaleRef = useRef(1.0);
   const resizeStartPosRef = useRef({ x: 0, y: 0 });
 
-  // Only render if in widget mode, and only on admin or home routes
+  // Only render in widget mode, and only on the home/admin dashboard routes —
+  // never on pages that already display a Live2D model themselves (audience
+  // viewer, creator project preview, admin model preview), so the floating pet
+  // can't overlap or double-render against the page's own model.
   const isHomePage = pathname === "/";
   const isAdminPage = pathname.startsWith("/admin");
-  const shouldRender = layoutMode === "widget" && (isHomePage || isAdminPage);
+  const isModelViewingPage =
+    pathname.startsWith("/c/") ||
+    /^\/creator\/projects\/[^/]+/.test(pathname) ||
+    (pathname.startsWith("/admin/projects/") && (pathname.endsWith("/preview") || pathname.endsWith("/config")));
+  const shouldRender = layoutMode === "widget" && (isHomePage || isAdminPage) && !isModelViewingPage;
 
   // Stop active voice lines
   const stopCurrentVoice = useCallback(() => {
@@ -704,8 +705,6 @@ export function DesktopPet() {
   const xCoordinate = widgetPos ? widgetPos.x : defaultLeft;
   // Left list edge-detected direction: if true, pop inward (right), else pop outward (left)
   const popLeftInward = typeof window !== "undefined" && (xCoordinate - 130 * petScale < 10);
-  // Right list edge-detected direction: if true, pop inward (left), else pop outward (right)
-  const popRightInward = typeof window !== "undefined" && (xCoordinate + (400 + 130) * petScale > window.innerWidth - 10);
   // Settings panel edge-detected direction: if true, pop to the left, else pop to the right
   const popSettingsLeft = typeof window !== "undefined" && (xCoordinate + (400 + 282) * petScale > window.innerWidth - 10);
 
@@ -744,10 +743,6 @@ export function DesktopPet() {
     } else {
       setActiveList(activeList === "voices" ? null : "voices");
     }
-  };
-
-  const handleSkinClick = () => {
-    setActiveList(activeList === "skins" ? null : "skins");
   };
 
   const handleChatClick = () => {
@@ -1006,59 +1001,8 @@ export function DesktopPet() {
         </div>
       </div>
 
-      {/* Right-side controls (Skin, Chat, Settings) */}
+      {/* Right-side controls (Chat, Settings) */}
       <div className={styles.petSideRight}>
-        {/* Skins */}
-        <div 
-          className={styles.petBtnWrapper}
-          onMouseEnter={() => {
-            if (petCloseTimeoutRef.current) {
-              clearTimeout(petCloseTimeoutRef.current);
-              petCloseTimeoutRef.current = null;
-            }
-            setActiveList("skins");
-          }}
-          onMouseLeave={() => {
-            petCloseTimeoutRef.current = setTimeout(() => {
-              if (activeList === "skins") setActiveList(null);
-            }, 300);
-          }}
-        >
-          <button
-            type="button"
-            className={styles.petIconBtn}
-            title="管理皮肤"
-            aria-label="皮肤"
-            onClick={handleSkinClick}
-          >
-            <Icon name="shirt" size={17} />
-          </button>
-          {activeList === "skins" && (
-            <div className={`${styles.floatingList} ${popRightInward ? styles.floatingListInwardRight : styles.floatingListOutwardRight}`}>
-              {CHARACTER_SKINS[CHARACTERS[charIdx].key]?.map((skin) => {
-                const charKey = CHARACTERS[charIdx].key;
-                const activeSkinId = selectedSkinIdMap[charKey] || "skin1";
-                return (
-                  <button
-                    key={skin.id}
-                    type="button"
-                    className={`${styles.floatingListItem} ${activeSkinId === skin.id ? styles.floatingListItemActive : ""}`}
-                    onClick={() => {
-                      setSelectedSkinIdMap((prev) => ({
-                        ...prev,
-                        [charKey]: skin.id
-                      }));
-                      setActiveList(null);
-                    }}
-                  >
-                    {skin.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Chat */}
         <button
           type="button"

@@ -3,16 +3,21 @@ import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { AdminReviewActions } from "@/components/admin-review-actions";
-import { ApiForm } from "@/components/api-form";
+import { MobilePreview } from "@/components/mobile-preview";
 import { Pill } from "@/components/ui";
+import { getLanBaseUrl } from "@/lib/lan-url";
 import { hasPermission, isAdminRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { qrPngDataUrl } from "@/lib/qr";
 
 import { AdminAuthRequired, AdminShell, dash } from "../_components";
 
 export const dynamic = "force-dynamic";
 
-const REVIEW_COLS = "2.2fr 1.4fr 1fr 1fr auto";
+// All-fr tracks (no content-sized `auto`) so the header and every row share
+// identical column widths and line up. The last column holds a compact actions
+// menu rather than a wide button cluster.
+const REVIEW_COLS = "2.4fr 1.5fr 1.1fr 1fr 0.9fr";
 
 function relativeTime(t: Awaited<ReturnType<typeof getTranslations<"admin">>>, date: Date) {
   const diff = Date.now() - date.getTime();
@@ -35,6 +40,17 @@ export default async function AdminProjectsPage() {
     orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     take: 100,
   });
+
+  // Pre-render a LAN-IP QR for each project's public page (phone-scannable).
+  const lanBase = getLanBaseUrl();
+  const mobileByProject = new Map(
+    await Promise.all(
+      projects.map(async (p) => {
+        const url = `${lanBase}/c/${p.slug}`;
+        return [p.id, { url, qr: await qrPngDataUrl(url) }] as const;
+      }),
+    ),
+  );
 
   const pendingCount = projects.filter((p) => p.status === "draft").length;
   const liveCount = projects.filter((p) => p.status === "published").length;
@@ -77,7 +93,7 @@ export default async function AdminProjectsPage() {
             <span>{t("colCreator")}</span>
             <span>{t("colStatus")}</span>
             <span>{t("colSubmittedAt")}</span>
-            <span>{t("colActions")}</span>
+            <span style={{ justifySelf: "end" }}>{t("colActions")}</span>
           </div>
           {projects.map((project) => (
             <div key={project.id} className={dash.tableRow} style={{ gridTemplateColumns: REVIEW_COLS }}>
@@ -94,31 +110,26 @@ export default async function AdminProjectsPage() {
               {statusPill(project.status)}
               <span className={dash.mono}>{relativeTime(t, project.updatedAt)}</span>
               <div className={dash.rowActions}>
-                <Link href={`/admin/projects/${project.id}/preview`}>{t("previewModel")}</Link>
-                <Link href={`/admin/projects/${project.id}/fan-codes`}>{t("fanCodesLink")}</Link>
-                {hasPermission(role, "projects.pause") ? (
-                  <AdminReviewActions projectId={project.id} status={project.status} />
-                ) : (
-                  <span className={dash.pageHeadSub}>{t("readOnly")}</span>
-                )}
-                {hasPermission(role, "assets.assist") ? (
-                  <details>
-                    <summary>{t("modelSummary")}</summary>
-                    <div className={dash.formCard}>
-                      <p className={dash.pageHeadSub} style={{ margin: "0 0 10px" }}>
-                        {t("currentModel", {
-                          status: project.currentModelAsset?.validationStatus ?? t("notUploaded"),
-                        })}
-                      </p>
-                      <ApiForm action={`/api/admin/projects/${project.id}/model-assets`} submitLabel={t("uploadAssistModel")}>
-                        <label>
-                          {t("live2dZipLabel")}
-                          <input name="file" type="file" accept=".zip" required />
-                        </label>
-                      </ApiForm>
-                    </div>
-                  </details>
-                ) : null}
+                <MobilePreview
+                  qr={mobileByProject.get(project.id)!.qr}
+                  url={mobileByProject.get(project.id)!.url}
+                  label={t("mobilePreview")}
+                />
+                <details className={dash.rowMenu}>
+                  <summary>{t("colActions")} ▾</summary>
+                  <div className={dash.rowMenuPop}>
+                    <Link href={`/admin/projects/${project.id}/preview`}>{t("previewModel")}</Link>
+                    <Link href={`/admin/projects/${project.id}/fan-codes`}>{t("fanCodesLink")}</Link>
+                    {hasPermission(role, "assets.assist") ? (
+                      <Link href={`/admin/projects/${project.id}/config`}>{t("configLink")}</Link>
+                    ) : null}
+                    {hasPermission(role, "projects.pause") ? (
+                      <AdminReviewActions projectId={project.id} status={project.status} />
+                    ) : (
+                      <span className={dash.pageHeadSub}>{t("readOnly")}</span>
+                    )}
+                  </div>
+                </details>
               </div>
             </div>
           ))}

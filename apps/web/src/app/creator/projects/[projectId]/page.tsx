@@ -5,8 +5,12 @@ import { getTranslations } from "next-intl/server";
 
 import { getCurrentSession } from "@/auth";
 import { fanCodeDisplayStatus } from "@/lib/fan-code-status";
+import { getLanBaseUrl } from "@/lib/lan-url";
+import { motionLabel } from "@/lib/live2d-motion-names";
+import type { ModelCapabilities } from "@/lib/model-capabilities";
 import { prisma } from "@/lib/prisma";
 import { projectPublishReadiness } from "@/lib/project-readiness";
+import { qrPngDataUrl } from "@/lib/qr";
 
 import { CreatorAuthRequired } from "../../_components";
 import { ProjectWorkspace, type WorkspaceProject } from "./project-workspace";
@@ -62,6 +66,14 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
 
   const readiness = projectPublishReadiness(project).map((item) => item.done);
 
+  // Surface the uploaded model's expressions/motions so the creator can bind
+  // trigger tags to real names instead of guessing.
+  const caps = (project.currentModelAsset?.capabilities ?? null) as ModelCapabilities | null;
+  const capabilities = {
+    expressions: caps?.expressions.map((e) => e.name).filter(Boolean) ?? [],
+    motions: [...new Set((caps?.motions ?? []).map((m) => motionLabel(m.file)).filter(Boolean))],
+  };
+
   const workspace: WorkspaceProject = {
     id: project.id,
     name: project.name,
@@ -69,12 +81,14 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
     status: project.status,
     intro: project.intro ?? "",
     systemPrompt: project.systemPrompt,
+    characterSetting: project.characterSetting ?? "",
     welcomeMessage: project.welcomeMessage,
     theme: project.theme,
     avatarUrl: project.avatarUrl,
     backgroundUrl: project.backgroundUrl,
     modelStatus: project.currentModelAsset?.validationStatus ?? null,
     modelAssetCount: project._count.modelAssets,
+    capabilities,
     tags: project.triggerTags.map((tag) => ({
       id: tag.id,
       name: tag.name,
@@ -101,5 +115,10 @@ export default async function CreatorProjectPage({ params }: PageProps<"/creator
     readiness,
   };
 
-  return <ProjectWorkspace project={workspace} previewSessionId={previewSession.id} />;
+  const mobileUrl = `${getLanBaseUrl()}/c/${project.slug}`;
+  const mobilePreview = { url: mobileUrl, qr: await qrPngDataUrl(mobileUrl) };
+
+  return (
+    <ProjectWorkspace project={workspace} previewSessionId={previewSession.id} mobilePreview={mobilePreview} />
+  );
 }
