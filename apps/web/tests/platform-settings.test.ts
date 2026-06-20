@@ -7,13 +7,15 @@ test("platform settings include MVP provider and policy controls", () => {
   const keys = platformSettingDefinitions.map((setting) => setting.key);
   assert.equal(keys.includes("ai.chatModel"), true);
   assert.equal(keys.includes("integrations.wechatLogin"), false);
-  assert.equal(keys.includes("payments.checkout"), true);
+  // The payments/checkout setting was removed from the admin UI (checkoutMode
+  // still defaults to "manual-only" at runtime).
+  assert.equal(keys.includes("payments.checkout"), false);
 });
 
 test("parsePlatformSettingValue accepts configured enum and numeric values", () => {
-  const checkout = platformSettingDefinitionFor("payments.checkout");
-  assert.ok(checkout);
-  assert.equal(parsePlatformSettingValue(checkout, "manual-only"), "manual-only");
+  const moderation = platformSettingDefinitionFor("security.contentModeration");
+  assert.ok(moderation);
+  assert.equal(parsePlatformSettingValue(moderation, "strict"), "strict");
 
   const maxLength = platformSettingDefinitionFor("security.maxFanMessageLength");
   assert.ok(maxLength);
@@ -21,9 +23,9 @@ test("parsePlatformSettingValue accepts configured enum and numeric values", () 
 });
 
 test("parsePlatformSettingValue rejects unsupported or unsafe values", () => {
-  const checkout = platformSettingDefinitionFor("payments.checkout");
-  assert.ok(checkout);
-  assert.throws(() => parsePlatformSettingValue(checkout, "crypto-moon-mode"), /Unsupported value/);
+  const moderation = platformSettingDefinitionFor("security.contentModeration");
+  assert.ok(moderation);
+  assert.throws(() => parsePlatformSettingValue(moderation, "crypto-moon-mode"), /Unsupported value/);
 
   const maxLength = platformSettingDefinitionFor("security.maxFanMessageLength");
   assert.ok(maxLength);

@@ -13,7 +13,7 @@
     "tabMagic": "魔法链接",
     "comingSoon": "即将推出",
     "loginMethod": "登录方式",
-    "usernameLabel": "账号 / 邮箱",
+    "usernameLabel": "账号",
     "passwordLabel": "密码",
     "invalid": "账号或密码不正确，请重试",
     "forgot": "忘记密码？",
@@ -152,7 +152,7 @@
     "sectionMotion": "动作",
     "motionN": "动作 {n}",
     "sectionExpression": "表情",
-    "sectionPose": "姿态",
+    "sectionPose": "动作",
     "sectionSkin": "皮肤 / 造型",
     "reactGreeting": "登场",
     "reactTouchHead": "摸摸头",
@@ -196,7 +196,17 @@
     "loadFailed": "加载失败",
     "loadFailedDetail": "模型资源无法加载，请检查网络",
     "retry": "重试",
-    "none": "暂无"
+    "none": "暂无",
+    "characterSetting": "角色设定",
+    "tabMotions": "动作",
+    "tabExpressions": "表情",
+    "tabAudio": "声音",
+    "tabScenes": "场景",
+    "petMode": "桌宠模式",
+    "voiceVolume": "语音音量",
+    "bgmPlay": "播放音乐",
+    "bgmPause": "暂停音乐",
+    "close": "关闭"
   },
   "creator": {
     "navOverview": "工作台",
@@ -229,7 +239,6 @@
     "greetingHeading": "{greeting}，{name}",
     "defaultStudioName": "创作者",
     "subStatus": "{count} 位角色正在演 · 平台运行正常",
-    "manageModels": "管理模型 →",
     "metricTotalModels": "模型总数",
     "metricLive": "在演中",
     "metricRecentChats": "近 {days} 天对话",
@@ -254,7 +263,7 @@
     "myModels": "我的模型",
     "viewAll": "全部 →",
     "manage": "管理",
-    "emptyModelsDashboard": "还没有模型，点右上角「管理模型」开始。",
+    "emptyModelsDashboard": "还没有模型，从左侧「模型」进入开始。",
     "titleModels": "模型",
     "titleMyModels": "我的模型",
     "modelsCount": "{used} / {max} 个模型",
@@ -272,7 +281,9 @@
     "actionFanCodes": "粉丝码",
     "actionDelete": "删除",
     "confirmDeleteModel": "确认删除模型",
-    "deleteModelHint": "将删除该模型及其标签、粉丝码与聊天用量记录，操作不可恢复。"
+    "deleteModelHint": "将删除该模型及其标签、粉丝码与聊天用量记录，操作不可恢复。",
+    "backHome": "返回首页",
+    "mobilePreview": "手机预览"
   },
   "workspace": {
     "authRequiredTitle": "项目工作区",
@@ -293,7 +304,7 @@
     "fieldAvatarUrl": "头像 URL",
     "fieldBackgroundUrl": "舞台背景图 URL",
     "backgroundUrlPlaceholder": "https://…（留空使用默认舞台光效）",
-    "fieldSystemPrompt": "系统提示词（人设）",
+    "fieldSystemPrompt": "系统提示词（不公开 · 驱动 AI）",
     "systemPromptPlaceholder": "你是星野，一位温柔治愈的虚拟主播…",
     "fieldWelcomeMessage": "欢迎语",
     "welcomeMessagePlaceholder": "欢迎进场～今天想聊点什么呀？",
@@ -328,6 +339,8 @@
     "preview": "预览",
     "publish": "发布",
     "configSteps": "配置步骤",
+    "expandSteps": "配置",
+    "collapseSteps": "收起",
     "needHelp": "需要协助？",
     "modelHelpHint": "模型绑定遇到问题可申请官方协助处理。",
     "requestModelAssistance": "申请 model-assistance",
@@ -374,7 +387,33 @@
     "publishPerformance": "发布上演",
     "currentStatus": "当前状态：{status}。",
     "pausedHint": "暂停后新会话将无法进场。",
-    "publishedHint": "发布后观众可凭有效粉丝码进场。"
+    "publishedHint": "发布后观众可凭有效粉丝码进场。",
+    "fieldCharacterSetting": "角色设定（观众可见）",
+    "characterSettingPlaceholder": "向观众展示的角色介绍/人设，例如：星野，元气满满的虚拟主播…",
+    "replaceModel": "替换模型",
+    "chooseFile": "选择文件",
+    "noFileChosen": "未选择文件",
+    "cancel": "取消",
+    "backHome": "返回首页",
+    "modelExpressions": "模型表情",
+    "modelMotions": "模型动作",
+    "noCapabilitiesHint": "当前模型没有独立表情/动作文件，可在下方手动填写名称（需与模型一致）。",
+    "expressionNone": "（不触发表情）",
+    "expressionFreeformPlaceholder": "如 exp_shy（需与模型一致）",
+    "fieldBindVoices": "绑定语音（命中此标签时播放）",
+    "voiceUnbound": "未绑定标签",
+    "addVoice": "新增语音",
+    "uploadVoice": "上传语音",
+    "voiceName": "语音名称",
+    "voiceNamePlaceholder": "如 摸头 / 心动 / 问候",
+    "voiceFileLabel": "音频文件（ogg / mp3 / wav / m4a）",
+    "voiceUploadHint": "上传后可在「触发标签」里绑定到具体标签。",
+    "confirmDeleteVoice": "确认删除语音",
+    "deleteVoiceHint": "删除后绑定到此语音的标签将失去声音。",
+    "submitAssistance": "提交协助申请",
+    "assistanceNotes": "补充说明（可选）",
+    "assistanceNotesPlaceholder": "描述你的模型问题或需要的协助…",
+    "mobilePreview": "手机预览"
   },
   "fans": {
     "fanCodesTitle": "粉丝码",
@@ -614,8 +653,59 @@
     "refundOrder": "退款订单",
     "refundOrderHint": "回滚此订单写入的配额。",
     "emptyOrders": "还没有订单。",
+    "aiProvider": {
+      "title": "AI 接入",
+      "subtitle": "选择供应商后自动填入接口地址，你只需粘贴对应的 API Key。",
+      "presetLabel": "供应商",
+      "groupCn": "国内",
+      "groupIntl": "国外",
+      "groupCustom": "自定义",
+      "baseUrlLabel": "接口地址 (Base URL)",
+      "modelLabel": "模型名",
+      "apiKeyLabel": "API Key",
+      "apiKeyPlaceholderSet": "已配置（留空则保持不变）",
+      "apiKeyPlaceholderUnset": "粘贴你的 API Key",
+      "enableLabel": "启用真实 AI（关闭则使用本地兜底回复）",
+      "getKey": "前往获取 API Key →",
+      "save": "保存 AI 设置",
+      "saving": "保存中…",
+      "saved": "已保存",
+      "failed": "保存失败",
+      "modelPlaceholder": "选择或输入模型名（可自定义）"
+    },
     "settingsTitle": "系统设置",
-    "settingsSubtitle": "平台级 AI、内容审查与结账模式配置",
+    "settingsSubtitle": "平台级 AI 与内容审查配置",
+    "settingCategory": {
+      "ai": "AI",
+      "storage": "存储",
+      "security": "安全"
+    },
+    "settingSource": {
+      "default": "默认",
+      "database": "已自定义"
+    },
+    "settingItem": {
+      "aiProvider": {
+        "label": "AI 供应商",
+        "description": "后端聊天代理使用的 OpenAI 兼容供应商。"
+      },
+      "chatModel": {
+        "label": "聊天模型",
+        "description": "发送给所配置 AI 供应商的默认模型名。"
+      },
+      "assetDelivery": {
+        "label": "资源分发",
+        "description": "受保护的模型资源如何分发给浏览器。"
+      },
+      "contentModeration": {
+        "label": "内容审查",
+        "description": "调用 AI 供应商前对粉丝消息的运行时审查模式。"
+      },
+      "maxFanMessageLength": {
+        "label": "粉丝消息最大长度",
+        "description": "允许的粉丝消息最大字符数。"
+      }
+    },
     "platformParams": "平台参数",
     "updatedOn": "更新于 {date}",
     "edit": "编辑",
@@ -638,6 +728,13 @@
     "confirmReset": "确认重置",
     "resetBindingHint": "清除已绑定浏览器并使现有观众会话失效。",
     "emptyFanCodes": "还没有粉丝码。",
-    "safetyEventsPanel": "安全事件"
+    "safetyEventsPanel": "安全事件",
+    "fieldSystemPrompt": "系统提示词（不公开）",
+    "fieldCharacterSetting": "角色设定（观众可见）",
+    "promptSummary": "提示词 / 角色设定",
+    "savePrompt": "保存",
+    "backToProjects": "返回内容管理",
+    "configLink": "配置",
+    "mobilePreview": "手机预览"
   }
 }

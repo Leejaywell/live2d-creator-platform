@@ -405,7 +405,7 @@ function writeCompleteEvidence(
     `${JSON.stringify(
       {
         status: "applied",
-        command: "prisma migrate deploy",
+        command: "prisma db push",
         schema: "prisma/schema.prisma",
         backupManifestPath: join(dir, "db-backups", "latest.json"),
         startedAt: currentEvidenceTime,

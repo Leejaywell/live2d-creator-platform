@@ -13,7 +13,7 @@
     "tabMagic": "Magic link",
     "comingSoon": "Coming soon",
     "loginMethod": "Sign-in method",
-    "usernameLabel": "Username / Email",
+    "usernameLabel": "Username",
     "passwordLabel": "Password",
     "invalid": "Incorrect username or password, please try again",
     "forgot": "Forgot password?",
@@ -151,8 +151,8 @@
     "panelActTitle": "Pose / Look",
     "sectionMotion": "Motion",
     "motionN": "Motion {n}",
-    "sectionExpression": "Expression",
-    "sectionPose": "Pose",
+    "sectionExpression": "Expressions",
+    "sectionPose": "Motions",
     "sectionSkin": "Skin / Look",
     "reactGreeting": "Hello",
     "reactTouchHead": "Head pat",
@@ -196,7 +196,17 @@
     "loadFailed": "Load failed",
     "loadFailedDetail": "Model assets couldn't load, check your network",
     "retry": "Retry",
-    "none": "None"
+    "none": "None",
+    "characterSetting": "Character setting",
+    "tabMotions": "Motion",
+    "tabExpressions": "Expression",
+    "tabAudio": "Sound",
+    "tabScenes": "Scene",
+    "petMode": "Desktop pet",
+    "voiceVolume": "Voice volume",
+    "bgmPlay": "Play music",
+    "bgmPause": "Pause music",
+    "close": "Close"
   },
   "creator": {
     "navOverview": "Workbench",
@@ -229,7 +239,6 @@
     "greetingHeading": "{greeting}, {name}",
     "defaultStudioName": "Creator",
     "subStatus": "{count} characters on stage · platform running normally",
-    "manageModels": "Manage models →",
     "metricTotalModels": "Total models",
     "metricLive": "Live now",
     "metricRecentChats": "Chats in last {days} days",
@@ -254,7 +263,7 @@
     "myModels": "My models",
     "viewAll": "View all →",
     "manage": "Manage",
-    "emptyModelsDashboard": "No models yet. Click “Manage models” in the top right to start.",
+    "emptyModelsDashboard": "No models yet. Open “Models” from the left sidebar to start.",
     "titleModels": "Models",
     "titleMyModels": "My models",
     "modelsCount": "{used} / {max} models",
@@ -272,7 +281,9 @@
     "actionFanCodes": "Fan codes",
     "actionDelete": "Delete",
     "confirmDeleteModel": "Confirm delete model",
-    "deleteModelHint": "This will delete the model along with its tags, fan codes, and chat usage records. This action cannot be undone."
+    "deleteModelHint": "This will delete the model along with its tags, fan codes, and chat usage records. This action cannot be undone.",
+    "backHome": "Back to home",
+    "mobilePreview": "Mobile preview"
   },
   "workspace": {
     "authRequiredTitle": "Project Workspace",
@@ -293,7 +304,7 @@
     "fieldAvatarUrl": "Avatar URL",
     "fieldBackgroundUrl": "Stage background URL",
     "backgroundUrlPlaceholder": "https://… (leave blank for default stage lighting)",
-    "fieldSystemPrompt": "System prompt (persona)",
+    "fieldSystemPrompt": "System prompt (private · drives AI)",
     "systemPromptPlaceholder": "You are Hoshino, a gentle and healing virtual streamer…",
     "fieldWelcomeMessage": "Welcome message",
     "welcomeMessagePlaceholder": "Welcome in～what would you like to chat about today?",
@@ -328,6 +339,8 @@
     "preview": "Preview",
     "publish": "Publish",
     "configSteps": "Configuration steps",
+    "expandSteps": "Configure",
+    "collapseSteps": "Collapse",
     "needHelp": "Need help?",
     "modelHelpHint": "Having trouble binding the model? Request official assistance.",
     "requestModelAssistance": "Request model-assistance",
@@ -374,7 +387,33 @@
     "publishPerformance": "Publish performance",
     "currentStatus": "Current status: {status}. ",
     "pausedHint": "After pausing, new sessions cannot enter.",
-    "publishedHint": "After publishing, audiences can enter with a valid fan code."
+    "publishedHint": "After publishing, audiences can enter with a valid fan code.",
+    "fieldCharacterSetting": "Character setting (public)",
+    "characterSettingPlaceholder": "Public persona shown to audiences, e.g. Hoshino, an upbeat virtual streamer…",
+    "replaceModel": "Replace model",
+    "chooseFile": "Choose file",
+    "noFileChosen": "No file chosen",
+    "cancel": "Cancel",
+    "backHome": "Back to home",
+    "modelExpressions": "Model expressions",
+    "modelMotions": "Model motions",
+    "noCapabilitiesHint": "This model has no separate expression/motion files; type names manually below (must match the model).",
+    "expressionNone": "(no expression)",
+    "expressionFreeformPlaceholder": "e.g. exp_shy (must match the model)",
+    "fieldBindVoices": "Bind voices (played when this tag matches)",
+    "voiceUnbound": "No tag bound",
+    "addVoice": "Add voice",
+    "uploadVoice": "Upload voice",
+    "voiceName": "Voice name",
+    "voiceNamePlaceholder": "e.g. Head pat / Heartbeat / Greeting",
+    "voiceFileLabel": "Audio file (ogg / mp3 / wav / m4a)",
+    "voiceUploadHint": "After uploading, bind it to a tag in the Trigger Tags step.",
+    "confirmDeleteVoice": "Confirm delete voice",
+    "deleteVoiceHint": "Tags bound to this voice will lose their sound.",
+    "submitAssistance": "Submit request",
+    "assistanceNotes": "Notes (optional)",
+    "assistanceNotesPlaceholder": "Describe your model issue or the help you need…",
+    "mobilePreview": "Mobile preview"
   },
   "fans": {
     "fanCodesTitle": "Fan Codes",
@@ -614,8 +653,59 @@
     "refundOrder": "Refund order",
     "refundOrderHint": "Rolls back the quota written by this order.",
     "emptyOrders": "No orders yet.",
+    "aiProvider": {
+      "title": "AI connection",
+      "subtitle": "Pick a provider to auto-fill its base URL — you only need to paste the API key.",
+      "presetLabel": "Provider",
+      "groupCn": "China",
+      "groupIntl": "International",
+      "groupCustom": "Custom",
+      "baseUrlLabel": "Base URL",
+      "modelLabel": "Model",
+      "apiKeyLabel": "API key",
+      "apiKeyPlaceholderSet": "Configured (leave blank to keep)",
+      "apiKeyPlaceholderUnset": "Paste your API key",
+      "enableLabel": "Enable real AI (off uses local fallback replies)",
+      "getKey": "Get an API key →",
+      "save": "Save AI settings",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "failed": "Save failed",
+      "modelPlaceholder": "Select or type a model name"
+    },
     "settingsTitle": "System Settings",
-    "settingsSubtitle": "Platform-level AI, content moderation, and checkout mode configuration",
+    "settingsSubtitle": "Platform-level AI and content moderation configuration",
+    "settingCategory": {
+      "ai": "AI",
+      "storage": "Storage",
+      "security": "Security"
+    },
+    "settingSource": {
+      "default": "Default",
+      "database": "Custom"
+    },
+    "settingItem": {
+      "aiProvider": {
+        "label": "AI provider",
+        "description": "OpenAI-compatible provider used by the backend chat proxy."
+      },
+      "chatModel": {
+        "label": "Chat model",
+        "description": "Default model name sent to the configured AI provider."
+      },
+      "assetDelivery": {
+        "label": "Asset delivery",
+        "description": "How protected model assets are served to browsers."
+      },
+      "contentModeration": {
+        "label": "Content moderation",
+        "description": "Operational moderation mode for fan messages before AI provider calls."
+      },
+      "maxFanMessageLength": {
+        "label": "Max fan message length",
+        "description": "Maximum accepted fan message length in characters."
+      }
+    },
     "platformParams": "Platform Parameters",
     "updatedOn": "Updated {date}",
     "edit": "Edit",
@@ -638,6 +728,13 @@
     "confirmReset": "Confirm reset",
     "resetBindingHint": "Clears the bound browser and invalidates the current viewer session.",
     "emptyFanCodes": "No fan codes yet.",
-    "safetyEventsPanel": "Safety Events"
+    "safetyEventsPanel": "Safety Events",
+    "fieldSystemPrompt": "System prompt (private)",
+    "fieldCharacterSetting": "Character setting (public)",
+    "promptSummary": "Prompt / character setting",
+    "savePrompt": "Save",
+    "backToProjects": "Back to projects",
+    "configLink": "Configure",
+    "mobilePreview": "Mobile preview"
   }
 }

@@ -13,7 +13,7 @@
     "tabMagic": "マジックリンク",
     "comingSoon": "近日公開",
     "loginMethod": "ログイン方法",
-    "usernameLabel": "アカウント / メール",
+    "usernameLabel": "アカウント",
     "passwordLabel": "パスワード",
     "invalid": "アカウントまたはパスワードが正しくありません",
     "forgot": "パスワードをお忘れですか？",
@@ -152,7 +152,7 @@
     "sectionMotion": "モーション",
     "motionN": "モーション {n}",
     "sectionExpression": "表情",
-    "sectionPose": "ポーズ",
+    "sectionPose": "モーション",
     "sectionSkin": "衣装 / 見た目",
     "reactGreeting": "ごあいさつ",
     "reactTouchHead": "なでなで",
@@ -196,7 +196,17 @@
     "loadFailed": "読み込み失敗",
     "loadFailedDetail": "モデルリソースを読み込めません。ネットワークを確認してください",
     "retry": "再試行",
-    "none": "なし"
+    "none": "なし",
+    "characterSetting": "キャラ設定",
+    "tabMotions": "モーション",
+    "tabExpressions": "表情",
+    "tabAudio": "サウンド",
+    "tabScenes": "シーン",
+    "petMode": "デスクトップペット",
+    "voiceVolume": "音量",
+    "bgmPlay": "音楽を再生",
+    "bgmPause": "音楽を停止",
+    "close": "閉じる"
   },
   "creator": {
     "navOverview": "ワークベンチ",
@@ -229,7 +239,6 @@
     "greetingHeading": "{greeting}、{name}",
     "defaultStudioName": "クリエイター",
     "subStatus": "{count} 体のキャラクターが公演中・プラットフォームは正常稼働中",
-    "manageModels": "モデルを管理 →",
     "metricTotalModels": "モデル総数",
     "metricLive": "公演中",
     "metricRecentChats": "直近 {days} 日の会話",
@@ -254,7 +263,7 @@
     "myModels": "自分のモデル",
     "viewAll": "すべて表示 →",
     "manage": "管理",
-    "emptyModelsDashboard": "まだモデルがありません。右上の「モデルを管理」から始めましょう。",
+    "emptyModelsDashboard": "まだモデルがありません。左側の「モデル」から始めましょう。",
     "titleModels": "モデル",
     "titleMyModels": "自分のモデル",
     "modelsCount": "{used} / {max} 体のモデル",
@@ -272,7 +281,9 @@
     "actionFanCodes": "ファンコード",
     "actionDelete": "削除",
     "confirmDeleteModel": "モデルの削除を確定",
-    "deleteModelHint": "このモデルとそのタグ、ファンコード、チャット使用記録を削除します。この操作は取り消せません。"
+    "deleteModelHint": "このモデルとそのタグ、ファンコード、チャット使用記録を削除します。この操作は取り消せません。",
+    "backHome": "ホームに戻る",
+    "mobilePreview": "モバイルプレビュー"
   },
   "workspace": {
     "authRequiredTitle": "プロジェクトワークスペース",
@@ -293,7 +304,7 @@
     "fieldAvatarUrl": "アバター URL",
     "fieldBackgroundUrl": "ステージ背景画像 URL",
     "backgroundUrlPlaceholder": "https://…（空欄でデフォルトのステージ演出）",
-    "fieldSystemPrompt": "システムプロンプト（人物設定）",
+    "fieldSystemPrompt": "システムプロンプト（非公開・AI制御）",
     "systemPromptPlaceholder": "あなたは星野、優しく癒し系のバーチャル配信者です…",
     "fieldWelcomeMessage": "ウェルカムメッセージ",
     "welcomeMessagePlaceholder": "ようこそ〜今日は何を話したい？",
@@ -328,6 +339,8 @@
     "preview": "プレビュー",
     "publish": "公開",
     "configSteps": "設定ステップ",
+    "expandSteps": "設定",
+    "collapseSteps": "閉じる",
     "needHelp": "サポートが必要ですか？",
     "modelHelpHint": "モデルのバインドで問題がある場合は公式サポートを申請できます。",
     "requestModelAssistance": "model-assistance を申請",
@@ -374,7 +387,33 @@
     "publishPerformance": "上演を公開",
     "currentStatus": "現在のステータス：{status}。",
     "pausedHint": "一時停止後は新しいセッションは入場できません。",
-    "publishedHint": "公開後、視聴者は有効なファンコードで入場できます。"
+    "publishedHint": "公開後、視聴者は有効なファンコードで入場できます。",
+    "fieldCharacterSetting": "キャラ設定（公開）",
+    "characterSettingPlaceholder": "観客に表示するキャラ紹介・設定。例：ホシノ、元気いっぱいのバーチャル配信者…",
+    "replaceModel": "モデルを差し替え",
+    "chooseFile": "ファイルを選択",
+    "noFileChosen": "ファイル未選択",
+    "cancel": "キャンセル",
+    "backHome": "ホームに戻る",
+    "modelExpressions": "モデル表情",
+    "modelMotions": "モデルモーション",
+    "noCapabilitiesHint": "このモデルには独立した表情/モーションファイルがありません。下に名前を直接入力してください（モデルと一致が必要）。",
+    "expressionNone": "（表情なし）",
+    "expressionFreeformPlaceholder": "例: exp_shy（モデルと一致が必要）",
+    "fieldBindVoices": "ボイスを紐付け（このタグ一致時に再生）",
+    "voiceUnbound": "タグ未紐付け",
+    "addVoice": "ボイス追加",
+    "uploadVoice": "ボイスをアップロード",
+    "voiceName": "ボイス名",
+    "voiceNamePlaceholder": "例: 頭なで / ときめき / 挨拶",
+    "voiceFileLabel": "音声ファイル（ogg / mp3 / wav / m4a）",
+    "voiceUploadHint": "アップロード後、トリガータグでタグに紐付けできます。",
+    "confirmDeleteVoice": "ボイス削除を確認",
+    "deleteVoiceHint": "このボイスに紐付いたタグの音声が失われます。",
+    "submitAssistance": "申請を送信",
+    "assistanceNotes": "補足（任意）",
+    "assistanceNotesPlaceholder": "モデルの問題や必要なサポートを記入…",
+    "mobilePreview": "モバイルプレビュー"
   },
   "fans": {
     "fanCodesTitle": "ファンコード",
@@ -614,8 +653,59 @@
     "refundOrder": "注文を返金",
     "refundOrderHint": "この注文で書き込まれたクォータを取り消します。",
     "emptyOrders": "注文はまだありません。",
+    "aiProvider": {
+      "title": "AI 接続",
+      "subtitle": "プロバイダーを選ぶと接続URLが自動入力されます。あとは API キーを貼り付けるだけです。",
+      "presetLabel": "プロバイダー",
+      "groupCn": "中国",
+      "groupIntl": "海外",
+      "groupCustom": "カスタム",
+      "baseUrlLabel": "ベースURL (Base URL)",
+      "modelLabel": "モデル名",
+      "apiKeyLabel": "API キー",
+      "apiKeyPlaceholderSet": "設定済み（空欄で変更しない）",
+      "apiKeyPlaceholderUnset": "API キーを貼り付け",
+      "enableLabel": "実際のAIを有効化（オフでローカル代替応答）",
+      "getKey": "API キーを取得 →",
+      "save": "AI 設定を保存",
+      "saving": "保存中…",
+      "saved": "保存しました",
+      "failed": "保存に失敗しました",
+      "modelPlaceholder": "モデルを選択または入力"
+    },
     "settingsTitle": "システム設定",
-    "settingsSubtitle": "プラットフォーム単位のAI・コンテンツ審査・決済モード設定",
+    "settingsSubtitle": "プラットフォーム単位のAI・コンテンツ審査設定",
+    "settingCategory": {
+      "ai": "AI",
+      "storage": "ストレージ",
+      "security": "セキュリティ"
+    },
+    "settingSource": {
+      "default": "既定",
+      "database": "カスタム"
+    },
+    "settingItem": {
+      "aiProvider": {
+        "label": "AI プロバイダー",
+        "description": "バックエンドのチャットプロキシが使用する OpenAI 互換プロバイダー。"
+      },
+      "chatModel": {
+        "label": "チャットモデル",
+        "description": "設定された AI プロバイダーに送信する既定のモデル名。"
+      },
+      "assetDelivery": {
+        "label": "アセット配信",
+        "description": "保護されたモデルアセットをブラウザに配信する方法。"
+      },
+      "contentModeration": {
+        "label": "コンテンツ審査",
+        "description": "AI プロバイダー呼び出し前のファンメッセージの審査モード。"
+      },
+      "maxFanMessageLength": {
+        "label": "ファンメッセージ最大長",
+        "description": "許可されるファンメッセージの最大文字数。"
+      }
+    },
     "platformParams": "プラットフォームパラメータ",
     "updatedOn": "更新日 {date}",
     "edit": "編集",
@@ -638,6 +728,13 @@
     "confirmReset": "リセットを確定",
     "resetBindingHint": "バインド済みブラウザを解除し、現在の視聴者セッションを無効化します。",
     "emptyFanCodes": "ファンコードはまだありません。",
-    "safetyEventsPanel": "安全イベント"
+    "safetyEventsPanel": "安全イベント",
+    "fieldSystemPrompt": "システムプロンプト（非公開）",
+    "fieldCharacterSetting": "キャラ設定（公開）",
+    "promptSummary": "プロンプト / キャラ設定",
+    "savePrompt": "保存",
+    "backToProjects": "コンテンツ管理に戻る",
+    "configLink": "設定",
+    "mobilePreview": "モバイルプレビュー"
   }
 }

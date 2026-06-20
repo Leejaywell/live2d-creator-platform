@@ -1,21 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { securityHeaderReadiness, securityHeaders } from "../src/lib/security-headers";
+import {
+  contentSecurityPolicy,
+  securityHeaderReadiness,
+  securityHeaders,
+  staticSecurityHeaders,
+} from "../src/lib/security-headers";
 
-test("securityHeaders keep a self-hosted CSP with no third-party CDN sources", () => {
-  const headers = securityHeaders({ NODE_ENV: "test" });
-  const csp = headers.find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+function scriptSrcOf(csp: string) {
+  return csp.split(";").map((directive) => directive.trim()).find((directive) => directive.startsWith("script-src ")) ?? "";
+}
+
+test("CSP self-hosted with no third-party CDN sources", () => {
+  const csp = contentSecurityPolicy({ NODE_ENV: "test" });
 
   assert.match(csp, /script-src/);
-  assert.match(csp, /'unsafe-inline'/);
   assert.doesNotMatch(csp, /'unsafe-eval'/);
-  // Live2D runtime + models are now vendored under /public — no CDN allowances.
+  // Live2D runtime + models are vendored under /public — no CDN allowances.
   assert.doesNotMatch(csp, /https:\/\/cubism\.live2d\.com/);
   assert.doesNotMatch(csp, /https:\/\/cdnjs\.cloudflare\.com/);
   assert.doesNotMatch(csp, /https:\/\/cdn\.jsdelivr\.net/);
   assert.match(csp, /frame-ancestors 'none'/);
   assert.match(csp, /report-uri \/api\/csp-report/);
+});
+
+test("script-src uses a nonce + strict-dynamic (no 'unsafe-inline') when a nonce is supplied", () => {
+  const scriptSrc = scriptSrcOf(contentSecurityPolicy({ NODE_ENV: "production" }, "test-nonce"));
+
+  assert.match(scriptSrc, /'nonce-test-nonce'/);
+  assert.match(scriptSrc, /'strict-dynamic'/);
+  assert.doesNotMatch(scriptSrc, /'unsafe-inline'/);
+});
+
+test("static security headers carry no CSP (the proxy emits the per-request CSP)", () => {
+  const headers = staticSecurityHeaders({ NODE_ENV: "production" });
+  assert.ok(!headers.some((header) => header.key.startsWith("Content-Security-Policy")));
+  // The non-CSP hardening headers are still present.
+  assert.ok(headers.some((header) => header.key === "X-Frame-Options" && header.value === "DENY"));
+  assert.ok(headers.some((header) => header.key === "Strict-Transport-Security"));
 });
 
 test("securityHeaders allow React development eval only in development", () => {
