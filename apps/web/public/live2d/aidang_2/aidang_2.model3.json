@@ -1,73 +1,99 @@
 {
-  "Version": 3,
-  "FileReferences": {
-    "Moc": "aidang_2.moc3",
-    "Textures": [
-      "textures/texture_00.png"
-    ],
-    "Physics": "aidang_2.physics3.json",
-    "Motions": {
-      "": [
-        {
-          "File": "motions/mission.motion3.json"
-        },
-        {
-          "File": "motions/main_2.motion3.json"
-        },
-        {
-          "File": "motions/mail.motion3.json"
-        },
-        {
-          "File": "motions/touch_special.motion3.json"
-        },
-        {
-          "File": "motions/login.motion3.json"
-        },
-        {
-          "File": "motions/touch_body.motion3.json"
-        },
-        {
-          "File": "motions/wedding.motion3.json"
-        },
-        {
-          "File": "motions/main_3.motion3.json"
-        },
-        {
-          "File": "motions/mission_complete.motion3.json"
-        },
-        {
-          "File": "motions/complete.motion3.json"
-        },
-        {
-          "File": "motions/home.motion3.json"
-        },
-        {
-          "File": "motions/main_1.motion3.json"
-        },
-        {
-          "File": "motions/touch_head.motion3.json"
-        },
-        {
-          "File": "motions/mission.motion3.json"
-        }
-      ]
-    }
-  },
-  "Groups": [
+ "Version": 3,
+ "FileReferences": {
+  "Moc": "aidang_2.moc3",
+  "Textures": [
+   "textures/texture_00.png"
+  ],
+  "Physics": "aidang_2.physics3.json",
+  "Motions": {
+   "": [
     {
-      "Target": "Parameter",
-      "Name": "LipSync",
-      "Ids": [
-        "ParamMouthOpenY"
-      ]
+     "File": "motions/mission.motion3.json"
     },
     {
-      "Target": "Parameter",
-      "Name": "EyeBlink",
-      "Ids": [
-        "ParamEyeLOpen",
-        "ParamEyeROpen"
-      ]
+     "File": "motions/main_2.motion3.json"
+    },
+    {
+     "File": "motions/mail.motion3.json"
+    },
+    {
+     "File": "motions/touch_special.motion3.json"
+    },
+    {
+     "File": "motions/login.motion3.json"
+    },
+    {
+     "File": "motions/touch_body.motion3.json"
+    },
+    {
+     "File": "motions/wedding.motion3.json"
+    },
+    {
+     "File": "motions/main_3.motion3.json"
+    },
+    {
+     "File": "motions/mission_complete.motion3.json"
+    },
+    {
+     "File": "motions/complete.motion3.json"
+    },
+    {
+     "File": "motions/home.motion3.json"
+    },
+    {
+     "File": "motions/main_1.motion3.json"
+    },
+    {
+     "File": "motions/touch_head.motion3.json"
+    },
+    {
+     "File": "motions/mission.motion3.json"
     }
+   ]
+  },
+  "Expressions": [
+   {
+    "Name": "微笑",
+    "File": "expressions/exp_smile.exp3.json"
+   },
+   {
+    "Name": "脸红",
+    "File": "expressions/exp_blush.exp3.json"
+   },
+   {
+    "Name": "害羞",
+    "File": "expressions/exp_shy.exp3.json"
+   },
+   {
+    "Name": "惊讶",
+    "File": "expressions/exp_surprise.exp3.json"
+   },
+   {
+    "Name": "飞吻",
+    "File": "expressions/exp_wink.exp3.json"
+   },
+   {
+    "Name": "微怒",
+    "File": "expressions/exp_pout.exp3.json"
+   }
   ]
+ },
+ "Groups": [
+  {
+   "Target": "Parameter",
+   "Name": "LipSync",
+   "Ids": [
+    "ParamMouthOpenY"
+   ]
+  },
+  {
+   "Target": "Parameter",
+   "Name": "EyeBlink",
+   "Ids": [
+    "ParamEyeLOpen",
+    "ParamEyeROpen"
+   ]
+  }
+ ]
 }

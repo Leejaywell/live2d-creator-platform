@@ -47,3 +47,9 @@ yarn-error.log*
 next-env.d.ts
 .prototype-ref/
 .flow/
+
+# Local PGlite database
+.pglite/
+
+# Local object-storage fallback (dev, no S3)
+.local-storage/

@@ -25,7 +25,7 @@
     "monitoring:evidence:verify": "tsx scripts/verify-monitoring-evidence.ts",
     "integration:up": "sh scripts/integration-up.sh",
     "integration:down": "docker compose -f docker-compose.integration.yml down",
-    "integration:db:migrate": "sh -c 'set -a; . ./.env.integration; set +a; prisma migrate deploy'",
+    "integration:db:migrate": "sh -c 'set -a; . ./.env.integration; set +a; prisma db push'",
     "integration:readiness": "tsx scripts/readiness.ts --app-env-file .env.integration --full",
     "integration:e2e": "tsx scripts/integration-e2e.ts --app-env-file .env.integration",
     "integration:ci": "sh scripts/integration-readiness.sh",
@@ -40,11 +40,14 @@
     "release:evidence:verify": "tsx scripts/verify-release-evidence.ts",
     "db:generate": "prisma generate",
     "db:backup": "sh scripts/db-backup.sh",
-    "db:migrate": "prisma migrate deploy",
+    "db:migrate": "prisma db push",
     "db:migrate:production": "sh scripts/production-migrate.sh",
-    "db:dev": "prisma migrate dev",
+    "db:dev": "node --env-file-if-exists=.env --import tsx scripts/pglite-push.ts",
     "demo:models": "tsx scripts/seed-demo-models.ts",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
+    "db:push": "node --env-file-if-exists=.env --import tsx scripts/pglite-push.ts",
+    "setup:showroom": "node --env-file-if-exists=.env --import tsx scripts/setup-showroom.ts",
+    "setup:entry": "node --env-file-if-exists=.env --import tsx scripts/setup-entry-character.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -56,13 +59,17 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1062.0",
     "@aws-sdk/s3-request-presigner": "^3.1062.0",
+    "@electric-sql/pglite": "^0.5.3",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@types/qrcode": "^1.5.6",
     "dotenv": "^17.4.2",
     "jszip": "^3.10.1",
     "next": "16.2.7",
     "next-intl": "^4.13.0",
     "pg": "^8.21.0",
+    "pglite-prisma-adapter": "^0.7.2",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3"

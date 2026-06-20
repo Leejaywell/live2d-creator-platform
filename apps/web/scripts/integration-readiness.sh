@@ -11,6 +11,6 @@ npm run integration:up
 set -a
 . ./.env.integration
 set +a
-prisma migrate deploy
+prisma db push
 tsx scripts/readiness.ts --app-env-file .env.integration --full
 tsx scripts/integration-e2e.ts --app-env-file .env.integration

@@ -244,6 +244,7 @@ model Project {
   backgroundUrl       String?
   intro               String?
   systemPrompt        String              @db.Text
+  characterSetting    String?             @db.Text
   welcomeMessage      String
   theme               String              @default("#0f766e")
   status              ProjectStatus       @default(draft)
@@ -374,6 +375,15 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+model ProcessedWebhookEvent {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  provider  String
+  createdAt DateTime @default(now())
+
+  @@index([provider])
 }
 
 model PlatformSetting {

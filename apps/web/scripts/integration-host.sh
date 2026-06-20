@@ -64,6 +64,6 @@ set -a
 . ./.env.integration.host
 set +a
 
-prisma migrate deploy
+prisma db push
 tsx scripts/readiness.ts --app-env-file .env.integration.host --full
 tsx scripts/integration-e2e.ts --app-env-file .env.integration.host

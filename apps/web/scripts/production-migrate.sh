@@ -13,7 +13,7 @@ MIGRATION_MANIFEST_PATH="${DB_MIGRATION_MANIFEST_PATH:-artifacts/db-migrations/l
 BACKUP_MANIFEST_PATH="${DB_BACKUP_MANIFEST_PATH:-artifacts/db-backups/latest.json}"
 MIGRATION_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-prisma migrate deploy
+prisma db push
 
 MIGRATION_FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 MIGRATION_MANIFEST_PATH="$MIGRATION_MANIFEST_PATH" \
@@ -39,7 +39,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       status: "applied",
-      command: "prisma migrate deploy",
+      command: "prisma db push",
       schema: "prisma/schema.prisma",
       backupManifestPath,
       startedAt,

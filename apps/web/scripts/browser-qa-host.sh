@@ -64,7 +64,7 @@ set -a
 . ./.env.integration.host
 set +a
 
-prisma migrate deploy
+prisma db push
 
 PORT=3300 npm run start &
 PIDS="$PIDS $!"

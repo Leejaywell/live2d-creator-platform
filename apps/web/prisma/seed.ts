@@ -1,18 +1,7 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
-
 import { internalEmailForUsername } from "../src/lib/account-identity";
 import { hashPassword } from "../src/lib/password-auth";
+import { prisma } from "../src/lib/prisma";
 import { resolveSeedConfig } from "../src/lib/seed-config";
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL is required");
-}
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
-});
 
 async function main() {
   const { superAdminUsername, superAdminPassword, creatorUsername, creatorPassword } = resolveSeedConfig();
