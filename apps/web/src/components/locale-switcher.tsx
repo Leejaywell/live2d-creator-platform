@@ -6,10 +6,13 @@ import { type MouseEvent, useTransition } from "react";
 
 import styles from "./locale-switcher.module.css";
 
+// Short, system-font tokens instead of flag emoji: Windows ships no
+// country-flag emoji font, so 🇨🇳/🇺🇸/🇯🇵 render as blank/letter boxes there.
+// These glyphs exist in every platform's default fonts.
 const OPTIONS = [
-  { code: "zh", flag: "🇨🇳", label: "中文" },
-  { code: "en", flag: "🇺🇸", label: "English" },
-  { code: "ja", flag: "🇯🇵", label: "日本語" },
+  { code: "zh", flag: "中", label: "中文" },
+  { code: "en", flag: "EN", label: "English" },
+  { code: "ja", flag: "日", label: "日本語" },
 ] as const;
 
 // Flag-icon trigger that opens a popover language menu. Uses a native <details>
