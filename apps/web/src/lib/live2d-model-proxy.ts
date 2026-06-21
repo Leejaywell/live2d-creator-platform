@@ -74,7 +74,7 @@ export function rewriteModelReferences(input: {
   return input.modelJson;
 }
 
-function resolveModelReferenceKey(baseKey: string, reference: string) {
+export function resolveModelReferenceKey(baseKey: string, reference: string) {
   const normalized = reference.replaceAll("\\", "/");
   if (normalized.includes("\0") || path.posix.isAbsolute(normalized)) {
     throw new InvalidLive2DModelJsonError("Stored Live2D model references an unsafe asset path");

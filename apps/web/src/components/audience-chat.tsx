@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { type Live2DEffect, type Live2DVoice, Live2DViewer } from "@/components/live2d-viewer";
 
@@ -25,6 +25,10 @@ type Props = {
   tagNames: string[];
   voices?: Live2DVoice[];
   initialViewerSessionId?: string;
+  /** Hide the top-left avatar + name tag on the stage (e.g. admin preview). */
+  hideNameTag?: boolean;
+  /** Extra controls rendered in the chat header, left of the remaining count. */
+  headerActions?: ReactNode;
 };
 
 function deviceId() {
@@ -61,6 +65,8 @@ export function AudienceChat({
   hasLive2DModel,
   voices = [],
   initialViewerSessionId,
+  hideNameTag = false,
+  headerActions,
 }: Props) {
   const t = useTranslations("audience");
   const [code, setCode] = useState("");
@@ -71,6 +77,18 @@ export function AudienceChat({
   const [notice, setNotice] = useState<Notice>(null);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeEffects, setActiveEffects] = useState<Live2DEffect[]>([]);
+  // Collapse the chat sheet (mainly for mobile, to reveal the full model).
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  // Mobile shows a compact transcript (last few messages only) so the chat
+  // doesn't bury the model behind it.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: welcomeMessage }]);
   const transcriptRef = useRef<HTMLOListElement>(null);
   const replyRef = useRef("");
@@ -124,7 +142,9 @@ export function AudienceChat({
     });
     if (!isRetry) setMessage("");
 
-    const recent = [...messages, { role: "user" as const, content }].slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    // History only — the server appends the current message itself, so including
+    // it here would send the user's turn twice and skew the model's reply.
+    const recent = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
     replyRef.current = "";
     let assistantInserted = false;
 
@@ -227,23 +247,25 @@ export function AudienceChat({
           ) : null}
           <div className={styles.floor} aria-hidden />
 
-          <div className={styles.nameTag}>
-            <Link
-              href="/"
-              className={styles.nameAvatar}
-              aria-label={t("backHome")}
-              style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}
-            />
-            <div>
-              <div className={styles.nameTitle}>{projectName}</div>
-              {unlocked ? (
-                <div className={styles.liveLabel}>
-                  <span aria-hidden />
-                  {t("live")}
-                </div>
-              ) : null}
+          {!hideNameTag ? (
+            <div className={styles.nameTag}>
+              <Link
+                href="/"
+                className={styles.nameAvatar}
+                aria-label={t("backHome")}
+                style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}
+              />
+              <div>
+                <div className={styles.nameTitle}>{projectName}</div>
+                {unlocked ? (
+                  <div className={styles.liveLabel}>
+                    <span aria-hidden />
+                    {t("live")}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {unlocked && hasLive2DModel ? (
             <div className={styles.viewerHost}>
@@ -342,12 +364,24 @@ export function AudienceChat({
           ) : null}
         </div>
 
-        <aside className={styles.dock}>
+        <aside className={`${styles.dock} ${chatCollapsed ? styles.dockCollapsed : ""}`}>
           <div className={styles.dockHead}>
             <span className={styles.dockTitle}>{t("chat")}</span>
-            <span className={styles.dockRemaining} data-testid="remaining-messages">
-              {remaining === null ? t("awaitingCheck") : t("remaining", { n: remaining })}
-            </span>
+            <div className={styles.dockHeadRight}>
+              {headerActions ? <span className={styles.dockActions}>{headerActions}</span> : null}
+              <span className={styles.dockRemaining} data-testid="remaining-messages">
+                {remaining === null ? t("awaitingCheck") : t("remaining", { n: remaining })}
+              </span>
+              <button
+                type="button"
+                className={styles.dockCollapseBtn}
+                onClick={() => setChatCollapsed((v) => !v)}
+                aria-label={chatCollapsed ? t("expandChat") : t("collapseChat")}
+                aria-expanded={!chatCollapsed}
+              >
+                {chatCollapsed ? "▴" : "▾"}
+              </button>
+            </div>
           </div>
 
           {notice && unlocked ? (
@@ -358,7 +392,16 @@ export function AudienceChat({
           ) : null}
 
           <ol className={styles.transcript} ref={transcriptRef} data-testid="chat-transcript">
-            {messages.map((item, index) => (
+            {(() => {
+              const visible = messages
+                // Never render a blank assistant bubble — a streaming race can briefly
+                // leave an empty-content assistant entry; only show it once it has text.
+                .filter((item) => item.role === "user" || item.failed || item.content.trim().length > 0);
+              // Mobile keeps only the last ~3 rounds (6 messages) so the chat stays
+              // small and the model behind it is mostly visible.
+              return isMobile ? visible.slice(-6) : visible;
+            })()
+              .map((item, index) => (
               <li className={item.role === "user" ? styles.msgUser : styles.msgAssistant} data-role={item.role} key={`${item.role}-${index}`}>
                 <div className={styles.bubble}>
                   <p>{item.content}</p>

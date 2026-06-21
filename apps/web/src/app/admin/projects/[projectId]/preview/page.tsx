@@ -13,7 +13,6 @@ import { prisma } from "@/lib/prisma";
 import { qrPngDataUrl } from "@/lib/qr";
 
 import { AdminAuthRequired } from "../../../_components";
-import styles from "../../../../creator/projects/[projectId]/preview/preview.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,11 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
   const { projectId } = await params;
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { triggerTags: { where: { enabled: true } }, currentModelAsset: true },
+    include: {
+      triggerTags: { where: { enabled: true } },
+      currentModelAsset: true,
+      voiceAssets: { include: { triggerTags: { select: { name: true } } } },
+    },
   });
 
   if (!project) {
@@ -65,16 +68,8 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
 
   return (
     <main>
-      <div className={styles.banner}>
-        <span className={styles.bannerDot} aria-hidden />
-        {t("previewBanner")}
-        <Link href="/admin/projects" className={styles.bannerLink}>
-          {t("backToReview")}
-        </Link>
-        <span style={{ marginLeft: "auto" }}>
-          <MobilePreview qr={mobileQr} url={mobileUrl} label={t("mobilePreview")} />
-        </span>
-      </div>
+      {/* No top banner / name tag — the admin's back + mobile-preview controls
+          live in the chat header instead (see headerActions). */}
       <AudienceChat
         projectSlug={project.slug}
         projectName={project.name}
@@ -86,7 +81,19 @@ export default async function AdminProjectPreviewPage({ params }: PageProps<"/ad
         welcomeMessage={project.welcomeMessage}
         hasLive2DModel={project.currentModelAsset?.validationStatus === "valid"}
         tagNames={project.triggerTags.map((tag) => tag.name)}
+        voices={project.voiceAssets.map((voice) => ({
+          name: voice.name,
+          audioUrl: voice.audioUrl,
+          tags: voice.triggerTags.map((tag) => tag.name),
+        }))}
         initialViewerSessionId={viewerSession.id}
+        hideNameTag
+        headerActions={
+          <>
+            <Link href="/admin/projects">{t("backToReview")}</Link>
+            <MobilePreview qr={mobileQr} url={mobileUrl} label={t("mobilePreview")} />
+          </>
+        }
       />
     </main>
   );

@@ -154,23 +154,30 @@ export default async function CreatorPage() {
       )}
 
       <div className={styles.quickGrid}>
-        <Link href="/creator/projects" className={styles.quickCard}>
+        {/* ?all=1 forces the full model list (with the create entry) even for a
+            single-model creator, who would otherwise be redirected into their
+            one model's workspace. */}
+        <Link href="/creator/projects?all=1" className={styles.quickCard}>
           <div className={styles.quickIcon} aria-hidden>
             ＋
           </div>
           <div className={styles.quickTitle}>{t("quickManageTitle")}</div>
           <div className={styles.quickSub}>{t("quickManageSub")}</div>
         </Link>
-        <Link
-          href={projects[0] ? `/creator/projects/${projects[0].id}/fan-codes` : "/creator/projects"}
-          className={styles.quickCard}
-        >
-          <div className={styles.quickIcon} aria-hidden>
-            ⊞
-          </div>
-          <div className={styles.quickTitle}>{t("quickFanCodeTitle")}</div>
-          <div className={styles.quickSub}>{t("quickFanCodeSub")}</div>
-        </Link>
+        {/* Fan-code shortcut targets a single project, so it's only meaningful
+            with at most one model; hide it once the creator owns several. */}
+        {projects.length <= 1 ? (
+          <Link
+            href={projects[0] ? `/creator/projects/${projects[0].id}/fan-codes` : "/creator/projects"}
+            className={styles.quickCard}
+          >
+            <div className={styles.quickIcon} aria-hidden>
+              ⊞
+            </div>
+            <div className={styles.quickTitle}>{t("quickFanCodeTitle")}</div>
+            <div className={styles.quickSub}>{t("quickFanCodeSub")}</div>
+          </Link>
+        ) : null}
         <Link href="/creator/billing" className={styles.quickCard}>
           <div className={styles.quickIcon} aria-hidden>
             ⊟

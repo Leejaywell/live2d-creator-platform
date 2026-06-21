@@ -8,9 +8,12 @@ export type PlatformSettingDefinition = {
   category: PlatformSettingCategory;
   label: string;
   description: string;
-  valueType: "string" | "number" | "boolean" | "enum";
+  valueType: "string" | "number" | "float" | "boolean" | "enum";
   defaultValue: PlatformSettingValue;
   options?: string[];
+  /** Inclusive bounds for "number" / "float" value types. */
+  min?: number;
+  max?: number;
   isSecret?: boolean;
 };
 
@@ -48,6 +51,16 @@ export const platformSettingDefinitions: readonly PlatformSettingDefinition[] = 
     description: "Default model name sent to the configured AI provider.",
     valueType: "string",
     defaultValue: "gpt-4.1-mini",
+  },
+  {
+    key: "ai.temperature",
+    category: "ai",
+    label: "Temperature",
+    description: "Sampling temperature sent to the AI provider (0 = deterministic, 2 = most creative).",
+    valueType: "float",
+    defaultValue: 0.7,
+    min: 0,
+    max: 2,
   },
   {
     key: "storage.deliveryMode",
@@ -91,6 +104,11 @@ export function parsePlatformSettingValue(definition: PlatformSettingDefinition,
     case "number": {
       const parsed = z.number().int().positive().max(10000).parse(value);
       return parsed;
+    }
+    case "float": {
+      const min = definition.min ?? 0;
+      const max = definition.max ?? Number.MAX_SAFE_INTEGER;
+      return z.number().min(min).max(max).parse(value);
     }
     case "enum": {
       const parsed = z.string().trim().min(1).parse(value);

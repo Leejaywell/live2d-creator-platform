@@ -24,6 +24,7 @@ export type PlatformRuntimeSettings = {
   aiChatModel: string;
   aiBaseUrl: string;
   aiApiKey: string;
+  aiTemperature: number;
   contentModeration: "off" | "basic" | "strict";
   maxFanMessageLength: number;
   assetDeliveryMode: "app-proxy" | "signed-redirect";
@@ -59,6 +60,7 @@ export async function getPlatformRuntimeSettings(): Promise<PlatformRuntimeSetti
     // Settings take precedence over env vars (legacy/bootstrap fallback).
     aiBaseUrl: parseRuntimeString(byKey.get("ai.baseUrl"), process.env.OPENAI_COMPATIBLE_BASE_URL ?? ""),
     aiApiKey: parseRuntimeString(byKey.get("ai.apiKey"), process.env.OPENAI_COMPATIBLE_API_KEY ?? ""),
+    aiTemperature: parseRuntimeFloat(byKey.get("ai.temperature"), 0.7, 0, 2),
     contentModeration: parseRuntimeEnum(byKey.get("security.contentModeration"), ["off", "basic", "strict"], "basic"),
     maxFanMessageLength: parseRuntimeNumber(byKey.get("security.maxFanMessageLength"), 1200),
     assetDeliveryMode: parseRuntimeEnum(byKey.get("storage.deliveryMode"), ["app-proxy", "signed-redirect"], "app-proxy"),
@@ -147,4 +149,8 @@ function parseRuntimeString(value: unknown, fallback: string) {
 
 function parseRuntimeNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function parseRuntimeFloat(value: unknown, fallback: number, min: number, max: number) {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
 }

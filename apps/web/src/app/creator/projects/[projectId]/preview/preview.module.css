@@ -1,3 +1,10 @@
+/* Push the audience nameTag down so it clears the fixed preview banner
+   instead of colliding with it at the top-left. Inherits into AudienceChat
+   via the CSS custom property consumed by .nameTag. */
+.previewMain {
+  --stage-name-top: 60px;
+}
+
 .banner {
   /* Overlay the top so the 100dvh chat stage below isn't pushed off-screen
      (otherwise the bottom buttons + composer fall below the viewport). */
@@ -8,7 +15,7 @@
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   padding: 10px 18px;
   background: linear-gradient(90deg, rgba(242, 193, 78, 0.16), rgba(255, 108, 158, 0.16));

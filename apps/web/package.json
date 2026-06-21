@@ -17,6 +17,7 @@
     "browser:qa:host": "sh scripts/browser-qa-host.sh",
     "qa:provision": "tsx scripts/provision-qa.ts",
     "qa:env:write": "tsx scripts/write-browser-qa-env.ts",
+    "setup:creator-models": "node --env-file-if-exists=.env --import tsx scripts/setup-creator-models.ts",
     "post-deploy:verify": "tsx scripts/post-deploy-verify.ts",
     "env:validate:production": "tsx scripts/validate-production-env.ts",
     "ci:verify": "tsx scripts/verify-ci-workflow.ts",

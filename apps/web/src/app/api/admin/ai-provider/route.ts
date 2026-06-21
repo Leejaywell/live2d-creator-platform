@@ -9,6 +9,7 @@ const schema = z.object({
   provider: z.enum(["openai-compatible", "disabled"]),
   baseUrl: z.string().trim().url().max(200),
   chatModel: z.string().trim().min(1).max(200),
+  temperature: z.number().min(0).max(2),
   // Optional: when omitted/blank the existing stored key is kept unchanged.
   apiKey: z.string().trim().max(400).optional(),
 });
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
     await upsertPlatformSetting({ admin, key: "ai.provider", value: body.provider });
     await upsertPlatformSetting({ admin, key: "ai.baseUrl", value: body.baseUrl });
     await upsertPlatformSetting({ admin, key: "ai.chatModel", value: body.chatModel });
+    await upsertPlatformSetting({ admin, key: "ai.temperature", value: body.temperature });
     // Only overwrite the secret when a new value is actually supplied.
     if (body.apiKey) {
       await upsertPlatformSetting({ admin, key: "ai.apiKey", value: body.apiKey });

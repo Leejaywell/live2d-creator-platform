@@ -17,7 +17,11 @@ export type AiProviderPreset = {
 
 export const AI_PROVIDER_PRESETS: readonly AiProviderPreset[] = [
   // ── 国内 (China) ───────────────────────────────────────────────────────────
-  { id: "deepseek", label: "DeepSeek 深度求索", region: "cn", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"], consoleUrl: "https://platform.deepseek.com/api_keys" },
+  // deepseek-chat = non-thinking mode (returns the answer directly). The v4
+  // thinking models (deepseek-v4-flash/pro, deepseek-reasoner) put output in
+  // reasoning_content and leave content empty under json_object mode, so they're
+  // a poor fit for this JSON chat — deepseek-chat is the default here.
+  { id: "deepseek", label: "DeepSeek 深度求索", region: "cn", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-chat", "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-reasoner"], consoleUrl: "https://platform.deepseek.com/api_keys" },
   { id: "qwen", label: "阿里云百炼 · 通义千问 Qwen", region: "cn", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-plus", "qwen-turbo", "qwen-max", "qwen-long", "qwen2.5-72b-instruct"], consoleUrl: "https://bailian.console.aliyun.com/" },
   { id: "zhipu", label: "智谱 GLM (Zhipu AI)", region: "cn", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-4-plus", "glm-4-air", "glm-4-flash", "glm-4-long", "glm-4v-plus"], consoleUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
   { id: "doubao", label: "火山方舟 · 豆包 Doubao", region: "cn", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", models: ["doubao-pro-32k", "doubao-pro-128k", "doubao-1.5-pro-32k", "doubao-lite-32k"], consoleUrl: "https://console.volcengine.com/ark" },

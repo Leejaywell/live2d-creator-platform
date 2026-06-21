@@ -136,6 +136,8 @@ export function Live2DViewer({
   const stageHostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PixiApp | null>(null);
   const modelRef = useRef<Live2DModelInstance | null>(null);
+  // Monotonic token guarding the async init() against StrictMode double-mounts.
+  const runIdRef = useRef(0);
   const baseScaleRef = useRef(0.2);
   // The model's intrinsic (unscaled) size, captured once. Refitting must divide
   // the host size by THIS — not model.width, which is already scaled and would
@@ -176,11 +178,28 @@ export function Live2DViewer({
   const [physics, setPhysics] = useState(true);
   const [idle, setIdle] = useState(true);
   const [lipSync, setLipSync] = useState(true);
+  // Auto-perform toggles: when on, the model periodically plays a random
+  // motion / expression / voice while idle. When off, it stays put and the
+  // creator/fan drives it manually from the motion & expression lists.
+  const [randomMotion, setRandomMotion] = useState(true);
+  const [randomExpr, setRandomExpr] = useState(true);
+  const [randomVoice, setRandomVoice] = useState(true);
   const [bgIdx, setBgIdx] = useState(0);
   const [voiceVolume, setVoiceVolume] = useState(1);
   const voiceVolumeRef = useRef(1);
   // Desktop-pet mode: float the whole viewer as a small draggable window.
   const [petMode, setPetMode] = useState(false);
+  // Mobile uses the pet-style side-column controls (no bottom dock, no actual
+  // desktop-pet toggle) so the buttons sit at the screen edges, clear of the
+  // bottom chat sheet.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const [petPos, setPetPos] = useState<{ x: number; y: number }>(() =>
     typeof window !== "undefined"
       ? { x: Math.max(8, Math.round((window.innerWidth - PET_FLOAT_SIZE) / 2)), y: Math.max(8, Math.round((window.innerHeight - PET_FLOAT_SIZE) / 2)) }
@@ -280,10 +299,19 @@ export function Live2DViewer({
   );
 
   const init = useCallback(async () => {
+    // Cancellation token: React StrictMode (and any dep change) mounts → unmounts
+    // → remounts this effect. init() is async, so a stale run must NOT keep going
+    // and build a second PIXI app / WebGL context — that orphans the model's GL
+    // objects in a dead context ("object does not belong to this context") and
+    // the model fails to render. Each run bumps the token; after every await we
+    // bail (tearing down anything we created) if a newer run has superseded us.
+    const myRun = ++runIdRef.current;
+    const superseded = () => runIdRef.current !== myRun;
     try {
       for (const src of SCRIPTS) {
         await loadScript(src);
       }
+      if (superseded()) return;
       const w = window as unknown as Live2DWindow;
       const PIXI = w.PIXI;
       const Live2DModel = PIXI?.live2d?.Live2DModel;
@@ -338,6 +366,7 @@ export function Live2DViewer({
       // physics, idle, and motions never advance.
       Live2DModel.registerTicker(PIXI.Ticker);
 
+      if (superseded()) return;
       const app = new PIXI.Application({
         autoStart: true,
         backgroundAlpha: 0,
@@ -353,6 +382,14 @@ export function Live2DViewer({
         viewerSessionId ? `&viewerSessionId=${encodeURIComponent(viewerSessionId)}` : ""
       }`;
       const model = await Live2DModel.from(manifestUrl);
+      // A newer run superseded us while the model was loading — tear down the
+      // app + model we built so we don't leave a second live WebGL context.
+      if (superseded()) {
+        model.destroy();
+        app.destroy(true, { children: true });
+        if (appRef.current === app) appRef.current = null;
+        return;
+      }
       modelRef.current = model;
 
       model.anchor.set(0.5, 0.5);
@@ -393,6 +430,9 @@ export function Live2DViewer({
     // init() only setStates after awaiting CDN + model load (no sync cascade).
     init();
     return () => {
+      // Invalidate any in-flight init() so its post-await continuation bails
+      // instead of spinning up a second WebGL context.
+      runIdRef.current++;
       modelRef.current?.destroy();
       modelRef.current = null;
       // Pixi owns the canvas, so removeView is safe — it detaches its own node.
@@ -455,12 +495,50 @@ export function Live2DViewer({
     gazeRef.current = gaze;
   }, [gaze]);
 
-  // Idle: play a motion periodically when nothing else is happening.
+  // Idle: gentle baseline motion when auto idle is on AND random motion is off
+  // (otherwise the random-motion loop below drives the body).
   useEffect(() => {
-    if (phase !== "ready" || !idle) return;
+    if (phase !== "ready" || !idle || randomMotion) return;
     const id = setInterval(() => modelRef.current?.motion?.("", 0), 9000);
     return () => clearInterval(id);
-  }, [phase, idle]);
+  }, [phase, idle, randomMotion]);
+
+  // Auto-perform: random motion / expression / voice on their own cadences while
+  // idle. Each is independently toggled in the settings panel; the motion &
+  // expression lists stay clickable for manual triggering regardless.
+  useEffect(() => {
+    if (phase !== "ready" || !randomMotion) return;
+    const playRandom = () => {
+      const m = modelRef.current;
+      if (!m) return;
+      if (motionList.length) {
+        const pick = motionList[Math.floor(Math.random() * motionList.length)];
+        m.motion?.(pick.group, pick.index);
+      } else {
+        m.motion?.("", Math.floor(Math.random() * 4));
+      }
+    };
+    const id = setInterval(playRandom, 9000);
+    return () => clearInterval(id);
+  }, [phase, randomMotion, motionList]);
+
+  useEffect(() => {
+    if (phase !== "ready" || !randomExpr || expressions.length === 0) return;
+    const id = setInterval(() => {
+      const name = expressions[Math.floor(Math.random() * expressions.length)];
+      modelRef.current?.expression?.(name);
+    }, 13000);
+    return () => clearInterval(id);
+  }, [phase, randomExpr, expressions]);
+
+  useEffect(() => {
+    if (phase !== "ready" || !randomVoice || voices.length === 0) return;
+    const id = setInterval(() => {
+      const v = voices[Math.floor(Math.random() * voices.length)];
+      if (v) playVoice(v);
+    }, 17000);
+    return () => clearInterval(id);
+  }, [phase, randomVoice, voices, playVoice]);
 
   // Lip-sync mouth motion while speaking.
   useEffect(() => {
@@ -606,6 +684,14 @@ export function Live2DViewer({
       ],
     },
     {
+      title: t("sectionAuto"),
+      items: [
+        { label: t("autoMotion"), active: randomMotion, onSelect: () => setRandomMotion((v) => !v) },
+        { label: t("autoExpr"), active: randomExpr, onSelect: () => setRandomExpr((v) => !v) },
+        { label: t("autoVoice"), active: randomVoice, onSelect: () => setRandomVoice((v) => !v) },
+      ],
+    },
+    {
       title: t("sectionOps"),
       items: [
         { label: t("randomMotion"), onSelect: () => modelRef.current?.motion?.("", Math.floor(Math.random() * 4)) },
@@ -712,7 +798,8 @@ export function Live2DViewer({
             onToggleBgm={() => setBgmOn((v) => !v)}
             petActive={petMode}
             onTogglePet={() => setPetMode((v) => !v)}
-            variant={petMode ? "pet" : "dock"}
+            variant={petMode || isMobile ? "pet" : "dock"}
+            showPetToggle={!isMobile}
           />
         </div>
       ) : null}

@@ -1,0 +1,10 @@
+# Windows batch/cmd launchers MUST use CRLF, or cmd.exe mis-parses them
+# (parenthesized if/else blocks under setlocal silently fail -> blank console).
+# These are authored on macOS where files default to LF, so pin the EOL here.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# macOS/Linux shell launchers must stay LF.
+*.command text eol=lf
+*.sh text eol=lf

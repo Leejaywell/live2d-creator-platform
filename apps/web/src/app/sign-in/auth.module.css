@@ -147,8 +147,30 @@
 }
 .devButtons {
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
-.devButtons form {
+.devButtons > form {
   flex: 1;
+}
+/* Creator quick-login: account dropdown + submit on one row. */
+.devCreatorForm {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.devSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.devSelect:focus {
+  outline: none;
+  border-color: rgba(255, 108, 158, 0.45);
 }

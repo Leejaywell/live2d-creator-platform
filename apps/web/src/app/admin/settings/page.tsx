@@ -54,6 +54,7 @@ export default async function AdminSettingsPage() {
   const aiProvider = String(find("ai.provider")?.value ?? "openai-compatible") === "disabled" ? "disabled" : "openai-compatible";
   const aiBaseUrl = String(find("ai.baseUrl")?.value ?? "");
   const aiModel = String(find("ai.chatModel")?.value ?? "");
+  const aiTemperature = Number(find("ai.temperature")?.value ?? 0.7);
   const aiApiKeySet = find("ai.apiKey")?.source === "database";
   const genericSettings = settings.filter((s) => !s.key.startsWith("ai."));
 
@@ -78,6 +79,7 @@ export default async function AdminSettingsPage() {
         initialProvider={aiProvider}
         initialBaseUrl={aiBaseUrl}
         initialModel={aiModel}
+        initialTemperature={aiTemperature}
         apiKeySet={aiApiKeySet}
       />
 

@@ -372,24 +372,30 @@ export async function validateFanCode(input: {
  */
 export async function reserveChatQuota(
   tx: Prisma.TransactionClient,
-  input: { creatorId: string; fanAccessCodeId: string },
+  // chargeFanCode=false charges only the creator's AI quota and leaves the fan
+  // code's message allowance untouched — used by creator preview, which spends
+  // the creator's own quota but must not eat a fan's messages.
+  input: { creatorId: string; fanAccessCodeId: string; chargeFanCode?: boolean },
 ) {
+  const chargeFanCode = input.chargeFanCode ?? true;
   const code = await tx.fanAccessCode.findUniqueOrThrow({
     where: { id: input.fanAccessCodeId },
   });
   const now = new Date();
 
-  const codeQuota = await tx.fanAccessCode.updateMany({
-    where: {
-      id: input.fanAccessCodeId,
-      status: FanCodeStatus.active,
-      expiresAt: { gt: now },
-      usedMessages: { lt: code.maxMessages },
-    },
-    data: { usedMessages: { increment: 1 } },
-  });
-  if (codeQuota.count !== 1) {
-    throw new Error("Access code message quota is exhausted");
+  if (chargeFanCode) {
+    const codeQuota = await tx.fanAccessCode.updateMany({
+      where: {
+        id: input.fanAccessCodeId,
+        status: FanCodeStatus.active,
+        expiresAt: { gt: now },
+        usedMessages: { lt: code.maxMessages },
+      },
+      data: { usedMessages: { increment: 1 } },
+    });
+    if (codeQuota.count !== 1) {
+      throw new Error("Access code message quota is exhausted");
+    }
   }
 
   const plan = await tx.creatorPlan.findUniqueOrThrow({
@@ -406,10 +412,12 @@ export async function reserveChatQuota(
   });
   if (planQuota.count !== 1) {
     // Roll back the fan-code increment we just made so the slot isn't lost.
-    await tx.fanAccessCode.update({
-      where: { id: input.fanAccessCodeId },
-      data: { usedMessages: { decrement: 1 } },
-    });
+    if (chargeFanCode) {
+      await tx.fanAccessCode.update({
+        where: { id: input.fanAccessCodeId },
+        data: { usedMessages: { decrement: 1 } },
+      });
+    }
     throw new Error("Creator AI quota is not available");
   }
 
@@ -482,12 +490,14 @@ export async function deductSuccessfulChatQuota(
 /** Refund a reserved message when the AI call fails (so the fan isn't charged). */
 export async function refundChatQuota(
   tx: Prisma.TransactionClient,
-  input: { creatorId: string; fanAccessCodeId: string },
+  input: { creatorId: string; fanAccessCodeId: string; chargeFanCode?: boolean },
 ) {
-  await tx.fanAccessCode.updateMany({
-    where: { id: input.fanAccessCodeId, usedMessages: { gt: 0 } },
-    data: { usedMessages: { decrement: 1 } },
-  });
+  if ((input.chargeFanCode ?? true)) {
+    await tx.fanAccessCode.updateMany({
+      where: { id: input.fanAccessCodeId, usedMessages: { gt: 0 } },
+      data: { usedMessages: { decrement: 1 } },
+    });
+  }
   await tx.creatorPlan.updateMany({
     where: { creatorId: input.creatorId, usedAiMessages: { gt: 0 } },
     data: { usedAiMessages: { decrement: 1 } },

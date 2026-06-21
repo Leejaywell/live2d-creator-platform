@@ -50,7 +50,8 @@ export function StageChat({
         body: JSON.stringify({
           viewerSessionId,
           message: content,
-          recentMessages: history.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+          // History excludes the current message — the server appends it itself.
+          recentMessages: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
         }),
       });
       if (!res.ok || !res.body) {

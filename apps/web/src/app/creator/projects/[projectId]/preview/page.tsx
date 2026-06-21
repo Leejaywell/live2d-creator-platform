@@ -24,7 +24,11 @@ export default async function CreatorProjectPreviewPage({ params }: PageProps<"/
   const { projectId } = await params;
   const project = await prisma.project.findFirst({
     where: { id: projectId, creatorId: session.user.id },
-    include: { triggerTags: { where: { enabled: true } }, currentModelAsset: true },
+    include: {
+      triggerTags: { where: { enabled: true } },
+      currentModelAsset: true,
+      voiceAssets: { include: { triggerTags: { select: { name: true } } } },
+    },
   });
 
   if (!project) {
@@ -61,10 +65,10 @@ export default async function CreatorProjectPreviewPage({ params }: PageProps<"/
   const mobileQr = await qrPngDataUrl(mobileUrl);
 
   return (
-    <main>
+    <main className={styles.previewMain}>
       <div className={styles.banner}>
         <span className={styles.bannerDot} aria-hidden />
-        创作者调试预览 · 不消耗配额、不受发布状态限制
+        创作者调试预览 · 消耗本人配额、不受发布状态限制
         <Link href={`/creator/projects/${projectId}`} className={styles.bannerLink}>
           返回工作区 →
         </Link>
@@ -83,6 +87,11 @@ export default async function CreatorProjectPreviewPage({ params }: PageProps<"/
         welcomeMessage={project.welcomeMessage}
         hasLive2DModel={project.currentModelAsset?.validationStatus === "valid"}
         tagNames={project.triggerTags.map((tag) => tag.name)}
+        voices={project.voiceAssets.map((voice) => ({
+          name: voice.name,
+          audioUrl: voice.audioUrl,
+          tags: voice.triggerTags.map((tag) => tag.name),
+        }))}
         initialViewerSessionId={viewerSession.id}
       />
     </main>

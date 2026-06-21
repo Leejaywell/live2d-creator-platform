@@ -714,9 +714,12 @@ export function LandingDemo() {
     }
     try {
       const bounds = (modelRef.current as any).getBounds();
+      // Clamp the top so the bubble never rises above the stage and gets clipped
+      // by its overflow:hidden — keep a small margin from the top edge.
+      const MIN_TOP = 12;
       setSubtitlePos({
         left: `${bounds.x + bounds.width / 2}px`,
-        top: `${bounds.y - 120}px`
+        top: `${Math.max(MIN_TOP, bounds.y - 120)}px`
       });
     } catch {
       setSubtitlePos({ left: '50%', top: '10%' });

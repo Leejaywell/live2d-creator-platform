@@ -14,16 +14,18 @@ type Props = {
   initialProvider: "openai-compatible" | "disabled";
   initialBaseUrl: string;
   initialModel: string;
+  initialTemperature: number;
   apiKeySet: boolean;
 };
 
-export function AiProviderConfig({ initialProvider, initialBaseUrl, initialModel, apiKeySet }: Props) {
+export function AiProviderConfig({ initialProvider, initialBaseUrl, initialModel, initialTemperature, apiKeySet }: Props) {
   const t = useTranslations("admin");
   const router = useRouter();
 
   const [presetId, setPresetId] = useState(aiProviderPresetForBaseUrl(initialBaseUrl)?.id ?? "custom");
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [model, setModel] = useState(initialModel);
+  const [temperature, setTemperature] = useState(String(initialTemperature));
   const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(initialProvider !== "disabled");
   const [status, setStatus] = useState("");
@@ -69,6 +71,7 @@ export function AiProviderConfig({ initialProvider, initialBaseUrl, initialModel
           provider: enabled ? "openai-compatible" : "disabled",
           baseUrl,
           chatModel: model,
+          temperature: Number.isFinite(Number(temperature)) ? Number(temperature) : 0.7,
           apiKey: apiKey || undefined,
         }),
       });
@@ -178,6 +181,22 @@ export function AiProviderConfig({ initialProvider, initialBaseUrl, initialModel
               </div>
             ) : null}
           </div>
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.label}>{t("aiProvider.temperatureLabel")}</span>
+          <input
+            className={styles.input}
+            type="number"
+            min={0}
+            max={2}
+            step={0.1}
+            value={temperature}
+            onChange={(e) => setTemperature(e.target.value)}
+            placeholder="0.7"
+            spellCheck={false}
+            autoComplete="off"
+          />
         </div>
 
         <div className={styles.field}>

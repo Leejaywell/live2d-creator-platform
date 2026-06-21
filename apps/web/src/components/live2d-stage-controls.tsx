@@ -1,9 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import styles from "./live2d-stage-controls.module.css";
+
+// Delay before a hover-out closes the panel. Long enough to cross the gap
+// between the trigger button and the floating panel without it vanishing.
+const HOVER_CLOSE_DELAY_MS = 160;
 
 export type StageAction = { label: string; active?: boolean; onSelect: () => void };
 export type StageScene = { label: string; active: boolean; onSelect: () => void };
@@ -26,16 +30,38 @@ type Props = {
   /** "dock" = bottom icon dock (preview/audience). "pet" = side-split columns
    * with a single close top-right, mirroring the landing desktop-pet. */
   variant?: "dock" | "pet";
+  /** Show the desktop-pet toggle button. Hidden on mobile, which uses the pet
+   * layout without an actual desktop-pet concept. */
+  showPetToggle?: boolean;
 };
 
 type IconName = "motions" | "expressions" | "audio" | "scenes" | "settings" | "pet" | "close";
 
 // Replica of the landing-demo control bar for the real Live2D viewer.
 export function Live2DStageControls(props: Props) {
-  const { petActive, onTogglePet, variant = "dock" } = props;
+  const { petActive, onTogglePet, variant = "dock", showPetToggle = true } = props;
   const t = useTranslations("audience");
   const [tab, setTab] = useState<StageTab>("motions");
   const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const openTab = (key: StageTab) => {
+    cancelClose();
+    setTab(key);
+    setOpen(true);
+  };
+  // Defer the close so moving the pointer across the gap into the panel
+  // (which re-fires mouse-enter and cancels this) does not dismiss it.
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+  };
 
   const tabMeta: Record<StageTab, { label: string; icon: IconName }> = {
     motions: { label: t("tabMotions"), icon: "motions" },
@@ -137,7 +163,7 @@ export function Live2DStageControls(props: Props) {
     );
   };
 
-  const closeBtn = (
+  const closeBtn = showPetToggle ? (
     <button
       type="button"
       className={`${styles.cornerBtn} ${styles.cornerTR} ${petActive ? styles.cornerBtnActive : ""}`}
@@ -148,7 +174,7 @@ export function Live2DStageControls(props: Props) {
     >
       <Icon name={petActive ? "close" : "pet"} />
     </button>
-  );
+  ) : null;
 
   // ---- Pet variant: side-split icon columns + a single close top-right. ----
   if (variant === "pet") {
@@ -158,18 +184,15 @@ export function Live2DStageControls(props: Props) {
       <div
         key={key}
         className={styles.petBtnWrap}
-        onMouseEnter={() => {
-          setTab(key);
-          setOpen(true);
-        }}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={() => openTab(key)}
+        onMouseLeave={scheduleClose}
       >
         <button
           type="button"
           className={`${styles.petIconBtn} ${open && tab === key ? styles.petIconBtnActive : ""}`}
           title={tabMeta[key].label}
           aria-label={tabMeta[key].label}
-          onClick={() => (open && tab === key ? setOpen(false) : (setTab(key), setOpen(true)))}
+          onClick={() => (open && tab === key ? (cancelClose(), setOpen(false)) : openTab(key))}
         >
           <Icon name={tabMeta[key].icon} />
         </button>
@@ -195,7 +218,7 @@ export function Live2DStageControls(props: Props) {
   return (
     <div className={`${styles.controls} live2d-stage-controls`}>
       {closeBtn}
-      <div className={styles.dockWrapper} onMouseLeave={() => setOpen(false)}>
+      <div className={styles.dockWrapper} onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
         {open ? (
           <div className={styles.panel} role="group" aria-label={tabMeta[tab].label}>
             <div className={styles.panelTop}>
@@ -215,11 +238,8 @@ export function Live2DStageControls(props: Props) {
               className={`${styles.dockTab} ${open && tab === key ? styles.dockTabActive : ""}`}
               title={tabMeta[key].label}
               aria-label={tabMeta[key].label}
-              onClick={() => (open && tab === key ? setOpen(false) : (setTab(key), setOpen(true)))}
-              onMouseEnter={() => {
-                setTab(key);
-                setOpen(true);
-              }}
+              onClick={() => (open && tab === key ? (cancelClose(), setOpen(false)) : openTab(key))}
+              onMouseEnter={() => openTab(key)}
             >
               <Icon name={tabMeta[key].icon} />
             </button>

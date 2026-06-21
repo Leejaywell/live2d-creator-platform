@@ -20,7 +20,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
       <Link href="/" className={styles.brand} aria-label={tc("backHome")}>
         <Brand small />
       </Link>
-      <LocaleSwitcher className={styles.langSwitch} />
+      {/* Wrapper owns the absolute top-right placement; the switcher's own
+          .root is position:relative and would otherwise win the cascade. */}
+      <div className={styles.langSwitch}>
+        <LocaleSwitcher />
+      </div>
 
       <div className={styles.card}>
         <h1 className={styles.title}>{t("title")}</h1>
@@ -88,11 +92,16 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
                   {tc("admin")}
                 </Button>
               </form>
-              <form action="/api/auth/signin" method="post">
-                <input name="username" type="hidden" value="creator" />
+              {/* Creator quick-login: pick which seeded creator account to enter.
+                  Both demo accounts share the default password. */}
+              <form action="/api/auth/signin" method="post" className={styles.devCreatorForm}>
                 <input name="password" type="hidden" value="ChangeMe123!" />
-                <Button type="submit" variant="ghost" size="sm" block>
-                  {tc("creator")}
+                <select name="username" className={styles.devSelect} defaultValue="creator" aria-label={tc("creator")}>
+                  <option value="creator">创作者 · 爱宕</option>
+                  <option value="azurlane">创作者 · 碧蓝航线馆</option>
+                </select>
+                <Button type="submit" variant="ghost" size="sm">
+                  {t("submit")}
                 </Button>
               </form>
             </div>

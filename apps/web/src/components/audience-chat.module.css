@@ -46,7 +46,9 @@
 }
 .nameTag {
   position: absolute;
-  top: 22px;
+  /* Preview pages raise this via --stage-name-top so the title clears the
+     fixed admin/creator banner; real audience page keeps the 22px default. */
+  top: var(--stage-name-top, 22px);
   left: 26px;
   display: flex;
   align-items: center;
@@ -329,6 +331,53 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+.dockHeadRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.dockActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.dockActions a {
+  color: var(--teal);
+  text-decoration: none;
+}
+.dockActions a:hover {
+  color: #fff;
+}
+.dockCollapseBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  line-height: 1;
+  flex: none;
+}
+.dockCollapseBtn:hover {
+  color: #fff;
+  background: var(--surface-hover);
+}
+/* Collapsed: keep only the header bar (reveals the model on mobile). */
+.dockCollapsed {
+  max-height: none;
+}
+.dockCollapsed .transcript,
+.dockCollapsed .composer,
+.dockCollapsed .composerHint,
+.dockCollapsed .notice {
+  display: none;
 }
 .dockTitle {
   font-weight: 600;
@@ -513,13 +562,30 @@
     left: 0;
     right: 0;
     bottom: 0;
-    max-height: 62vh;
+    /* Compact, transparent overlay so the model behind stays visible — only the
+       message bubbles and the composer carry their own background. */
+    max-height: 52vh;
     border-left: none;
+    border-top: none;
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  /* The header bar gets a subtle backing so its controls stay legible. */
+  .dockHead {
+    background: linear-gradient(180deg, rgba(20, 17, 29, 0.72), transparent);
+    border-bottom: none;
+    padding: 12px 16px;
+  }
+  .transcript {
+    background: transparent;
+    gap: 8px;
+  }
+  /* Composer stays readable over the model. */
+  .composer {
+    background: rgba(20, 17, 29, 0.86);
+    backdrop-filter: blur(16px);
     border-top: 1px solid var(--border-soft);
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
-    background: rgba(20, 17, 29, 0.82);
-    backdrop-filter: blur(22px);
-    box-shadow: 0 -24px 60px -30px #000;
   }
   .silhouette,
   .portrait {

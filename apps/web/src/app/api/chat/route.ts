@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { callAiProxyStream, estimateTokens } from "@/lib/ai-proxy";
+import { callAiProxy, estimateTokens } from "@/lib/ai-proxy";
 import { buildTriggeredLive2DEffects } from "@/lib/chat-effects";
 import { enforceChatOutputSafety, enforceChatSafety, isChatSafetyError } from "@/lib/chat-safety";
 import { hashBrowserDevice, shouldBindDevice } from "@/lib/fan-codes";
@@ -82,7 +82,14 @@ export async function POST(request: NextRequest) {
     const now = new Date();
 
     // Creator/admin debug-preview sessions may chat regardless of publish status.
+    // Quota handling differs by session type:
+    //  - admin preview:   free — never touches the creator's quota at all.
+    //  - creator preview: spends the creator's OWN AI quota, but not a fan's
+    //                     message allowance (chargeFanCode=false).
+    //  - normal fan:      spends both the fan code and the creator's quota.
     const isPreviewSession = PREVIEW_BATCH_IDS.has(code.batchId ?? "");
+    const isAdminPreview = code.batchId === "admin-preview";
+    const isCreatorPreview = code.batchId === "preview";
     if (!isPreviewSession && project.status !== "published") {
       return NextResponse.json({ error: "Project is not published" }, { status: 403 });
     }
@@ -132,26 +139,48 @@ export async function POST(request: NextRequest) {
     // Reserve quota BEFORE the paid AI call (atomic, count-guarded). Concurrent
     // requests on one session can no longer all pass a stale check and each
     // obtain a reply; a request that can't reserve never reaches the provider.
+    // Preview sessions (creator/admin debug) never touch the creator's quota or
+    // usage accounting — admins testing a model must not burn the creator's budget.
     let remainingMessages: number;
-    try {
-      const reserved = await prisma.$transaction((tx) =>
-        reserveChatQuota(tx, { creatorId: project.creator.id, fanAccessCodeId: code.id }),
-      );
-      remainingMessages = reserved.remainingMessages;
-    } catch {
-      return NextResponse.json({ error: "Access code quota is exhausted" }, { status: 403 });
+    if (isAdminPreview) {
+      remainingMessages = Math.max(0, code.maxMessages - code.usedMessages);
+    } else {
+      try {
+        const reserved = await prisma.$transaction((tx) =>
+          reserveChatQuota(tx, {
+            creatorId: project.creator.id,
+            fanAccessCodeId: code.id,
+            chargeFanCode: !isCreatorPreview,
+          }),
+        );
+        remainingMessages = reserved.remainingMessages;
+      } catch {
+        return NextResponse.json({ error: "Access code quota is exhausted" }, { status: 403 });
+      }
     }
 
     const refund = () =>
-      prisma
-        .$transaction((tx) =>
-          refundChatQuota(tx, { creatorId: project.creator.id, fanAccessCodeId: code.id }),
-        )
-        .catch(() => {});
+      isAdminPreview
+        ? Promise.resolve()
+        : prisma
+            .$transaction((tx) =>
+              refundChatQuota(tx, {
+                creatorId: project.creator.id,
+                fanAccessCodeId: code.id,
+                chargeFanCode: !isCreatorPreview,
+              }),
+            )
+            .catch(() => {});
 
-    let aiStream: ReadableStream<string>;
+    // Non-streaming call: robust JSON+schema parsing (callAiProxy) that never
+    // returns an empty reply — it falls back to a non-empty local reply if the
+    // provider misbehaves. The client UI only ever rendered the full reply at
+    // once anyway, so there is no streaming UX lost here, and the previous
+    // fragile token-by-token JSON extraction (which could yield empty replies on
+    // multi-turn history) is gone.
+    let aiResult: { reply: string; tags: string[] };
     try {
-      aiStream = await callAiProxyStream({
+      aiResult = await callAiProxy({
         systemPrompt: project.systemPrompt,
         enabledTags,
         recentMessages: safeHistory,
@@ -160,76 +189,54 @@ export async function POST(request: NextRequest) {
         chatModel: runtime.aiChatModel,
         baseUrl: runtime.aiBaseUrl,
         apiKey: runtime.aiApiKey,
+        temperature: runtime.aiTemperature,
       });
     } catch (error) {
       await refund();
       return jsonError(error, "Chat failed");
     }
 
+    let safeReply = aiResult.reply;
+    try {
+      safeReply = enforceChatOutputSafety(aiResult.reply, { contentModeration: runtime.contentModeration });
+    } catch {
+      safeReply = "我先不回答这个，我们聊点别的好吗？";
+    }
+    const tags = aiResult.tags;
+    const live2dEffects = buildTriggeredLive2DEffects({ tags, triggerTags: project.triggerTags });
+
+    // Reservation succeeded → record accounting and report fresh remaining.
+    // Admin preview skips accounting entirely; creator preview records the
+    // creator's own AI usage (its quota was reserved above).
+    if (!isAdminPreview) {
+      try {
+        await prisma.$transaction((tx) =>
+          recordChatUsage(tx, {
+            creatorId: project.creator.id,
+            projectId: project.id,
+            fanAccessCodeId: code.id,
+            tokenEstimate: estimateTokens(`${userMessage}\n${safeReply}`),
+          }),
+        );
+        const fresh = await prisma.fanAccessCode.findUnique({
+          where: { id: code.id },
+          select: { usedMessages: true, maxMessages: true },
+        });
+        if (fresh) remainingMessages = Math.max(0, fresh.maxMessages - fresh.usedMessages);
+      } catch {
+        // accounting is best-effort; quota was already reserved atomically
+      }
+    }
+
     const encoder = new TextEncoder();
     const sse = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const reader = aiStream.getReader();
+      start(controller) {
         const send = (payload: unknown) =>
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
-        // Buffer the full reply and moderate it BEFORE anything reaches the client,
-        // so unsafe tokens are never rendered (raw streaming bypassed moderation).
-        let fullReply = "";
-        let tags: string[] = [];
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            const payload = JSON.parse(value) as
-              | { type: "content"; content: string }
-              | { type: "done"; reply: string; tags: string[] };
-            if (payload.type === "content") {
-              fullReply += payload.content;
-            } else {
-              fullReply = payload.reply;
-              tags = payload.tags ?? [];
-            }
-          }
-
-          let safeReply = fullReply;
-          try {
-            safeReply = enforceChatOutputSafety(fullReply, { contentModeration: runtime.contentModeration });
-          } catch {
-            safeReply = "我先不回答这个，我们聊点别的好吗？";
-          }
-          const live2dEffects = buildTriggeredLive2DEffects({ tags, triggerTags: project.triggerTags });
-
-          // Reservation succeeded → record accounting and report fresh remaining.
-          try {
-            await prisma.$transaction((tx) =>
-              recordChatUsage(tx, {
-                creatorId: project.creator.id,
-                projectId: project.id,
-                fanAccessCodeId: code.id,
-                tokenEstimate: estimateTokens(`${userMessage}\n${safeReply}`),
-              }),
-            );
-            const fresh = await prisma.fanAccessCode.findUnique({
-              where: { id: code.id },
-              select: { usedMessages: true, maxMessages: true },
-            });
-            if (fresh) remainingMessages = Math.max(0, fresh.maxMessages - fresh.usedMessages);
-          } catch {
-            // accounting is best-effort; quota was already reserved atomically
-          }
-
-          send({ type: "content", content: safeReply });
-          send({ type: "done", reply: safeReply, tags, live2dEffects, remainingMessages });
-        } catch (error) {
-          // AI stream failed after reservation — refund the message so the fan
-          // isn't charged, then surface the error.
-          await refund();
-          controller.error(error);
-          return;
-        } finally {
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        }
+        send({ type: "content", content: safeReply });
+        send({ type: "done", reply: safeReply, tags, live2dEffects, remainingMessages });
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
       },
     });
 

@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 const COLS = "2.2fr 1.3fr 1fr 1fr 1fr auto";
 
-export default async function CreatorModelsPage() {
+export default async function CreatorModelsPage({ searchParams }: PageProps<"/creator/projects">) {
   const t = await getTranslations("creator");
   const session = await getCurrentSession();
   if (!session?.user || session.user.status !== "active" || session.user.role !== "creator") {
@@ -53,14 +53,17 @@ export default async function CreatorModelsPage() {
 
   const maxModels = plan?.maxProjects ?? 1;
   const multiModel = maxModels > 1;
+  const canCreate = projects.length < maxModels;
 
-  // Single-model creators jump straight to their model's workspace (the demo page).
-  // The list view is reserved for creators granted multi-model access by an admin.
-  if (!multiModel && projects.length === 1) {
+  // When the creator actually owns a single model, jump straight to its
+  // workspace (the model settings page) — the list adds nothing for one model,
+  // regardless of how many the plan permits. `?all=1` escapes the redirect so
+  // the full list (and the "create model" entry) stays reachable for creators
+  // whose plan allows more (see the dashboard "manage models" card).
+  const showAll = (await searchParams).all !== undefined;
+  if (projects.length === 1 && !showAll) {
     redirect(`/creator/projects/${projects[0].id}`);
   }
-
-  const canCreate = projects.length < maxModels;
   const usageByProject = new Map(usageGroups.map((g) => [g.projectId, g._sum.messageCount ?? 0]));
 
   const lanBase = getLanBaseUrl();

@@ -41,12 +41,14 @@ export default async function AdminProjectsPage() {
     take: 100,
   });
 
-  // Pre-render a LAN-IP QR for each project's public page (phone-scannable).
+  // Pre-render a per-character QR pointing at that character's ADMIN preview
+  // (phone-scannable for testing — skips the fan-code gate; each character's URL
+  // is distinct). The admin must be signed in on the scanning device.
   const lanBase = getLanBaseUrl();
   const mobileByProject = new Map(
     await Promise.all(
       projects.map(async (p) => {
-        const url = `${lanBase}/c/${p.slug}`;
+        const url = `${lanBase}/admin/projects/${p.id}/preview`;
         return [p.id, { url, qr: await qrPngDataUrl(url) }] as const;
       }),
     ),
@@ -119,6 +121,11 @@ export default async function AdminProjectsPage() {
                   <summary>{t("colActions")} ▾</summary>
                   <div className={dash.rowMenuPop}>
                     <Link href={`/admin/projects/${project.id}/preview`}>{t("previewModel")}</Link>
+                    {project.currentModelAsset?.validationStatus === "valid" ? (
+                      <a href={`/api/admin/projects/${project.id}/export-preview`} download>
+                        {t("downloadLocalPreview")}
+                      </a>
+                    ) : null}
                     <Link href={`/admin/projects/${project.id}/fan-codes`}>{t("fanCodesLink")}</Link>
                     {hasPermission(role, "assets.assist") ? (
                       <Link href={`/admin/projects/${project.id}/config`}>{t("configLink")}</Link>
